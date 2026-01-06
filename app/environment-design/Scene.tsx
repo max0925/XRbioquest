@@ -1,0 +1,551 @@
+"use client";
+import { useEffect, useState, useRef } from "react";
+
+export default function Scene({
+  envDeployed,
+  selectedEnv,
+  selectedModels,
+  activeEditingAsset,
+  transformMode,
+  onAssetClick,
+  onModelTransform
+}) {
+  const [ready, setReady] = useState(false);
+  const sceneRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!window.AFRAME) {
+        require("aframe");
+        require("aframe-environment-component");
+        require("aframe-extras");
+      }
+      const timer = setTimeout(() => {
+        setReady(true);
+        window.dispatchEvent(new Event('resize'));
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Register custom fly controls for 6DOF camera
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
+
+    // Custom fly-controls component
+    if (!window.AFRAME.components['fly-controls']) {
+      window.AFRAME.registerComponent('fly-controls', {
+        schema: {
+          speed: { default: 0.5 }
+        },
+        init: function() {
+          this.keys = {
+            w: false, a: false, s: false, d: false,
+            q: false, e: false,
+            shift: false, space: false
+          };
+
+          this.velocity = new window.THREE.Vector3();
+
+          window.addEventListener('keydown', (evt) => {
+            const key = evt.key.toLowerCase();
+            if (key === 'w') this.keys.w = true;
+            if (key === 'a') this.keys.a = true;
+            if (key === 's') this.keys.s = true;
+            if (key === 'd') this.keys.d = true;
+            if (key === 'q') this.keys.q = true;
+            if (key === 'e') this.keys.e = true;
+            if (evt.key === 'Shift') this.keys.shift = true;
+            if (evt.key === ' ') this.keys.space = true;
+          });
+
+          window.addEventListener('keyup', (evt) => {
+            const key = evt.key.toLowerCase();
+            if (key === 'w') this.keys.w = false;
+            if (key === 'a') this.keys.a = false;
+            if (key === 's') this.keys.s = false;
+            if (key === 'd') this.keys.d = false;
+            if (key === 'q') this.keys.q = false;
+            if (key === 'e') this.keys.e = false;
+            if (evt.key === 'Shift') this.keys.shift = false;
+            if (evt.key === ' ') this.keys.space = false;
+          });
+        },
+        tick: function(time, delta) {
+          const speed = this.data.speed * (delta / 16.67); // Normalize to 60fps
+          const camera = this.el.sceneEl.camera;
+          const direction = new window.THREE.Vector3();
+
+          this.velocity.set(0, 0, 0);
+
+          // Get camera forward direction (ignore Y component for horizontal movement)
+          camera.getWorldDirection(direction);
+          const forward = new window.THREE.Vector3(direction.x, 0, direction.z).normalize();
+          const right = new window.THREE.Vector3().crossVectors(forward, new window.THREE.Vector3(0, 1, 0)).normalize();
+
+          // WASD horizontal movement
+          if (this.keys.w) this.velocity.add(forward.multiplyScalar(speed));
+          if (this.keys.s) this.velocity.add(forward.multiplyScalar(-speed));
+          if (this.keys.d) this.velocity.add(right.multiplyScalar(speed));
+          if (this.keys.a) this.velocity.add(right.multiplyScalar(-speed));
+
+          // QE or Space/Shift vertical movement
+          if (this.keys.e || this.keys.space) this.velocity.y += speed;
+          if (this.keys.q || this.keys.shift) this.velocity.y -= speed;
+
+          // Apply velocity to camera rig position
+          const currentPos = this.el.getAttribute('position');
+          this.el.setAttribute('position', {
+            x: currentPos.x + this.velocity.x,
+            y: currentPos.y + this.velocity.y,
+            z: currentPos.z + this.velocity.z
+          });
+        }
+      });
+    }
+  }, [ready]);
+
+  // Register Interaction FX components
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
+
+    // Grabbable component for VR interactions
+    if (!window.AFRAME.components['grabbable']) {
+      window.AFRAME.registerComponent('grabbable', {
+        init: function() {
+          this.el.classList.add('clickable');
+          this.el.addEventListener('click', () => {
+            console.log('Grabbed:', this.el.getAttribute('data-name'));
+            // Add visual feedback
+            this.el.setAttribute('material', 'emissive', '#ffff00');
+            this.el.setAttribute('material', 'emissiveIntensity', 0.3);
+            setTimeout(() => {
+              this.el.setAttribute('material', 'emissiveIntensity', 0);
+            }, 200);
+          });
+        }
+      });
+    }
+
+    // Glow Pulse component
+    if (!window.AFRAME.components['glow-pulse']) {
+      window.AFRAME.registerComponent('glow-pulse', {
+        init: function() {
+          this.el.setAttribute('animation__glow', {
+            property: 'components.material.material.emissiveIntensity',
+            from: 0,
+            to: 0.5,
+            dur: 1000,
+            dir: 'alternate',
+            loop: true,
+            easing: 'easeInOutSine'
+          });
+
+          // Set emissive color
+          const currentMaterial = this.el.getAttribute('material') || {};
+          this.el.setAttribute('material', {
+            ...currentMaterial,
+            emissive: '#10b981',
+            emissiveIntensity: 0
+          });
+        },
+        remove: function() {
+          this.el.removeAttribute('animation__glow');
+          this.el.setAttribute('material', 'emissiveIntensity', 0);
+        }
+      });
+    }
+
+    // Collision Trigger component
+    if (!window.AFRAME.components['collision-trigger']) {
+      window.AFRAME.registerComponent('collision-trigger', {
+        schema: {
+          target: { default: '.clickable' }
+        },
+        init: function() {
+          this.el.setAttribute('material', 'opacity', 1);
+
+          // Add collision detection
+          this.onCollision = (evt) => {
+            const collidedEl = evt.detail.body.el;
+            if (collidedEl && collidedEl.classList.contains('clickable')) {
+              // Change both objects' colors
+              this.el.setAttribute('material', 'color', '#ff0000');
+              collidedEl.setAttribute('material', 'color', '#0000ff');
+
+              setTimeout(() => {
+                this.el.setAttribute('material', 'color', '#ffffff');
+                collidedEl.setAttribute('material', 'color', '#ffffff');
+              }, 1000);
+            }
+          };
+
+          this.el.addEventListener('collide', this.onCollision);
+        },
+        remove: function() {
+          this.el.removeEventListener('collide', this.onCollision);
+        }
+      });
+    }
+  }, [ready]);
+
+  // Register custom drag component for models
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
+
+    // Custom drag-drop component with ground-plane raycasting
+    if (!window.AFRAME.components['drag-drop']) {
+      window.AFRAME.registerComponent('drag-drop', {
+        schema: {
+          uid: { type: 'string' }
+        },
+        init: function() {
+          this.isDragging = false;
+          this.dragPlane = null;
+          this.offset = new window.THREE.Vector3();
+
+          // Mouse enter - show grab cursor
+          this.el.addEventListener('mouseenter', () => {
+            this.el.sceneEl.canvas.style.cursor = 'grab';
+          });
+
+          // Mouse leave - reset cursor
+          this.el.addEventListener('mouseleave', () => {
+            if (!this.isDragging) {
+              this.el.sceneEl.canvas.style.cursor = 'default';
+            }
+          });
+
+          // Mouse down - start drag
+          this.el.addEventListener('mousedown', (evt) => {
+            evt.stopPropagation();
+            this.isDragging = true;
+            this.el.sceneEl.canvas.style.cursor = 'grabbing';
+
+            // Store the current Y position to keep model grounded
+            const currentPos = this.el.getAttribute('position');
+            const planeY = currentPos.y;
+
+            // Create a plane at the model's Y position (horizontal ground plane)
+            this.dragPlane = new window.THREE.Plane(new window.THREE.Vector3(0, 1, 0), -planeY);
+
+            // Calculate offset from intersection point to model center
+            if (evt.detail && evt.detail.intersection) {
+              const intersection = evt.detail.intersection.point;
+              this.offset.copy(currentPos).sub(intersection);
+            }
+
+            // Add visual feedback
+            this.el.setAttribute('scale', {
+              x: (currentPos.scale || 1) * 1.1,
+              y: (currentPos.scale || 1) * 1.1,
+              z: (currentPos.scale || 1) * 1.1
+            });
+          });
+
+          // Mouse move - drag model
+          this.el.sceneEl.addEventListener('mousemove', (evt) => {
+            if (!this.isDragging || !this.dragPlane) return;
+
+            const camera = this.el.sceneEl.camera;
+            const rect = this.el.sceneEl.canvas.getBoundingClientRect();
+
+            // Calculate normalized mouse coordinates
+            const mouse = new window.THREE.Vector2(
+              ((evt.clientX - rect.left) / rect.width) * 2 - 1,
+              -((evt.clientY - rect.top) / rect.height) * 2 + 1
+            );
+
+            // Create raycaster from camera through mouse position
+            const raycaster = new window.THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+
+            // Find intersection with drag plane
+            const intersectPoint = new window.THREE.Vector3();
+            raycaster.ray.intersectPlane(this.dragPlane, intersectPoint);
+
+            if (intersectPoint) {
+              // Apply offset to maintain grab point
+              intersectPoint.add(this.offset);
+
+              // Update position (X and Z change, Y stays constant)
+              const currentPos = this.el.getAttribute('position');
+              this.el.setAttribute('position', {
+                x: intersectPoint.x,
+                y: currentPos.y, // Keep Y constant (grounded)
+                z: intersectPoint.z
+              });
+            }
+          });
+
+          // Mouse up - end drag
+          this.el.sceneEl.addEventListener('mouseup', () => {
+            if (this.isDragging) {
+              this.isDragging = false;
+              this.dragPlane = null;
+              this.el.sceneEl.canvas.style.cursor = 'grab';
+
+              // Remove visual feedback
+              const currentPos = this.el.getAttribute('position');
+              const currentScale = this.el.getAttribute('scale');
+              this.el.setAttribute('scale', {
+                x: currentScale.x / 1.1,
+                y: currentScale.y / 1.1,
+                z: currentScale.z / 1.1
+              });
+
+              // Sync position back to React state
+              const position = this.el.getAttribute('position');
+              const rotation = this.el.getAttribute('rotation');
+              const scale = this.el.getAttribute('scale');
+
+              if (onModelTransform && this.data.uid) {
+                onModelTransform(this.data.uid, {
+                  position: { x: position.x, y: position.y, z: position.z },
+                  rotation: { x: rotation.x, y: rotation.y, z: rotation.z },
+                  scale: scale.x / 1.1 // Remove the 1.1x scale boost
+                });
+              }
+            }
+          });
+
+          // Mouse leave - cancel drag if mouse leaves canvas
+          this.el.sceneEl.addEventListener('mouseleave', () => {
+            if (this.isDragging) {
+              this.isDragging = false;
+              this.dragPlane = null;
+              this.el.sceneEl.canvas.style.cursor = 'default';
+
+              // Remove visual feedback
+              const currentScale = this.el.getAttribute('scale');
+              this.el.setAttribute('scale', {
+                x: currentScale.x / 1.1,
+                y: currentScale.y / 1.1,
+                z: currentScale.z / 1.1
+              });
+            }
+          });
+        }
+      });
+    }
+  }, [ready, onModelTransform]);
+
+  if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
+
+  return (
+    <a-scene
+      ref={sceneRef}
+      embedded
+      vr-mode-ui="enabled: false"
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable"
+      renderer="antialias: true; colorManagement: true;"
+    >
+      {/* 动态环境：加载.glb环境模型或使用预设 */}
+      {envDeployed && selectedEnv?.modelPath ? (
+        <>
+          {/* Custom environment model */}
+          <a-gltf-model
+            src={selectedEnv.modelPath}
+            position="0 0 0"
+            rotation="0 0 0"
+            scale="1 1 1"
+            shadow="receive: true"
+          ></a-gltf-model>
+          {/* Ground plane for custom environments */}
+          <a-entity
+            geometry="primitive: plane; width: 50; height: 50"
+            rotation="-90 0 0"
+            position="0 0 0"
+            material="color: #1a1a1a; roughness: 0.9"
+            shadow="receive: true"
+            visible="false"
+          ></a-entity>
+        </>
+      ) : (
+        <a-entity environment={`
+          preset: ${envDeployed ? 'contact' : 'default'};
+          seed: 42;
+          shadow: true;
+          lighting: point;
+          grid: dots;
+          gridColor: #333;
+          playArea: 1.2;
+        `}></a-entity>
+      )}
+
+      {/* 渲染部署的模型 */}
+      {selectedModels
+        .filter(model => model.placed === true)
+        .map((model, idx) => {
+          const isSelected = activeEditingAsset?.uid === model.uid;
+          const pos = model.position || { x: (idx * 2) - 1, y: 1, z: -3 };
+          const rot = model.rotation || { x: 0, y: 0, z: 0 };
+
+          // Build interaction components string
+          const fxComponents = [];
+          if (model.interactionFX?.grabbable) fxComponents.push('grabbable');
+          if (model.interactionFX?.glowPulse) fxComponents.push('glow-pulse');
+          if (model.interactionFX?.collisionTrigger) fxComponents.push('collision-trigger');
+
+          return (
+            <a-entity
+              key={model.uid}
+              className="clickable"
+              position={`${pos.x} ${pos.y} ${pos.z}`}
+              rotation={`${rot.x} ${rot.y} ${rot.z}`}
+              scale={`${model.scale || 1} ${model.scale || 1} ${model.scale || 1}`}
+              drag-drop={`uid: ${model.uid}`}
+              data-name={model.name}
+              {...(model.interactionFX?.grabbable && { grabbable: '' })}
+              {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
+              {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
+              onClick={() => onAssetClick(model)}
+              animation__hover="property: scale; to: 1.05 1.05 1.05; startEvents: mouseenter; dur: 200"
+              animation__leave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
+            >
+              {/* 使用 .glb 模型或回退到球体 */}
+              {model.modelPath ? (
+                <a-gltf-model
+                  src={model.modelPath}
+                  shadow="cast: true; receive: true"
+                ></a-gltf-model>
+              ) : (
+                <a-entity
+                  geometry="primitive: sphere; radius: 0.4"
+                  material="color: #10b981; roughness: 0.4; metalness: 0.3"
+                  shadow="cast: true"
+                ></a-entity>
+              )}
+
+              {/* Selection highlight ring */}
+              {isSelected && (
+                <>
+                  {/* Base selection ring */}
+                  <a-entity
+                    geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
+                    rotation="-90 0 0"
+                    position="0 0 0"
+                    material="color: #10b981; opacity: 0.8; transparent: true; side: double"
+                    animation="property: rotation; to: -90 360 0; loop: true; dur: 3000; easing: linear"
+                  ></a-entity>
+
+                  {/* Transform Gizmos */}
+                  {transformMode === 'translate' && (
+                    <a-entity position="0 0.5 0">
+                      {/* X Axis - Red Arrow */}
+                      <a-entity position="0.8 0 0" rotation="0 0 -90">
+                        <a-cone height="0.3" radius-bottom="0.1" color="#ff0000" position="0 0.15 0"></a-cone>
+                        <a-cylinder height="0.5" radius="0.03" color="#ff0000" position="0 -0.25 0"></a-cylinder>
+                      </a-entity>
+                      {/* Y Axis - Green Arrow */}
+                      <a-entity position="0 0.8 0">
+                        <a-cone height="0.3" radius-bottom="0.1" color="#00ff00" position="0 0.15 0"></a-cone>
+                        <a-cylinder height="0.5" radius="0.03" color="#00ff00" position="0 -0.25 0"></a-cylinder>
+                      </a-entity>
+                      {/* Z Axis - Blue Arrow */}
+                      <a-entity position="0 0 0.8" rotation="90 0 0">
+                        <a-cone height="0.3" radius-bottom="0.1" color="#0000ff" position="0 0.15 0"></a-cone>
+                        <a-cylinder height="0.5" radius="0.03" color="#0000ff" position="0 -0.25 0"></a-cylinder>
+                      </a-entity>
+                    </a-entity>
+                  )}
+
+                  {transformMode === 'rotate' && (
+                    <a-entity position="0 0 0">
+                      {/* X Rotation Ring - Red */}
+                      <a-entity
+                        geometry="primitive: torus; radius: 0.7; radiusTubular: 0.03; segmentsTubular: 6"
+                        material="color: #ff0000; opacity: 0.8; transparent: true"
+                        rotation="0 0 90"
+                      ></a-entity>
+                      {/* Y Rotation Ring - Green */}
+                      <a-entity
+                        geometry="primitive: torus; radius: 0.7; radiusTubular: 0.03; segmentsTubular: 6"
+                        material="color: #00ff00; opacity: 0.8; transparent: true"
+                        rotation="90 0 0"
+                      ></a-entity>
+                      {/* Z Rotation Ring - Blue */}
+                      <a-entity
+                        geometry="primitive: torus; radius: 0.7; radiusTubular: 0.03; segmentsTubular: 6"
+                        material="color: #0000ff; opacity: 0.8; transparent: true"
+                        rotation="0 90 0"
+                      ></a-entity>
+                    </a-entity>
+                  )}
+
+                  {transformMode === 'scale' && (
+                    <a-entity position="0 0.5 0">
+                      {/* Scale Cube Gizmo */}
+                      <a-entity position="0.7 0 0">
+                        <a-box width="0.15" height="0.15" depth="0.15" color="#ff0000"></a-box>
+                        <a-cylinder height="0.5" radius="0.02" color="#ff0000" position="0 -0.325 0"></a-cylinder>
+                      </a-entity>
+                      <a-entity position="0 0.7 0">
+                        <a-box width="0.15" height="0.15" depth="0.15" color="#00ff00"></a-box>
+                        <a-cylinder height="0.5" radius="0.02" color="#00ff00" position="0 -0.325 0"></a-cylinder>
+                      </a-entity>
+                      <a-entity position="0 0 0.7">
+                        <a-box width="0.15" height="0.15" depth="0.15" color="#0000ff"></a-box>
+                        <a-cylinder height="0.5" radius="0.02" color="#0000ff" position="0 -0.325 0"></a-cylinder>
+                      </a-entity>
+                      {/* Center uniform scale cube */}
+                      <a-box
+                        width="0.2"
+                        height="0.2"
+                        depth="0.2"
+                        color="#ffffff"
+                        opacity="0.9"
+                        transparent="true"
+                      ></a-box>
+                    </a-entity>
+                  )}
+                </>
+              )}
+
+              {/* 投影底座 */}
+              <a-entity
+                geometry="primitive: circle; radius: 0.45"
+                rotation="-90 0 0"
+                position="0 -0.99 0"
+                material="color: #000; opacity: 0.15; transparent: true"
+              ></a-entity>
+
+              {/* 标签文本 */}
+              <a-entity
+                position="0 -0.7 0"
+                text={`value: ${model.name}; align: center; width: 3; color: ${isSelected ? '#10b981' : '#FFF'}; font: kelsonsans`}
+              ></a-entity>
+            </a-entity>
+          );
+        })}
+
+      {/* 场景灯光 */}
+      <a-entity light="type: ambient; intensity: 0.5"></a-entity>
+      <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="-1 3 1"></a-entity>
+
+      {/* 6DOF Flying Camera */}
+      <a-entity
+        id="camera-rig"
+        position="0 1.6 5"
+        fly-controls="speed: 0.3"
+      >
+        <a-camera
+          look-controls="
+            pointerLockEnabled: false;
+            reverseMouseDrag: false;
+            touchEnabled: true;
+          "
+          wasd-controls="enabled: false"
+        >
+          {/* Crosshair for VR interactions */}
+          <a-entity
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
+            material="color: white; shader: flat; opacity: 0.5"
+          ></a-entity>
+        </a-camera>
+      </a-entity>
+    </a-scene>
+  );
+}

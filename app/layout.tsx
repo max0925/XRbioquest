@@ -1,23 +1,23 @@
+// app/layout.tsx
 import "./globals.css";
 import Navigation from "../components/Navigation";
 import { ReactNode } from "react";
 
-export const metadata = {
-  title: "BioQuest",
-  description: "AI + XR immersive learning platform",
-};
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-[#F8F9FB] text-gray-800 min-h-screen flex flex-col">
-        {/* ✅ 顶部导航栏：固定并带轻微阴影 */}
-        <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
-          <Navigation />
-        </header>
-
-        {/* ✅ 主体部分：自动占满剩余高度 */}
-        <main className="flex-1 overflow-hidden">{children}</main>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Google Fonts - Origin.com inspired design */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="bg-white" suppressHydrationWarning>
+        <Navigation />
+        <main className="flex-1 relative overflow-hidden">{children}</main>
       </body>
     </html>
   );

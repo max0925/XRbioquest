@@ -1,0 +1,295 @@
+"use client";
+import Link from "next/link";
+
+export default function Pricing() {
+  const plans = [
+    {
+      name: "Free",
+      price: "0",
+      description: "Perfect for trying out BioQuest",
+      features: [
+        "3 VR lessons per month",
+        "Basic AI generation",
+        "Standard 3D assets library",
+        "Community support",
+        "Quest 2/3 compatible"
+      ],
+      cta: "Start Free",
+      href: "/signup",
+      popular: false
+    },
+    {
+      name: "Pro",
+      price: "29",
+      description: "For active educators and creators",
+      features: [
+        "Unlimited VR lessons",
+        "Advanced AI generation",
+        "Premium 3D assets library",
+        "Priority support",
+        "All headset support",
+        "Custom branding",
+        "Analytics dashboard",
+        "Export & sharing"
+      ],
+      cta: "Start Pro Trial",
+      href: "/signup?plan=pro",
+      popular: true
+    },
+    {
+      name: "School",
+      price: "Custom",
+      description: "For institutions and districts",
+      features: [
+        "Everything in Pro",
+        "Unlimited teacher seats",
+        "Student management",
+        "LMS integration",
+        "Dedicated support",
+        "Custom deployment",
+        "Training & onboarding",
+        "SLA guarantee"
+      ],
+      cta: "Contact Sales",
+      href: "/contact",
+      popular: false
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <section className="pt-24 pb-16 px-6">
+        <div className="max-w-5xl mx-auto text-center">
+          <p
+            className="text-xs font-semibold text-emerald-600 mb-3 tracking-wider uppercase"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            Pricing
+          </p>
+          <h1
+            className="text-4xl md:text-5xl font-semibold text-gray-900 mb-4"
+            style={{ fontFamily: '"Syne", "IBM Plex Sans", system-ui, sans-serif' }}
+          >
+            Choose your plan
+          </h1>
+          <p
+            className="text-lg text-gray-600 max-w-2xl mx-auto"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            Start free and scale as you grow. All plans include our core VR creation tools.
+          </p>
+        </div>
+      </section>
+
+      {/* Pricing Cards */}
+      <section className="pb-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6">
+            {plans.map((plan, index) => (
+              <div
+                key={plan.name}
+                className={`relative rounded-xl border transition-all duration-300 ${
+                  plan.popular
+                    ? "border-emerald-500 shadow-lg scale-105"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-md"
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                    <span
+                      className="px-4 py-1 bg-emerald-600 text-white text-xs font-semibold rounded-full"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                <div className="p-8">
+                  {/* Plan Header */}
+                  <div className="mb-6">
+                    <h3
+                      className="text-2xl font-semibold text-gray-900 mb-2"
+                      style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                    >
+                      {plan.name}
+                    </h3>
+                    <p
+                      className="text-sm text-gray-600 mb-4"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {plan.description}
+                    </p>
+                    <div className="flex items-baseline gap-1">
+                      {plan.price !== "Custom" && (
+                        <span className="text-lg text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                          $
+                        </span>
+                      )}
+                      <span
+                        className="text-5xl font-semibold text-gray-900"
+                        style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                      >
+                        {plan.price}
+                      </span>
+                      {plan.price !== "Custom" && (
+                        <span className="text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                          /month
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* CTA Button */}
+                  <Link
+                    href={plan.href}
+                    className={`block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 ${
+                      plan.popular
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md"
+                        : "bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700"
+                    }`}
+                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                  >
+                    {plan.cta}
+                  </Link>
+
+                  {/* Features List */}
+                  <div className="space-y-3">
+                    <p
+                      className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-4"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      What's Included
+                    </p>
+                    {plan.features.map((feature, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <svg
+                          className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span
+                          className="text-sm text-gray-700"
+                          style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                        >
+                          {feature}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Additional Info */}
+          <div className="mt-16 text-center">
+            <p
+              className="text-sm text-gray-600 mb-6"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              All plans include 14-day free trial • No credit card required • Cancel anytime
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-6 text-sm">
+              <Link
+                href="/contact"
+                className="text-emerald-600 hover:text-emerald-700 font-medium transition"
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              >
+                Contact Sales
+              </Link>
+              <span className="text-gray-300">•</span>
+              <Link
+                href="/faq"
+                className="text-gray-600 hover:text-gray-900 transition"
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              >
+                Pricing FAQ
+              </Link>
+              <span className="text-gray-300">•</span>
+              <Link
+                href="/enterprise"
+                className="text-gray-600 hover:text-gray-900 transition"
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              >
+                Enterprise Options
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 px-6 bg-gray-50/50 border-t border-gray-100">
+        <div className="max-w-3xl mx-auto">
+          <h2
+            className="text-3xl font-semibold text-gray-900 mb-12 text-center"
+            style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+          >
+            Frequently asked questions
+          </h2>
+
+          <div className="space-y-8">
+            {[
+              {
+                q: "Can I switch plans later?",
+                a: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately."
+              },
+              {
+                q: "What payment methods do you accept?",
+                a: "We accept all major credit cards, PayPal, and offer invoice billing for School plans."
+              },
+              {
+                q: "Is there a student discount?",
+                a: "Yes! Students and educators with valid .edu emails receive 50% off Pro plans."
+              },
+              {
+                q: "What happens when I hit my lesson limit?",
+                a: "On the Free plan, you'll be prompted to upgrade. Pro plans have unlimited lessons."
+              }
+            ].map((faq, index) => (
+              <div key={index} className="border-b border-gray-200 pb-6">
+                <h3
+                  className="text-lg font-semibold text-gray-900 mb-3"
+                  style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                >
+                  {faq.q}
+                </h3>
+                <p
+                  className="text-base text-gray-600 leading-relaxed"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                >
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <p
+              className="text-sm text-gray-600 mb-4"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Have more questions?
+            </p>
+            <Link
+              href="/contact"
+              className="inline-block px-6 py-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-all duration-300"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Contact Support
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

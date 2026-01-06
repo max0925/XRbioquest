@@ -11,8 +11,9 @@ export default function Navigation() {
     { name: "AI XR Creator", href: "/environment-design" },
     { name: "Library", href: "/library" },
     { name: "Market", href: "/market" },
+    { name: "Pricing", href: "/pricing" },
     { name: "Workshop", href: "/workshop" },
-    { name: "Community", href: "/community" }, // 👈 放到最后
+    { name: "Community", href: "/community" },
   ];
 
   return (
@@ -56,13 +57,21 @@ export default function Navigation() {
           })}
         </div>
 
-        {/* ✅ Signup 按钮 */}
-        <Link
-          href="/signup"
-          className="px-4 py-1.5 bg-green-600 text-white text-sm rounded-full font-medium hover:bg-green-700 transition"
-        >
-          Signup
-        </Link>
+        {/* ✅ Auth Buttons */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="px-4 py-1.5 text-gray-700 text-sm font-medium hover:text-gray-900 transition"
+          >
+            Log In
+          </Link>
+          <Link
+            href="/signup"
+            className="px-4 py-1.5 bg-green-600 text-white text-sm rounded-full font-medium hover:bg-green-700 transition"
+          >
+            Sign Up
+          </Link>
+        </div>
       </div>
     </nav>
   );
