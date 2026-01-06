@@ -61,6 +61,83 @@ export default function Scene({
     return () => window.removeEventListener('keydown', handleVerticalMovement);
   }, [ready]);
 
+  // Register Transform Controls component
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
+
+    if (!window.AFRAME.components['transform-controls']) {
+      window.AFRAME.registerComponent('transform-controls', {
+        schema: {
+          mode: { type: 'string', default: 'translate' },
+          target: { type: 'string', default: '' }
+        },
+        init: function() {
+          const THREE = window.THREE;
+          const sceneEl = this.el.sceneEl;
+          const camera = sceneEl.camera;
+          const renderer = sceneEl.renderer;
+
+          // Create THREE.js TransformControls
+          this.transformControls = new THREE.TransformControls(camera, renderer.domElement);
+          this.transformControls.setMode(this.data.mode);
+          this.transformControls.setSize(0.8);
+
+          // Add to scene
+          sceneEl.object3D.add(this.transformControls);
+
+          // Listen for changes
+          this.transformControls.addEventListener('change', () => {
+            sceneEl.renderer.render(sceneEl.object3D, camera);
+          });
+
+          // Emit change events for React state sync
+          this.transformControls.addEventListener('objectChange', () => {
+            if (this.transformControls.object) {
+              const object = this.transformControls.object;
+              this.el.emit('transform-changed', {
+                position: object.position,
+                rotation: object.rotation,
+                scale: object.scale
+              });
+            }
+          });
+
+          // Disable orbit controls when dragging
+          this.transformControls.addEventListener('dragging-changed', (event) => {
+            const controls = sceneEl.querySelector('[look-controls]');
+            if (controls) {
+              controls.setAttribute('look-controls', 'enabled', !event.value);
+            }
+          });
+        },
+        update: function(oldData) {
+          if (!this.transformControls) return;
+
+          // Update mode
+          if (this.data.mode !== oldData.mode) {
+            this.transformControls.setMode(this.data.mode);
+          }
+
+          // Update target
+          if (this.data.target !== oldData.target) {
+            const targetEl = document.querySelector(`[data-uid="${this.data.target}"]`);
+            if (targetEl) {
+              this.transformControls.attach(targetEl.object3D);
+            } else {
+              this.transformControls.detach();
+            }
+          }
+        },
+        remove: function() {
+          if (this.transformControls) {
+            this.transformControls.dispose();
+            this.el.sceneEl.object3D.remove(this.transformControls);
+          }
+        }
+      });
+    }
+  }, [ready]);
+
   // Register Interaction FX components
   useEffect(() => {
     if (!ready || typeof window === "undefined" || !window.AFRAME) return;
@@ -286,6 +363,34 @@ export default function Scene({
     }
   }, [ready, onModelTransform]);
 
+  // Listen for transform changes and sync to React state
+  useEffect(() => {
+    if (!ready || typeof window === "undefined") return;
+
+    const handleTransformChanged = (evt) => {
+      const uid = activeEditingAsset?.uid;
+      if (!uid || !onModelTransform) return;
+
+      const { position, rotation, scale } = evt.detail;
+
+      onModelTransform(uid, {
+        position: { x: position.x, y: position.y, z: position.z },
+        rotation: {
+          x: rotation.x * (180 / Math.PI),
+          y: rotation.y * (180 / Math.PI),
+          z: rotation.z * (180 / Math.PI)
+        },
+        scale: scale.x
+      });
+    };
+
+    const scene = document.querySelector('a-scene');
+    if (scene) {
+      scene.addEventListener('transform-changed', handleTransformChanged);
+      return () => scene.removeEventListener('transform-changed', handleTransformChanged);
+    }
+  }, [ready, activeEditingAsset, onModelTransform]);
+
   if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
 
   return (
@@ -330,6 +435,11 @@ export default function Scene({
         `}></a-entity>
       )}
 
+      {/* Transform Controls */}
+      <a-entity
+        transform-controls={`mode: ${transformMode}; target: ${activeEditingAsset?.uid || ''}`}
+      ></a-entity>
+
       {/* 渲染部署的模型 */}
       {selectedModels
         .filter(model => model.placed === true)
@@ -347,6 +457,7 @@ export default function Scene({
           return (
             <a-entity
               key={model.uid}
+              data-uid={model.uid}
               className="clickable"
               position={`${pos.x} ${pos.y} ${pos.z}`}
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
@@ -374,89 +485,15 @@ export default function Scene({
                 ></a-entity>
               )}
 
-              {/* Selection highlight ring */}
+              {/* Selection highlight ring - Interactive transform gizmo managed by transform-controls component */}
               {isSelected && (
-                <>
-                  {/* Base selection ring */}
-                  <a-entity
-                    geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
-                    rotation="-90 0 0"
-                    position="0 0 0"
-                    material="color: #10b981; opacity: 0.8; transparent: true; side: double"
-                    animation="property: rotation; to: -90 360 0; loop: true; dur: 3000; easing: linear"
-                  ></a-entity>
-
-                  {/* Transform Gizmos */}
-                  {transformMode === 'translate' && (
-                    <a-entity position="0 0.5 0">
-                      {/* X Axis - Red Arrow */}
-                      <a-entity position="0.8 0 0" rotation="0 0 -90">
-                        <a-cone height="0.3" radius-bottom="0.1" color="#ff0000" position="0 0.15 0"></a-cone>
-                        <a-cylinder height="0.5" radius="0.03" color="#ff0000" position="0 -0.25 0"></a-cylinder>
-                      </a-entity>
-                      {/* Y Axis - Green Arrow */}
-                      <a-entity position="0 0.8 0">
-                        <a-cone height="0.3" radius-bottom="0.1" color="#00ff00" position="0 0.15 0"></a-cone>
-                        <a-cylinder height="0.5" radius="0.03" color="#00ff00" position="0 -0.25 0"></a-cylinder>
-                      </a-entity>
-                      {/* Z Axis - Blue Arrow */}
-                      <a-entity position="0 0 0.8" rotation="90 0 0">
-                        <a-cone height="0.3" radius-bottom="0.1" color="#0000ff" position="0 0.15 0"></a-cone>
-                        <a-cylinder height="0.5" radius="0.03" color="#0000ff" position="0 -0.25 0"></a-cylinder>
-                      </a-entity>
-                    </a-entity>
-                  )}
-
-                  {transformMode === 'rotate' && (
-                    <a-entity position="0 0 0">
-                      {/* X Rotation Ring - Red */}
-                      <a-entity
-                        geometry="primitive: torus; radius: 0.7; radiusTubular: 0.03; segmentsTubular: 6"
-                        material="color: #ff0000; opacity: 0.8; transparent: true"
-                        rotation="0 0 90"
-                      ></a-entity>
-                      {/* Y Rotation Ring - Green */}
-                      <a-entity
-                        geometry="primitive: torus; radius: 0.7; radiusTubular: 0.03; segmentsTubular: 6"
-                        material="color: #00ff00; opacity: 0.8; transparent: true"
-                        rotation="90 0 0"
-                      ></a-entity>
-                      {/* Z Rotation Ring - Blue */}
-                      <a-entity
-                        geometry="primitive: torus; radius: 0.7; radiusTubular: 0.03; segmentsTubular: 6"
-                        material="color: #0000ff; opacity: 0.8; transparent: true"
-                        rotation="0 90 0"
-                      ></a-entity>
-                    </a-entity>
-                  )}
-
-                  {transformMode === 'scale' && (
-                    <a-entity position="0 0.5 0">
-                      {/* Scale Cube Gizmo */}
-                      <a-entity position="0.7 0 0">
-                        <a-box width="0.15" height="0.15" depth="0.15" color="#ff0000"></a-box>
-                        <a-cylinder height="0.5" radius="0.02" color="#ff0000" position="0 -0.325 0"></a-cylinder>
-                      </a-entity>
-                      <a-entity position="0 0.7 0">
-                        <a-box width="0.15" height="0.15" depth="0.15" color="#00ff00"></a-box>
-                        <a-cylinder height="0.5" radius="0.02" color="#00ff00" position="0 -0.325 0"></a-cylinder>
-                      </a-entity>
-                      <a-entity position="0 0 0.7">
-                        <a-box width="0.15" height="0.15" depth="0.15" color="#0000ff"></a-box>
-                        <a-cylinder height="0.5" radius="0.02" color="#0000ff" position="0 -0.325 0"></a-cylinder>
-                      </a-entity>
-                      {/* Center uniform scale cube */}
-                      <a-box
-                        width="0.2"
-                        height="0.2"
-                        depth="0.2"
-                        color="#ffffff"
-                        opacity="0.9"
-                        transparent="true"
-                      ></a-box>
-                    </a-entity>
-                  )}
-                </>
+                <a-entity
+                  geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
+                  rotation="-90 0 0"
+                  position="0 0 0"
+                  material="color: #10b981; opacity: 0.8; transparent: true; side: double"
+                  animation="property: rotation; to: -90 360 0; loop: true; dur: 3000; easing: linear"
+                ></a-entity>
               )}
 
               {/* 投影底座 */}
