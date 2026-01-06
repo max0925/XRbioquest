@@ -4,13 +4,14 @@
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import {
-  Atom, Box, ChevronRight, ChevronLeft, Upload, Sparkles, CheckCircle2, 
-  Search, Loader2, MousePointerClick, Mountain, Brain, RefreshCcw, 
+  Atom, Box, ChevronRight, ChevronLeft, Upload, Sparkles, CheckCircle2,
+  Search, Loader2, MousePointerClick, Mountain, Brain, RefreshCcw,
   ChevronDown, Check, X, Plus, Zap, Settings2, Eye, Move, Maximize, GripVertical,
   Layers, Trash2, Info, Send
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navigation from "../../components/Navigation";
+import { QRCodeSVG } from 'qrcode.react';
 
 // ✅ 核心修复：隔离 A-Frame 渲染，解决水合与黑屏
 const SceneView = dynamic(() => import('./Scene'), { 
@@ -216,13 +217,33 @@ export default function EnvironmentDesignPage() {
   };
 
   // Handle export to VR
-  const handleExport = () => {
-    const sceneJson = serializeScene();
-    const encodedData = encodeURIComponent(sceneJson);
-    const baseUrl = window.location.origin;
-    const url = `${baseUrl}/view?scene=${encodedData}`;
-    setExportUrl(url);
-    setShowExportPopup(true);
+  const handleExport = async () => {
+    try {
+      const sceneJson = serializeScene();
+      const sceneData = JSON.parse(sceneJson);
+
+      // Call save API
+      const response = await fetch('/api/scenes/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sceneData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save scene');
+      }
+
+      // Generate short URL
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/view/${data.id}`;
+      setExportUrl(url);
+      setShowExportPopup(true);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export scene. Please try again.');
+    }
   };
 
   // Copy URL to clipboard
@@ -777,21 +798,39 @@ export default function EnvironmentDesignPage() {
                 Your VR scene has been exported successfully. Share this link with anyone to view your creation in VR!
               </p>
 
-              <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
-                <p className="text-[9px] uppercase font-black tracking-widest text-gray-500 mb-2">Shareable Link</p>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={exportUrl}
-                    readOnly
-                    className="flex-1 bg-transparent text-emerald-400 text-sm font-mono px-3 py-2 border border-emerald-500/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <button
-                    onClick={copyToClipboard}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95"
-                  >
-                    Copy
-                  </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Shareable Link */}
+                <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-4">
+                  <p className="text-[9px] uppercase font-black tracking-widest text-gray-500 mb-2">Shareable Link</p>
+                  <div className="flex items-center gap-3 mb-3">
+                    <input
+                      type="text"
+                      value={exportUrl}
+                      readOnly
+                      className="flex-1 bg-transparent text-emerald-400 text-xs font-mono px-3 py-2 border border-emerald-500/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <button
+                      onClick={copyToClipboard}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="text-[8px] text-gray-500 uppercase tracking-wide">Short URL - Quest 3 Compatible</p>
+                </div>
+
+                {/* QR Code */}
+                <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-4 flex flex-col items-center justify-center">
+                  <p className="text-[9px] uppercase font-black tracking-widest text-gray-500 mb-3">Scan with Quest 3</p>
+                  <div className="bg-white p-3 rounded-xl">
+                    <QRCodeSVG
+                      value={exportUrl}
+                      size={120}
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="text-[8px] text-gray-500 uppercase tracking-wide mt-2">Open camera to scan</p>
                 </div>
               </div>
 

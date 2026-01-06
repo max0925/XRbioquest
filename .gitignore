@@ -43,3 +43,6 @@ next-env.d.ts
 # Temporary downloaded 3D models
 public/temp_models/
 public/imports/
+
+# Saved VR scenes
+public/scenes/
