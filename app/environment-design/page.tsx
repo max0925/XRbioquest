@@ -431,28 +431,46 @@ export default function EnvironmentDesignPage() {
                       ))}
                     </div>
 
-                    {/* Scale Control - Precision Input */}
+                    {/* Scale Control - Dual Input */}
                     <div className="space-y-3 py-4 border-b border-white/5">
                        <div className="flex justify-between items-center">
-                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Scale (Precision)</span>
+                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Scale</span>
+                         <span className="text-xs text-purple-400 font-mono tracking-widest font-black">{(activeEditingAsset.scale || 1).toFixed(3)}x</span>
                        </div>
-                       <input
-                         type="number"
-                         step="0.001"
-                         min="0.001"
-                         max="100"
-                         value={(activeEditingAsset.scale || 1).toFixed(3)}
-                         onChange={(e) => {
-                           const val = parseFloat(e.target.value) || 0.001;
-                           const clampedVal = Math.max(0.001, Math.min(100, val));
-                           updateModelTransform(activeEditingAsset.uid, { scale: clampedVal });
-                         }}
-                         className="w-full px-3 py-2 text-sm text-purple-400 font-mono bg-black/30 border border-purple-500/30 rounded-xl text-center focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                         placeholder="1.000"
-                       />
-                       <div className="flex justify-between text-[8px] text-gray-500 font-mono italic">
-                         <span>Range: 0.001 - 100</span>
-                         <span>Current: {(activeEditingAsset.scale || 1).toFixed(3)}x</span>
+                       <div className="flex items-center gap-3">
+                         {/* Range Slider */}
+                         <input
+                           type="range"
+                           min="0.001"
+                           max="10"
+                           step="0.001"
+                           value={activeEditingAsset.scale || 1}
+                           onChange={(e) => {
+                             const val = parseFloat(e.target.value) || 0.001;
+                             updateModelTransform(activeEditingAsset.uid, { scale: val });
+                           }}
+                           className="flex-1 accent-purple-500 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                         />
+                         {/* Number Input */}
+                         <input
+                           type="number"
+                           step="0.001"
+                           min="0.001"
+                           max="100"
+                           value={(activeEditingAsset.scale || 1).toFixed(3)}
+                           onChange={(e) => {
+                             const val = parseFloat(e.target.value) || 0.001;
+                             const clampedVal = Math.max(0.001, Math.min(100, val));
+                             updateModelTransform(activeEditingAsset.uid, { scale: clampedVal });
+                           }}
+                           className="w-20 px-2 py-1.5 text-[10px] text-emerald-400 font-mono bg-[#1A1A1A] border border-emerald-500/30 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                         />
+                       </div>
+                       <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                         <span>0.001</span>
+                         <span>1.0</span>
+                         <span>5.0</span>
+                         <span>10+</span>
                        </div>
                     </div>
 
