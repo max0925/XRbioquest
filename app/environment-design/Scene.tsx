@@ -28,81 +28,37 @@ export default function Scene({
     }
   }, []);
 
-  // Register custom fly controls for 6DOF camera
+  // Q/E vertical movement controls
   useEffect(() => {
-    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
+    if (!ready || typeof window === "undefined") return;
 
-    // Custom fly-controls component
-    if (!window.AFRAME.components['fly-controls']) {
-      window.AFRAME.registerComponent('fly-controls', {
-        schema: {
-          speed: { default: 0.5 }
-        },
-        init: function() {
-          this.keys = {
-            w: false, a: false, s: false, d: false,
-            q: false, e: false,
-            shift: false, space: false
-          };
+    const handleVerticalMovement = (evt) => {
+      const key = evt.key.toLowerCase();
+      const cameraRig = document.querySelector('#camera-rig');
+      if (!cameraRig) return;
 
-          this.velocity = new window.THREE.Vector3();
+      const currentPos = cameraRig.getAttribute('position');
+      const speed = 0.5; // Movement speed for vertical controls
 
-          window.addEventListener('keydown', (evt) => {
-            const key = evt.key.toLowerCase();
-            if (key === 'w') this.keys.w = true;
-            if (key === 'a') this.keys.a = true;
-            if (key === 's') this.keys.s = true;
-            if (key === 'd') this.keys.d = true;
-            if (key === 'q') this.keys.q = true;
-            if (key === 'e') this.keys.e = true;
-            if (evt.key === 'Shift') this.keys.shift = true;
-            if (evt.key === ' ') this.keys.space = true;
-          });
+      if (key === 'q') {
+        // Q key: move down
+        cameraRig.setAttribute('position', {
+          x: currentPos.x,
+          y: currentPos.y - speed,
+          z: currentPos.z
+        });
+      } else if (key === 'e') {
+        // E key: move up
+        cameraRig.setAttribute('position', {
+          x: currentPos.x,
+          y: currentPos.y + speed,
+          z: currentPos.z
+        });
+      }
+    };
 
-          window.addEventListener('keyup', (evt) => {
-            const key = evt.key.toLowerCase();
-            if (key === 'w') this.keys.w = false;
-            if (key === 'a') this.keys.a = false;
-            if (key === 's') this.keys.s = false;
-            if (key === 'd') this.keys.d = false;
-            if (key === 'q') this.keys.q = false;
-            if (key === 'e') this.keys.e = false;
-            if (evt.key === 'Shift') this.keys.shift = false;
-            if (evt.key === ' ') this.keys.space = false;
-          });
-        },
-        tick: function(time, delta) {
-          const speed = this.data.speed * (delta / 16.67); // Normalize to 60fps
-          const camera = this.el.sceneEl.camera;
-          const direction = new window.THREE.Vector3();
-
-          this.velocity.set(0, 0, 0);
-
-          // Get camera forward direction (ignore Y component for horizontal movement)
-          camera.getWorldDirection(direction);
-          const forward = new window.THREE.Vector3(direction.x, 0, direction.z).normalize();
-          const right = new window.THREE.Vector3().crossVectors(forward, new window.THREE.Vector3(0, 1, 0)).normalize();
-
-          // WASD horizontal movement
-          if (this.keys.w) this.velocity.add(forward.multiplyScalar(speed));
-          if (this.keys.s) this.velocity.add(forward.multiplyScalar(-speed));
-          if (this.keys.d) this.velocity.add(right.multiplyScalar(speed));
-          if (this.keys.a) this.velocity.add(right.multiplyScalar(-speed));
-
-          // QE or Space/Shift vertical movement
-          if (this.keys.e || this.keys.space) this.velocity.y += speed;
-          if (this.keys.q || this.keys.shift) this.velocity.y -= speed;
-
-          // Apply velocity to camera rig position
-          const currentPos = this.el.getAttribute('position');
-          this.el.setAttribute('position', {
-            x: currentPos.x + this.velocity.x,
-            y: currentPos.y + this.velocity.y,
-            z: currentPos.z + this.velocity.z
-          });
-        }
-      });
-    }
+    window.addEventListener('keydown', handleVerticalMovement);
+    return () => window.removeEventListener('keydown', handleVerticalMovement);
   }, [ready]);
 
   // Register Interaction FX components
@@ -524,11 +480,10 @@ export default function Scene({
       <a-entity light="type: ambient; intensity: 0.5"></a-entity>
       <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="-1 3 1"></a-entity>
 
-      {/* 6DOF Flying Camera */}
+      {/* Camera with WASD controls and Q/E vertical movement */}
       <a-entity
         id="camera-rig"
         position="0 1.6 5"
-        fly-controls="speed: 0.3"
       >
         <a-camera
           look-controls="
@@ -536,7 +491,7 @@ export default function Scene({
             reverseMouseDrag: false;
             touchEnabled: true;
           "
-          wasd-controls="enabled: false"
+          wasd-controls="acceleration: 65"
         >
           {/* Crosshair for VR interactions */}
           <a-entity
