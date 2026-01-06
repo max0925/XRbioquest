@@ -20,6 +20,15 @@ export default function Scene({
         require("aframe-environment-component");
         require("aframe-extras");
       }
+
+      // Load aframe-transformer-component
+      if (!document.querySelector('script[src*="aframe-transformer-component"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/aframe-transformer-component@1.2.0/dist/aframe-transformer-component.min.js';
+        script.async = false;
+        document.head.appendChild(script);
+      }
+
       const timer = setTimeout(() => {
         setReady(true);
         window.dispatchEvent(new Event('resize'));
@@ -61,95 +70,6 @@ export default function Scene({
     return () => window.removeEventListener('keydown', handleVerticalMovement);
   }, [ready]);
 
-  // Register Transform Controls component
-  useEffect(() => {
-    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
-
-    if (!window.AFRAME.components['transform-controls']) {
-      window.AFRAME.registerComponent('transform-controls', {
-        schema: {
-          mode: { type: 'string', default: 'translate' },
-          target: { type: 'string', default: '' }
-        },
-        init: function() {
-          const THREE = window.THREE;
-          const sceneEl = this.el.sceneEl;
-          const camera = sceneEl.camera;
-          const renderer = sceneEl.renderer;
-
-          // Create THREE.js TransformControls
-          this.transformControls = new THREE.TransformControls(camera, renderer.domElement);
-          this.transformControls.setMode(this.data.mode);
-          this.transformControls.setSize(0.8);
-
-          // Add to scene
-          sceneEl.object3D.add(this.transformControls);
-
-          // Listen for changes and render
-          this.transformControls.addEventListener('change', () => {
-            sceneEl.renderer.render(sceneEl.object3D, camera);
-          });
-
-          // Track dragging state
-          this.isDragging = false;
-
-          // Handle dragging start
-          this.transformControls.addEventListener('mouseDown', () => {
-            this.isDragging = true;
-          });
-
-          // Emit change events for React state sync when drag ends
-          this.transformControls.addEventListener('mouseUp', () => {
-            if (this.isDragging && this.transformControls.object) {
-              const object = this.transformControls.object;
-              this.el.emit('transform-changed', {
-                position: object.position,
-                rotation: object.rotation,
-                scale: object.scale
-              });
-              this.isDragging = false;
-            }
-          });
-
-          // Disable look controls when dragging
-          this.transformControls.addEventListener('dragging-changed', (event) => {
-            const camera = sceneEl.querySelector('[look-controls]');
-            if (camera) {
-              camera.setAttribute('look-controls', 'enabled', !event.value);
-            }
-          });
-        },
-        update: function(oldData) {
-          if (!this.transformControls) return;
-
-          // Update mode (handle 'drag' as 'translate')
-          if (this.data.mode !== oldData.mode) {
-            const mode = this.data.mode === 'drag' ? 'translate' : this.data.mode;
-            this.transformControls.setMode(mode);
-
-            // Hide/show transform controls based on mode
-            this.transformControls.visible = this.data.mode !== 'drag';
-          }
-
-          // Update target
-          if (this.data.target !== oldData.target) {
-            const targetEl = document.querySelector(`[data-uid="${this.data.target}"]`);
-            if (targetEl) {
-              this.transformControls.attach(targetEl.object3D);
-            } else {
-              this.transformControls.detach();
-            }
-          }
-        },
-        remove: function() {
-          if (this.transformControls) {
-            this.transformControls.dispose();
-            this.el.sceneEl.object3D.remove(this.transformControls);
-          }
-        }
-      });
-    }
-  }, [ready]);
 
   // Register Interaction FX components
   useEffect(() => {
@@ -448,11 +368,6 @@ export default function Scene({
         `}></a-entity>
       )}
 
-      {/* Transform Controls */}
-      <a-entity
-        transform-controls={`mode: ${transformMode}; target: ${activeEditingAsset?.uid || ''}`}
-      ></a-entity>
-
       {/* 渲染部署的模型 */}
       {selectedModels
         .filter(model => model.placed === true)
@@ -476,6 +391,9 @@ export default function Scene({
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
               scale={`${model.scale || 1} ${model.scale || 1} ${model.scale || 1}`}
               {...(transformMode === 'drag' && { 'drag-drop': `uid: ${model.uid}` })}
+              {...(isSelected && transformMode !== 'drag' && {
+                transformer: `mode: ${transformMode}`
+              })}
               data-name={model.name}
               {...(model.interactionFX?.grabbable && { grabbable: '' })}
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
@@ -498,7 +416,7 @@ export default function Scene({
                 ></a-entity>
               )}
 
-              {/* Selection highlight ring - Interactive transform gizmo managed by transform-controls component */}
+              {/* Selection highlight ring - Interactive transform gizmo managed by transformer component */}
               {isSelected && (
                 <a-entity
                   geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
