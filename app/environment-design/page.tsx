@@ -431,45 +431,28 @@ export default function EnvironmentDesignPage() {
                       ))}
                     </div>
 
-                    {/* Scale Control */}
+                    {/* Scale Control - Precision Input */}
                     <div className="space-y-3 py-4 border-b border-white/5">
                        <div className="flex justify-between items-center">
-                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Scale (Logarithmic)</span>
-                         <span className="text-xs text-purple-400 font-mono tracking-widest font-black">{(activeEditingAsset.scale || 1).toFixed(3)}x</span>
+                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Scale (Precision)</span>
                        </div>
-                       <div className="flex items-center gap-2">
-                         <input
-                           type="range"
-                           min="-3"
-                           max="1"
-                           step="0.01"
-                           value={Math.log10(activeEditingAsset.scale || 1)}
-                           onChange={(e) => {
-                             const logVal = parseFloat(e.target.value);
-                             const val = Math.pow(10, logVal);
-                             updateModelTransform(activeEditingAsset.uid, { scale: val });
-                           }}
-                           className="flex-1 accent-purple-500 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                         />
-                         <input
-                           type="number"
-                           step="0.001"
-                           min="0.001"
-                           max="10"
-                           value={(activeEditingAsset.scale || 1).toFixed(3)}
-                           onChange={(e) => {
-                             const val = parseFloat(e.target.value) || 0.001;
-                             const clampedVal = Math.max(0.001, Math.min(10, val));
-                             updateModelTransform(activeEditingAsset.uid, { scale: clampedVal });
-                           }}
-                           className="w-16 px-1 py-0.5 text-[9px] text-purple-400 font-mono bg-black/30 border border-purple-500/20 rounded text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
-                         />
-                       </div>
-                       <div className="flex justify-between text-[8px] text-gray-600 font-mono">
-                         <span>0.001x</span>
-                         <span>0.1x</span>
-                         <span>1x</span>
-                         <span>10x</span>
+                       <input
+                         type="number"
+                         step="0.001"
+                         min="0.001"
+                         max="100"
+                         value={(activeEditingAsset.scale || 1).toFixed(3)}
+                         onChange={(e) => {
+                           const val = parseFloat(e.target.value) || 0.001;
+                           const clampedVal = Math.max(0.001, Math.min(100, val));
+                           updateModelTransform(activeEditingAsset.uid, { scale: clampedVal });
+                         }}
+                         className="w-full px-3 py-2 text-sm text-purple-400 font-mono bg-black/30 border border-purple-500/30 rounded-xl text-center focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                         placeholder="1.000"
+                       />
+                       <div className="flex justify-between text-[8px] text-gray-500 font-mono italic">
+                         <span>Range: 0.001 - 100</span>
+                         <span>Current: {(activeEditingAsset.scale || 1).toFixed(3)}x</span>
                        </div>
                     </div>
 

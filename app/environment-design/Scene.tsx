@@ -85,37 +85,50 @@ export default function Scene({
           // Add to scene
           sceneEl.object3D.add(this.transformControls);
 
-          // Listen for changes
+          // Listen for changes and render
           this.transformControls.addEventListener('change', () => {
             sceneEl.renderer.render(sceneEl.object3D, camera);
           });
 
-          // Emit change events for React state sync
-          this.transformControls.addEventListener('objectChange', () => {
-            if (this.transformControls.object) {
+          // Track dragging state
+          this.isDragging = false;
+
+          // Handle dragging start
+          this.transformControls.addEventListener('mouseDown', () => {
+            this.isDragging = true;
+          });
+
+          // Emit change events for React state sync when drag ends
+          this.transformControls.addEventListener('mouseUp', () => {
+            if (this.isDragging && this.transformControls.object) {
               const object = this.transformControls.object;
               this.el.emit('transform-changed', {
                 position: object.position,
                 rotation: object.rotation,
                 scale: object.scale
               });
+              this.isDragging = false;
             }
           });
 
-          // Disable orbit controls when dragging
+          // Disable look controls when dragging
           this.transformControls.addEventListener('dragging-changed', (event) => {
-            const controls = sceneEl.querySelector('[look-controls]');
-            if (controls) {
-              controls.setAttribute('look-controls', 'enabled', !event.value);
+            const camera = sceneEl.querySelector('[look-controls]');
+            if (camera) {
+              camera.setAttribute('look-controls', 'enabled', !event.value);
             }
           });
         },
         update: function(oldData) {
           if (!this.transformControls) return;
 
-          // Update mode
+          // Update mode (handle 'drag' as 'translate')
           if (this.data.mode !== oldData.mode) {
-            this.transformControls.setMode(this.data.mode);
+            const mode = this.data.mode === 'drag' ? 'translate' : this.data.mode;
+            this.transformControls.setMode(mode);
+
+            // Hide/show transform controls based on mode
+            this.transformControls.visible = this.data.mode !== 'drag';
           }
 
           // Update target
@@ -462,7 +475,7 @@ export default function Scene({
               position={`${pos.x} ${pos.y} ${pos.z}`}
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
               scale={`${model.scale || 1} ${model.scale || 1} ${model.scale || 1}`}
-              drag-drop={`uid: ${model.uid}`}
+              {...(transformMode === 'drag' && { 'drag-drop': `uid: ${model.uid}` })}
               data-name={model.name}
               {...(model.interactionFX?.grabbable && { grabbable: '' })}
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
