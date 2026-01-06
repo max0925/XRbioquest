@@ -50,6 +50,8 @@ export default function EnvironmentDesignPage() {
   const [downloadingModel, setDownloadingModel] = useState(null); // Track which model is downloading
   const [transformMode, setTransformMode] = useState('translate'); // translate | rotate | scale | drag
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showExportPopup, setShowExportPopup] = useState(false);
+  const [exportUrl, setExportUrl] = useState('');
 
   // AI 聊天状态
   const [messages, setMessages] = useState([
@@ -193,6 +195,39 @@ export default function EnvironmentDesignPage() {
     if (!aiInput.trim()) return;
     setMessages([...messages, { role: 'user', content: aiInput }]);
     setAiInput("");
+  };
+
+  // Serialize scene data to JSON
+  const serializeScene = () => {
+    const sceneData = {
+      environment: selectedEnv,
+      models: selectedModels.filter(m => m.placed).map(m => ({
+        uid: m.uid,
+        name: m.name,
+        modelPath: m.modelPath,
+        position: m.position,
+        rotation: m.rotation,
+        scale: m.scale,
+        interactionFX: m.interactionFX
+      })),
+      timestamp: new Date().toISOString()
+    };
+    return JSON.stringify(sceneData);
+  };
+
+  // Handle export to VR
+  const handleExport = () => {
+    const sceneJson = serializeScene();
+    const encodedData = encodeURIComponent(sceneJson);
+    const baseUrl = window.location.origin;
+    const url = `${baseUrl}/view?scene=${encodedData}`;
+    setExportUrl(url);
+    setShowExportPopup(true);
+  };
+
+  // Copy URL to clipboard
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(exportUrl);
   };
 
   if (!mounted) return null;
@@ -698,8 +733,83 @@ export default function EnvironmentDesignPage() {
                 </div>
               </div>
 
-              <div className="p-7 mt-auto border-t border-black/40 bg-black/20"><button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-2xl transition-all hover:scale-[1.03] active:scale-95 shadow-emerald-500/10 italic">Export Project to VR</button></div>
+              <div className="p-7 mt-auto border-t border-black/40 bg-black/20">
+                <button
+                  onClick={handleExport}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-2xl transition-all hover:scale-[1.03] active:scale-95 shadow-emerald-500/10 italic"
+                >
+                  Export Project to VR
+                </button>
+              </div>
             </aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Popup Modal */}
+      <AnimatePresence>
+        {showExportPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => setShowExportPopup(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1A1A1A] border border-emerald-500/30 rounded-[2rem] p-8 max-w-2xl w-full shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-black text-white uppercase tracking-tight italic">VR Scene Exported!</h2>
+                <button
+                  onClick={() => setShowExportPopup(false)}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-400" />
+                </button>
+              </div>
+
+              <p className="text-gray-400 mb-6 text-sm">
+                Your VR scene has been exported successfully. Share this link with anyone to view your creation in VR!
+              </p>
+
+              <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
+                <p className="text-[9px] uppercase font-black tracking-widest text-gray-500 mb-2">Shareable Link</p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={exportUrl}
+                    readOnly
+                    className="flex-1 bg-transparent text-emerald-400 text-sm font-mono px-3 py-2 border border-emerald-500/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    onClick={copyToClipboard}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => window.open(exportUrl, '_blank')}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95"
+                >
+                  Open in VR
+                </button>
+                <button
+                  onClick={() => setShowExportPopup(false)}
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
