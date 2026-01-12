@@ -23,7 +23,6 @@ const SceneView = dynamic(() => import('./Scene'), {
 // 模拟数据
 // ----------------------------------------------------------------------
 const INTERNAL_ENVIRONMENTS = [
-  { id: 'lab', name: 'Sci-Fi Lab', thumb: '/environment.jpg', type: 'Architecture', modelPath: '/environemnt/sci-fi_lab.glb' },
   { id: 'classroom', name: 'Classroom', thumb: '/classroom.jpg', type: 'Architecture', modelPath: '/environemnt/classroom.glb' },
   { id: 'forest', name: 'Low Poly Forest', thumb: 'https://placehold.co/400x300/047857/ffffff?text=Forest', type: 'Nature', modelPath: '/environemnt/low_poly_forest.glb' },
 ];
