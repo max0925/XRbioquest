@@ -12,38 +12,43 @@ function generateId(): string {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Check variables at the very beginning
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Debug: Log environment variable status (safe info only)
-    console.log('=== Supabase Config Debug ===');
-    console.log('URL exists:', !!supabaseUrl);
-    console.log('URL length:', supabaseUrl?.length || 0);
-    console.log('URL preview:', supabaseUrl?.substring(0, 30) || 'undefined');
-    console.log('Key exists:', !!supabaseKey);
-    console.log('Key length:', supabaseKey?.length || 0);
-    console.log('Key preview:', supabaseKey?.substring(0, 10) + '...' || 'undefined');
-    console.log('=============================');
+  // Log status (safe - only length and first 5 chars of URL)
+  console.log('=== Supabase Debug ===');
+  console.log('NEXT_PUBLIC_SUPABASE_URL defined:', !!supabaseUrl);
+  console.log('NEXT_PUBLIC_SUPABASE_URL first 5 chars:', supabaseUrl?.substring(0, 5) || 'N/A');
+  console.log('NEXT_PUBLIC_SUPABASE_URL length:', supabaseUrl?.length || 0);
+  console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY defined:', !!supabaseKey);
+  console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY length:', supabaseKey?.length || 0);
+  console.log('======================');
 
-    // Validate Supabase configuration
-    const isUrlValid = supabaseUrl && supabaseUrl.length > 20 && supabaseUrl.includes('supabase');
-    const isKeyValid = supabaseKey && supabaseKey.length > 30;
+  // Validation: Check if variables are missing or too short
+  const urlMissing = !supabaseUrl || supabaseUrl.length < 20;
+  const keyMissing = !supabaseKey || supabaseKey.length < 30;
 
-    if (!isUrlValid || !isKeyValid) {
-      console.error('Supabase configuration is invalid or missing');
-      return NextResponse.json({
-        error: "Supabase configuration is invalid or missing in Vercel",
-        debug: {
-          urlExists: !!supabaseUrl,
-          urlLength: supabaseUrl?.length || 0,
-          urlValid: isUrlValid,
-          keyExists: !!supabaseKey,
-          keyLength: supabaseKey?.length || 0,
-          keyValid: isKeyValid
+  if (urlMissing || keyMissing) {
+    console.error('Supabase env vars missing or invalid:', { urlMissing, keyMissing });
+    return NextResponse.json({
+      error: "Supabase environment variables are missing or invalid in Vercel",
+      details: {
+        NEXT_PUBLIC_SUPABASE_URL: {
+          defined: !!supabaseUrl,
+          length: supabaseUrl?.length || 0,
+          valid: !urlMissing
+        },
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: {
+          defined: !!supabaseKey,
+          length: supabaseKey?.length || 0,
+          valid: !keyMissing
         }
-      }, { status: 500 });
-    }
+      }
+    }, { status: 500 });
+  }
+
+  try {
 
     const sceneData = await request.json();
 
