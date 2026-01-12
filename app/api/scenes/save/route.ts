@@ -13,9 +13,20 @@ function generateId(): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Debug: Log environment variable status
+    console.log('Supabase URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
     // Check Supabase configuration
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json({ error: "Supabase credentials missing" }, { status: 500 });
+      console.error('Missing Supabase Environment Variables');
+      return NextResponse.json({
+        error: "Missing Supabase Environment Variables",
+        details: {
+          hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        }
+      }, { status: 500 });
     }
 
     const sceneData = await request.json();
