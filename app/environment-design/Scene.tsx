@@ -379,6 +379,7 @@ export default function Scene({
               key={asset.uid}
               data-uid={asset.uid}
               src={asset.imagePath}
+              crossorigin="anonymous"
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
             ></a-sky>
           );
