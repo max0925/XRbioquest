@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
@@ -17,22 +16,26 @@ export async function GET(
       );
     }
 
-    const filePath = path.join(process.cwd(), 'public', 'scenes', `${id}.json`);
+    // Create Supabase client
+    const supabase = await createClient();
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
+    // Fetch scene from database
+    const { data, error } = await supabase
+      .from('scenes')
+      .select('data')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
       return NextResponse.json(
         { error: 'Scene not found' },
         { status: 404 }
       );
     }
 
-    // Read and return scene data
-    const sceneData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-
     return NextResponse.json({
       success: true,
-      data: sceneData
+      data: data.data
     });
 
   } catch (error: any) {

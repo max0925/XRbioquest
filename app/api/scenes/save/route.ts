@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 
 // Generate a random 6-character ID
 function generateId(): string {
@@ -19,29 +18,29 @@ export async function POST(request: NextRequest) {
     // Generate unique ID
     const id = generateId();
 
-    // Save to local file system
-    const scenesDir = path.join(process.cwd(), 'public', 'scenes');
+    // Create Supabase client
+    const supabase = await createClient();
 
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(scenesDir)) {
-      fs.mkdirSync(scenesDir, { recursive: true });
+    // Upsert scene data to database
+    const { data, error } = await supabase
+      .from('scenes')
+      .upsert({
+        id,
+        data: sceneData,
+        created_at: new Date().toISOString()
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error(error.message || 'Failed to save scene to database');
     }
-
-    const filePath = path.join(scenesDir, `${id}.json`);
-
-    // Check if ID already exists (unlikely but handle collision)
-    if (fs.existsSync(filePath)) {
-      // Try again with new ID
-      return POST(request);
-    }
-
-    // Save scene data
-    fs.writeFileSync(filePath, JSON.stringify(sceneData, null, 2));
 
     return NextResponse.json({
       success: true,
-      id,
-      url: `/view/${id}`
+      id: data.id,
+      url: `/view/${data.id}`
     });
 
   } catch (error: any) {
