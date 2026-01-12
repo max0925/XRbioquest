@@ -6,6 +6,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check Supabase configuration
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json({ error: "Supabase credentials missing" }, { status: 500 });
+    }
+
     const { id } = await params;
 
     // Validate ID format (6 alphanumeric characters)

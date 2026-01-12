@@ -13,6 +13,11 @@ function generateId(): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check Supabase configuration
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json({ error: "Supabase credentials missing" }, { status: 500 });
+    }
+
     const sceneData = await request.json();
 
     // Generate unique ID
