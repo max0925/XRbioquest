@@ -90,9 +90,9 @@ export default function ViewScenePage() {
           <>
             <a-gltf-model
               src={sceneData.environment.modelPath}
-              position="0 0 0"
-              rotation="0 0 0"
-              scale="1 1 1"
+              position={`${sceneData.environment.position?.x || 0} ${sceneData.environment.position?.y || 0} ${sceneData.environment.position?.z || 0}`}
+              rotation={`${sceneData.environment.rotation?.x || 0} ${sceneData.environment.rotation?.y || 0} ${sceneData.environment.rotation?.z || 0}`}
+              scale={`${sceneData.environment.scale || 1} ${sceneData.environment.scale || 1} ${sceneData.environment.scale || 1}`}
               shadow="receive: true"
             ></a-gltf-model>
             <a-entity

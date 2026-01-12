@@ -46,3 +46,6 @@ public/imports/
 
 # Saved VR scenes
 public/scenes/
+
+# AI-generated environments
+public/imports/ai/

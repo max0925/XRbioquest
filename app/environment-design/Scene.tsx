@@ -2,16 +2,16 @@
 import { useEffect, useState, useRef } from "react";
 
 export default function Scene({
-  envDeployed,
-  selectedEnv,
-  selectedModels,
-  activeEditingAsset,
+  sceneAssets = [],
+  activeSelection,
   transformMode,
   onAssetClick,
-  onModelTransform
+  onAssetTransform,
+  onEnvironmentLoaded
 }) {
   const [ready, setReady] = useState(false);
   const sceneRef = useRef(null);
+  const envModelRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -46,23 +46,15 @@ export default function Scene({
       const cameraRig = document.querySelector('#camera-rig');
       if (!cameraRig) return;
 
-      const currentPos = cameraRig.getAttribute('position');
+      const currentPos = cameraRig.getAttribute('position') as any;
       const speed = 0.5; // Movement speed for vertical controls
 
       if (key === 'q') {
         // Q key: move down
-        cameraRig.setAttribute('position', {
-          x: currentPos.x,
-          y: currentPos.y - speed,
-          z: currentPos.z
-        });
+        cameraRig.setAttribute('position', `${currentPos.x} ${currentPos.y - speed} ${currentPos.z}`);
       } else if (key === 'e') {
         // E key: move up
-        cameraRig.setAttribute('position', {
-          x: currentPos.x,
-          y: currentPos.y + speed,
-          z: currentPos.z
-        });
+        cameraRig.setAttribute('position', `${currentPos.x} ${currentPos.y + speed} ${currentPos.z}`);
       }
     };
 
@@ -265,8 +257,8 @@ export default function Scene({
               const rotation = this.el.getAttribute('rotation');
               const scale = this.el.getAttribute('scale');
 
-              if (onModelTransform && this.data.uid) {
-                onModelTransform(this.data.uid, {
+              if (onAssetTransform && this.data.uid) {
+                onAssetTransform(this.data.uid, {
                   position: { x: position.x, y: position.y, z: position.z },
                   rotation: { x: rotation.x, y: rotation.y, z: rotation.z },
                   scale: scale.x / 1.1 // Remove the 1.1x scale boost
@@ -294,19 +286,19 @@ export default function Scene({
         }
       });
     }
-  }, [ready, onModelTransform]);
+  }, [ready, onAssetTransform]);
 
   // Listen for transform changes and sync to React state
   useEffect(() => {
     if (!ready || typeof window === "undefined") return;
 
     const handleTransformChanged = (evt) => {
-      const uid = activeEditingAsset?.uid;
-      if (!uid || !onModelTransform) return;
+      const uid = activeSelection?.uid;
+      if (!uid || !onAssetTransform) return;
 
       const { position, rotation, scale } = evt.detail;
 
-      onModelTransform(uid, {
+      onAssetTransform(uid, {
         position: { x: position.x, y: position.y, z: position.z },
         rotation: {
           x: rotation.x * (180 / Math.PI),
@@ -322,7 +314,44 @@ export default function Scene({
       scene.addEventListener('transform-changed', handleTransformChanged);
       return () => scene.removeEventListener('transform-changed', handleTransformChanged);
     }
-  }, [ready, activeEditingAsset, onModelTransform]);
+  }, [ready, activeSelection, onAssetTransform]);
+
+  // Calculate bounding box for environment when model loads
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.THREE || !onEnvironmentLoaded) return;
+
+    // Find all 3D environment assets
+    const envAssets = sceneAssets.filter(asset => asset.type === 'environment-3d' && asset.visible);
+    if (envAssets.length === 0) return;
+
+    // Wait for each environment model to load
+    const checkModelsLoaded = setInterval(() => {
+      envAssets.forEach(env => {
+        const envModel = document.querySelector(`[data-uid="${env.uid}"]`) as any;
+        if (!envModel || envModel.dataset.boundingBoxCalculated) return;
+
+        const object3D = envModel.object3D;
+        if (!object3D || !object3D.children || object3D.children.length === 0) return;
+
+        // Model is loaded, calculate bounding box
+        envModel.dataset.boundingBoxCalculated = 'true';
+
+        try {
+          const box = new window.THREE.Box3().setFromObject(object3D);
+
+          // Only call callback if bounding box is valid
+          if (box.min && box.max && isFinite(box.min.x) && isFinite(box.max.x)) {
+            onEnvironmentLoaded(env.uid, box);
+          }
+        } catch (error) {
+          console.warn('Failed to calculate environment bounding box for', env.uid, ':', error);
+        }
+      });
+    }, 200);
+
+    // Cleanup
+    return () => clearInterval(checkModelsLoaded);
+  }, [ready, sceneAssets, onEnvironmentLoaded]);
 
   if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
 
@@ -335,93 +364,101 @@ export default function Scene({
       raycaster="objects: .clickable"
       renderer="antialias: true; colorManagement: true;"
     >
-      {/* 动态环境：加载.glb环境模型或使用预设 */}
-      {envDeployed && selectedEnv?.modelPath ? (
-        <>
-          {/* Custom environment model */}
-          <a-gltf-model
-            src={selectedEnv.modelPath}
-            position="0 0 0"
-            rotation="0 0 0"
-            scale="1 1 1"
-            shadow="receive: true"
-          ></a-gltf-model>
-          {/* Ground plane for custom environments */}
-          <a-entity
-            geometry="primitive: plane; width: 50; height: 50"
-            rotation="-90 0 0"
-            position="0 0 0"
-            material="color: #1a1a1a; roughness: 0.9"
-            shadow="receive: true"
-            visible="false"
-          ></a-entity>
-        </>
-      ) : (
-        <a-entity environment={`
-          preset: ${envDeployed ? 'contact' : 'default'};
-          seed: 42;
-          shadow: true;
-          lighting: point;
-          grid: dots;
-          gridColor: #333;
-          playArea: 1.2;
-        `}></a-entity>
-      )}
+      {/* Render all scene assets */}
+      {sceneAssets.map((asset) => {
+        if (!asset.visible) return null;
 
-      {/* 渲染部署的模型 */}
-      {selectedModels
-        .filter(model => model.placed === true)
-        .map((model, idx) => {
-          const isSelected = activeEditingAsset?.uid === model.uid;
-          const pos = model.position || { x: (idx * 2) - 1, y: 1, z: -3 };
-          const rot = model.rotation || { x: 0, y: 0, z: 0 };
+        const isSelected = activeSelection?.uid === asset.uid;
+        const pos = asset.position || { x: 0, y: 0, z: 0 };
+        const rot = asset.rotation || { x: 0, y: 0, z: 0 };
 
-          // Build interaction components string
-          const fxComponents = [];
-          if (model.interactionFX?.grabbable) fxComponents.push('grabbable');
-          if (model.interactionFX?.glowPulse) fxComponents.push('glow-pulse');
-          if (model.interactionFX?.collisionTrigger) fxComponents.push('collision-trigger');
-
+        // Render AI Skybox
+        if (asset.type === 'environment-ai') {
           return (
-            <a-entity
-              key={model.uid}
-              data-uid={model.uid}
-              className="clickable"
-              position={`${pos.x} ${pos.y} ${pos.z}`}
+            <a-sky
+              key={asset.uid}
+              data-uid={asset.uid}
+              src={asset.imagePath}
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
-              scale={`${model.scale || 1} ${model.scale || 1} ${model.scale || 1}`}
-              {...(transformMode === 'drag' && { 'drag-drop': `uid: ${model.uid}` })}
-              {...(isSelected && transformMode !== 'drag' && {
-                transformer: `mode: ${transformMode}`
-              })}
-              data-name={model.name}
-              {...(model.interactionFX?.grabbable && { grabbable: '' })}
-              {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
-              {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
-              onClick={() => onAssetClick(model)}
-              animation__hover="property: scale; to: 1.05 1.05 1.05; startEvents: mouseenter; dur: 200"
-              animation__leave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
-            >
-              {/* 使用 .glb 模型或回退到球体 */}
-              {model.modelPath ? (
-                <a-gltf-model
-                  src={model.modelPath}
-                  shadow="cast: true; receive: true"
-                ></a-gltf-model>
-              ) : (
-                <a-entity
-                  geometry="primitive: sphere; radius: 0.4"
-                  material="color: #10b981; roughness: 0.4; metalness: 0.3"
-                  shadow="cast: true"
-                ></a-entity>
-              )}
+            ></a-sky>
+          );
+        }
 
-              {/* Selection highlight ring - Interactive transform gizmo managed by transformer component */}
-              {isSelected && (
-                <a-entity
-                  geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
-                  rotation="-90 0 0"
-                  position="0 0 0"
+        // Render 3D Environment
+        if (asset.type === 'environment-3d') {
+          return (
+            <a-entity key={asset.uid}>
+              <a-gltf-model
+                data-uid={asset.uid}
+                src={asset.modelPath}
+                position={`${pos.x} ${pos.y} ${pos.z}`}
+                rotation={`${rot.x} ${rot.y} ${rot.z}`}
+                scale={`${asset.scale || 1} ${asset.scale || 1} ${asset.scale || 1}`}
+                shadow="receive: true"
+              ></a-gltf-model>
+              {/* Ground plane for 3D environments */}
+              <a-entity
+                geometry="primitive: plane; width: 50; height: 50"
+                rotation="-90 0 0"
+                position="0 0 0"
+                material="color: #1a1a1a; roughness: 0.9"
+                shadow="receive: true"
+              ></a-entity>
+            </a-entity>
+          );
+        }
+
+        // Render regular model
+        // Build interaction components string
+        const fxComponents = [];
+        if (asset.interactionFX?.grabbable) fxComponents.push('grabbable');
+        if (asset.interactionFX?.glowPulse) fxComponents.push('glow-pulse');
+        if (asset.interactionFX?.collisionTrigger) fxComponents.push('collision-trigger');
+
+        return (
+          <a-entity
+            key={asset.uid}
+            data-uid={asset.uid}
+            className="clickable"
+            position={`${pos.x} ${pos.y} ${pos.z}`}
+            rotation={`${rot.x} ${rot.y} ${rot.z}`}
+            scale={`${asset.scale || 1} ${asset.scale || 1} ${asset.scale || 1}`}
+            {...(transformMode === 'drag' && { 'drag-drop': `uid: ${asset.uid}` })}
+            {...(isSelected && transformMode !== 'drag' && {
+              transformer: `mode: ${transformMode}`
+            })}
+            data-name={asset.name}
+            {...(asset.interactionFX?.grabbable && { grabbable: '' })}
+            {...(asset.interactionFX?.glowPulse && { 'glow-pulse': '' })}
+            {...(asset.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
+            onClick={() => onAssetClick(asset)}
+            animation__hover="property: scale; to: 1.05 1.05 1.05; startEvents: mouseenter; dur: 200"
+            animation__leave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
+          >
+            {/* 使用 .glb 模型或回退到球体 */}
+            {/* 修复后的模型渲染代码 */}
+            {asset.modelPath ? (
+              <a-gltf-model
+                key={`glb-${asset.uid}-${asset.modelPath}`} // 强制刷新，防止缓存
+                src={asset.modelPath}
+                crossorigin="anonymous" // ✅ 必须加这一行，允许加载 Meshy 远程资源
+                shadow="cast: true; receive: true"
+                draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;" // ✅ 确保能解压 Meshy 模型
+              ></a-gltf-model>
+            ) : (
+              <a-entity
+                geometry="primitive: sphere; radius: 0.4"
+                material="color: #10b981; roughness: 0.4; metalness: 0.3"
+                shadow="cast: true"
+              ></a-entity>
+            )}
+
+            {/* Selection highlight ring - Interactive transform gizmo managed by transformer component */}
+            {isSelected && (
+              <a-entity
+                geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
+                rotation="-90 0 0"
+                position="0 0 0"
                   material="color: #10b981; opacity: 0.8; transparent: true; side: double"
                   animation="property: rotation; to: -90 360 0; loop: true; dur: 3000; easing: linear"
                 ></a-entity>
@@ -435,14 +472,19 @@ export default function Scene({
                 material="color: #000; opacity: 0.15; transparent: true"
               ></a-entity>
 
-              {/* 标签文本 */}
-              <a-entity
-                position="0 -0.7 0"
-                text={`value: ${model.name}; align: center; width: 3; color: ${isSelected ? '#10b981' : '#FFF'}; font: kelsonsans`}
-              ></a-entity>
+            {/* 标签文本 */}
+            <a-entity
+              position="0 -0.7 0"
+              text={`value: ${asset.name}; align: center; width: 3; color: ${isSelected ? '#10b981' : '#FFF'}; font: kelsonsans`}
+            ></a-entity>
             </a-entity>
           );
         })}
+
+      {/* Default fallback environment when no environment assets exist */}
+      {sceneAssets.filter(asset => asset.type?.includes('environment')).length === 0 && (
+        <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2"></a-entity>
+      )}
 
       {/* 场景灯光 */}
       <a-entity light="type: ambient; intensity: 0.5"></a-entity>

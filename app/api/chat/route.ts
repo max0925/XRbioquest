@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 // In-memory conversation storage (use Redis/DB for production)
-const conversationMemory = new Map<string, Array<{ role: string; content: string }>>();
+const conversationMemory = new Map<string, Array<ChatCompletionMessageParam>>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,11 +16,11 @@ export async function POST(request: NextRequest) {
 
     // Get or create conversation history
     const sessionId = conversationId;
-    let messages = conversationMemory.get(sessionId) || [];
+    let messages: ChatCompletionMessageParam[] = conversationMemory.get(sessionId) || [];
 
     // If history provided from frontend, use it
     if (history.length > 0) {
-      messages = history;
+      messages = history as ChatCompletionMessageParam[];
     }
 
     // First, check user intent with a quick classification

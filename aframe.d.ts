@@ -12,6 +12,9 @@ declare module "react" {
       "a-sky": any;
       "a-camera": any;
       "a-light": any;
+      "a-gltf-model": any;
+      "a-assets": any;
+      "a-asset-item": any;
     }
   }
 }
@@ -19,5 +22,6 @@ declare module "react" {
 declare global {
   interface Window {
     AFRAME: any;
+    THREE: any;
   }
 }

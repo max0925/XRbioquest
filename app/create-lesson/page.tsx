@@ -67,35 +67,6 @@ function FastTyping({ text, delay = 2 }: { text: string; delay?: number }) {
   );
 }
 
-// Floating particles component
-function FloatingParticles() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1 h-1 bg-emerald-400 rounded-full"
-          initial={{
-            x: Math.random() * 100 + "%",
-            y: Math.random() * 100 + "%",
-            opacity: 0
-          }}
-          animate={{
-            y: [null, "-100%", "100%"],
-            opacity: [0, 1, 0],
-          }}
-          transition={{
-            duration: 8 + Math.random() * 4,
-            repeat: Infinity,
-            delay: i * 0.5,
-            ease: "linear"
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 // Example prompt cards
 const examplePrompts = [
   {
@@ -132,7 +103,6 @@ export default function CreateLessonPage() {
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId] = useState(() => `conv_${Date.now()}`);
-  const [showGenerateButton, setShowGenerateButton] = useState(false);
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,7 +158,6 @@ export default function CreateLessonPage() {
           type: 'chat' as const
         };
         setMessages(prev => [...prev, assistantMessage]);
-        setShowGenerateButton(false);
 
       } else if (data.type === 'lesson') {
         // Lesson plan response
@@ -212,7 +181,6 @@ ${data.suggested_assets ? data.suggested_assets.map((a: any) => `• **${a.name}
           type: 'lesson' as const
         };
         setMessages(prev => [...prev, assistantMessage]);
-        setShowGenerateButton(true);
 
         // Store lesson data for environment generation
         localStorage.setItem("skybox_prompt", data.skybox_prompt || "");
@@ -266,20 +234,11 @@ ${data.suggested_assets ? data.suggested_assets.map((a: any) => `• **${a.name}
     setMessages([]);
     setFileName("");
     setFilePreview(null);
-    setShowGenerateButton(false);
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-white to-emerald-50/30 text-gray-800 relative overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 relative overflow-hidden">
       <Navigation />
-
-      {/* Ambient background effects */}
-      <div className="fixed inset-0 pointer-events-none opacity-40">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-gradient-to-br from-emerald-400/30 to-cyan-400/30 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-      </div>
-
-      <FloatingParticles />
 
       <div className="flex flex-1 pt-[64px] relative z-10">
         {/* Sidebar */}
