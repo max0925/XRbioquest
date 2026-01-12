@@ -13,18 +13,34 @@ function generateId(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // Debug: Log environment variable status
-    console.log('Supabase URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Check Supabase configuration
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      console.error('Missing Supabase Environment Variables');
+    // Debug: Log environment variable status (safe info only)
+    console.log('=== Supabase Config Debug ===');
+    console.log('URL exists:', !!supabaseUrl);
+    console.log('URL length:', supabaseUrl?.length || 0);
+    console.log('URL preview:', supabaseUrl?.substring(0, 30) || 'undefined');
+    console.log('Key exists:', !!supabaseKey);
+    console.log('Key length:', supabaseKey?.length || 0);
+    console.log('Key preview:', supabaseKey?.substring(0, 10) + '...' || 'undefined');
+    console.log('=============================');
+
+    // Validate Supabase configuration
+    const isUrlValid = supabaseUrl && supabaseUrl.length > 20 && supabaseUrl.includes('supabase');
+    const isKeyValid = supabaseKey && supabaseKey.length > 30;
+
+    if (!isUrlValid || !isKeyValid) {
+      console.error('Supabase configuration is invalid or missing');
       return NextResponse.json({
-        error: "Missing Supabase Environment Variables",
-        details: {
-          hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-          hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        error: "Supabase configuration is invalid or missing in Vercel",
+        debug: {
+          urlExists: !!supabaseUrl,
+          urlLength: supabaseUrl?.length || 0,
+          urlValid: isUrlValid,
+          keyExists: !!supabaseKey,
+          keyLength: supabaseKey?.length || 0,
+          keyValid: isKeyValid
         }
       }, { status: 500 });
     }
