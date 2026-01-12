@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import https from 'https';
-import fs from 'fs';
-import path from 'path';
 
 // Blockade Labs Skybox AI API
 const BLOCKADE_API_KEY = process.env.BLOCKADE_API_KEY || '';
@@ -12,33 +9,6 @@ if (BLOCKADE_API_KEY) {
   console.log('✅ Using Blockade API Key:', BLOCKADE_API_KEY.substring(0, 10) + '...');
 } else {
   console.warn('⚠️ BLOCKADE_API_KEY not found in environment variables');
-}
-
-// Generate a random 6-character ID
-function generateId(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let id = '';
-  for (let i = 0; i < 6; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return id;
-}
-
-// Download image from URL
-async function downloadImage(url: string, filepath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(filepath);
-    https.get(url, (response) => {
-      response.pipe(file);
-      file.on('finish', () => {
-        file.close();
-        resolve();
-      });
-    }).on('error', (err) => {
-      fs.unlink(filepath, () => {}); // Delete the file on error
-      reject(err);
-    });
-  });
 }
 
 // Poll for skybox generation status
@@ -61,7 +31,7 @@ async function pollSkyboxStatus(skyboxId: number): Promise<any> {
     }
 
     const data = await response.json();
-    
+
     // 修复：从 data.request 中获取状态（如果存在）
     const requestData = data.request || data;
     const status = requestData.status;
@@ -146,33 +116,16 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Skybox generation complete!');
 
-    // Step 3: Download the image
+    // Step 3: Get the image URL directly (no local download)
     const imageUrl = completedSkybox.file_url || completedSkybox.thumb_url;
 
     if (!imageUrl) {
       throw new Error('No image URL found in response');
     }
 
-    const envId = generateId();
-    const importsDir = path.join(process.cwd(), 'public', 'imports', 'ai');
-
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(importsDir)) {
-      fs.mkdirSync(importsDir, { recursive: true });
-    }
-
-    const filepath = path.join(importsDir, `${envId}.jpg`);
-    await downloadImage(imageUrl, filepath);
-
-    console.log('💾 Image saved to:', filepath);
-
-    // Return the local path
-    const localPath = `/imports/ai/${envId}.jpg`;
-
     return NextResponse.json({
       success: true,
-      id: envId,
-      imagePath: localPath,
+      imagePath: imageUrl,
       prompt: prompt,
       skyboxId: skyboxId
     });
