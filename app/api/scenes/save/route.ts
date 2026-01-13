@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 // Generate a random 6-character ID
 function generateId(): string {
@@ -56,7 +56,11 @@ export async function POST(request: NextRequest) {
     const id = generateId();
 
     // Create Supabase client
-    const supabase = await createClient();
+    console.log("USING KEY PREFIX:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 16));
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
     // Upsert scene data to database
     const { data, error } = await supabase
