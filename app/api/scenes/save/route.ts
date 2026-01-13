@@ -12,6 +12,8 @@ function generateId(): string {
 }
 
 export async function POST(request: NextRequest) {
+  console.log("SUPABASE SDK VERSION:", require("@supabase/supabase-js/package.json").version);
+
   // Check variables at the very beginning
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
