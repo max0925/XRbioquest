@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Generate a random 6-character ID
-function generateId(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let id = '';
-  for (let i = 0; i < 6; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return id;
-}
-
 export async function POST(request: NextRequest) {
   console.log("SUPABASE SDK VERSION:", require("@supabase/supabase-js/package.json").version);
 
@@ -54,9 +44,6 @@ export async function POST(request: NextRequest) {
 
     const sceneData = await request.json();
 
-    // Generate unique ID
-    const id = generateId();
-
     // Create Supabase client
     console.log("USING KEY PREFIX:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 16));
     const supabase = createClient(
@@ -64,11 +51,10 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Upsert scene data to database
+    // Insert scene data to database
     const { data, error } = await supabase
       .from('scenes')
-      .upsert({
-        id,
+      .insert({
         data: sceneData,
         created_at: new Date().toISOString()
       })
