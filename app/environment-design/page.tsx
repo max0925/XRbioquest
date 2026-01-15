@@ -539,26 +539,163 @@ export default function EnvironmentDesignPage() {
     }
   };
 
-  // Serialize scene data to JSON
+  // Serialize scene data to JSON - reads from live A-Frame DOM
   const serializeScene = () => {
-    const sceneData = {
-      environment: {
+    // Helper to parse A-Frame position/rotation/scale strings or objects
+    const parseVec3 = (val) => {
+      if (!val) return { x: 0, y: 0, z: 0 };
+      if (typeof val === 'object') return { x: val.x || 0, y: val.y || 0, z: val.z || 0 };
+      const parts = String(val).split(' ').map(Number);
+      return { x: parts[0] || 0, y: parts[1] || 0, z: parts[2] || 0 };
+    };
+
+    const parseScale = (val) => {
+      if (!val) return 1;
+      if (typeof val === 'number') return val;
+      if (typeof val === 'object') return val.x || 1;
+      const parts = String(val).split(' ').map(Number);
+      return parts[0] || 1;
+    };
+
+    // Read environment from DOM or fall back to state
+    let environment = null;
+    const envAsset = sceneAssets.find(a => a.type === 'environment-3d' || a.type === 'environment-ai');
+    if (envAsset) {
+      const envEl = document.querySelector(`[data-uid="${envAsset.uid}"]`);
+      if (envEl) {
+        const pos = envEl.getAttribute('position');
+        const rot = envEl.getAttribute('rotation');
+        const scale = envEl.getAttribute('scale');
+        environment = {
+          id: envAsset.id || envAsset.uid,
+          name: envAsset.name,
+          thumb: envAsset.thumb || envAsset.thumbnail,
+          modelPath: envAsset.modelPath || null,
+          imagePath: envAsset.imagePath || null,
+          type: envAsset.type,
+          position: parseVec3(pos),
+          rotation: parseVec3(rot),
+          scale: parseScale(scale)
+        };
+      } else {
+        // Fall back to state
+        environment = {
+          id: envAsset.id || envAsset.uid,
+          name: envAsset.name,
+          thumb: envAsset.thumb || envAsset.thumbnail,
+          modelPath: envAsset.modelPath || null,
+          imagePath: envAsset.imagePath || null,
+          type: envAsset.type,
+          position: envAsset.position || { x: 0, y: 0, z: 0 },
+          rotation: envAsset.rotation || { x: 0, y: 0, z: 0 },
+          scale: envAsset.scale || 1
+        };
+      }
+    } else if (selectedEnv) {
+      // Fall back to wizard state if no sceneAssets environment
+      environment = {
         ...selectedEnv,
-        position: selectedEnv?.position || { x: 0, y: 0, z: 0 },
-        rotation: selectedEnv?.rotation || { x: 0, y: 0, z: 0 },
-        scale: selectedEnv?.scale || 1
-      },
-      models: selectedModels.filter(m => m.placed).map(m => ({
-        uid: m.uid,
-        name: m.name,
-        modelPath: m.modelPath,
-        position: m.position,
-        rotation: m.rotation,
-        scale: m.scale,
-        interactionFX: m.interactionFX
-      })),
+        position: selectedEnv.position || { x: 0, y: 0, z: 0 },
+        rotation: selectedEnv.rotation || { x: 0, y: 0, z: 0 },
+        scale: selectedEnv.scale || 1
+      };
+    }
+
+    // Read models from DOM
+    const models = [];
+    const modelAssets = sceneAssets.filter(a => a.type === 'model' && a.visible !== false);
+
+    for (const asset of modelAssets) {
+      const el = document.querySelector(`[data-uid="${asset.uid}"]`);
+      if (el) {
+        const pos = el.getAttribute('position');
+        const rot = el.getAttribute('rotation');
+        const scale = el.getAttribute('scale');
+
+        // Check for interaction FX components on the element
+        const hasGrabbable = el.hasAttribute('grabbable');
+        const hasGlowPulse = el.hasAttribute('glow-pulse');
+        const hasCollisionTrigger = el.hasAttribute('collision-trigger');
+
+        // Get model path from nested gltf-model or from asset state
+        const gltfEl = el.querySelector('a-gltf-model');
+        const modelPath = gltfEl?.getAttribute('src') || asset.modelPath;
+
+        models.push({
+          uid: asset.uid,
+          name: asset.name || el.getAttribute('data-name') || 'Untitled',
+          modelPath: modelPath,
+          position: parseVec3(pos),
+          rotation: parseVec3(rot),
+          scale: parseScale(scale),
+          interactionFX: {
+            grabbable: hasGrabbable || asset.interactionFX?.grabbable || false,
+            glowPulse: hasGlowPulse || asset.interactionFX?.glowPulse || false,
+            collisionTrigger: hasCollisionTrigger || asset.interactionFX?.collisionTrigger || false
+          }
+        });
+      } else {
+        // Fall back to state if DOM element not found
+        models.push({
+          uid: asset.uid,
+          name: asset.name,
+          modelPath: asset.modelPath,
+          position: asset.position || { x: 0, y: 1, z: -3 },
+          rotation: asset.rotation || { x: 0, y: 0, z: 0 },
+          scale: asset.scale || 1,
+          interactionFX: asset.interactionFX || {
+            grabbable: false,
+            glowPulse: false,
+            collisionTrigger: false
+          }
+        });
+      }
+    }
+
+    // Also include placed models from wizard state (for backwards compatibility)
+    const placedWizardModels = selectedModels.filter(m => m.placed && !modelAssets.find(a => a.uid === m.uid));
+    for (const m of placedWizardModels) {
+      const el = document.querySelector(`[data-uid="${m.uid}"]`);
+      if (el) {
+        const pos = el.getAttribute('position');
+        const rot = el.getAttribute('rotation');
+        const scale = el.getAttribute('scale');
+        const gltfEl = el.querySelector('a-gltf-model');
+        const modelPath = gltfEl?.getAttribute('src') || m.modelPath;
+
+        models.push({
+          uid: m.uid,
+          name: m.name,
+          modelPath: modelPath,
+          position: parseVec3(pos),
+          rotation: parseVec3(rot),
+          scale: parseScale(scale),
+          interactionFX: {
+            grabbable: el.hasAttribute('grabbable') || m.interactionFX?.grabbable || false,
+            glowPulse: el.hasAttribute('glow-pulse') || m.interactionFX?.glowPulse || false,
+            collisionTrigger: el.hasAttribute('collision-trigger') || m.interactionFX?.collisionTrigger || false
+          }
+        });
+      } else {
+        models.push({
+          uid: m.uid,
+          name: m.name,
+          modelPath: m.modelPath,
+          position: m.position,
+          rotation: m.rotation,
+          scale: m.scale,
+          interactionFX: m.interactionFX
+        });
+      }
+    }
+
+    const sceneData = {
+      environment,
+      models,
       timestamp: new Date().toISOString()
     };
+
+    console.log('Serialized scene from DOM:', sceneData);
     return JSON.stringify(sceneData);
   };
 
