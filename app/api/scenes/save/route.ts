@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Generate a random 6-character short ID for user-facing URLs
+function generateShortId(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 6; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+
 export async function POST(request: NextRequest) {
   console.log("SUPABASE SDK VERSION:", require("@supabase/supabase-js/package.json").version);
 
@@ -44,6 +54,9 @@ export async function POST(request: NextRequest) {
 
     const sceneData = await request.json();
 
+    // Generate short ID for user-facing URLs
+    const shortId = generateShortId();
+
     // Create Supabase client
     console.log("USING KEY PREFIX:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 16));
     const supabase = createClient(
@@ -51,14 +64,15 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Insert scene data to database
+    // Insert scene data to database (id is auto-generated UUID, short_id is for URLs)
     const { data, error } = await supabase
       .from('scenes')
       .insert({
+        short_id: shortId,
         data: sceneData,
         created_at: new Date().toISOString()
       })
-      .select('id')
+      .select('short_id')
       .single();
 
     if (error) {
@@ -68,8 +82,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: data.id,
-      url: `/view/${data.id}`
+      id: data.short_id,
+      url: `/view/${data.short_id}`
     });
 
   } catch (error: any) {

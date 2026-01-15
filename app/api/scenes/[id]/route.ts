@@ -24,11 +24,11 @@ export async function GET(
     // Create Supabase client
     const supabase = await createClient();
 
-    // Fetch scene from database
+    // Fetch scene from database by short_id
     const { data, error } = await supabase
       .from('scenes')
       .select('data')
-      .eq('id', id)
+      .eq('short_id', id)
       .single();
 
     if (error || !data) {
