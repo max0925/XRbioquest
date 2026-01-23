@@ -15,6 +15,12 @@ declare module "react" {
       "a-gltf-model": any;
       "a-assets": any;
       "a-asset-item": any;
+      "a-text": any;
+      "a-ring": any;
+      "a-torus": any;
+      "a-cursor": any;
+      "a-cylinder": any;
+      "a-cone": any;
     }
   }
 }

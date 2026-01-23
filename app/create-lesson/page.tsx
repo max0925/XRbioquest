@@ -112,89 +112,14 @@ export default function CreateLessonPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Core send logic
+  // Core send logic - redirect to environment-design with prompt
   const handleSend = async (promptText?: string) => {
     const messageToSend = promptText || input;
     if (!messageToSend.trim() || isLoading) return;
 
-    const currentUserInput = messageToSend;
-
-    // Add user message immediately
-    const userMessage = { role: 'user' as const, content: currentUserInput };
-    setMessages(prev => [...prev, userMessage]);
-
-    setIsLoading(true);
-    setIsChatStarted(true);
-    setInput("");
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          input: currentUserInput,
-          conversationId,
-          history: messages.map(m => ({ role: m.role, content: m.content }))
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error("API Error:", data?.error || res.statusText);
-        window.alert("AI Error: " + (data?.error || res.statusText));
-        setMessages(prev => prev.slice(0, -1)); // Remove user message on error
-        return;
-      }
-
-      // Handle different response types
-      if (data.type === 'chat') {
-        // Casual conversation response
-        const assistantMessage = {
-          role: 'assistant' as const,
-          content: data.message,
-          type: 'chat' as const
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-
-      } else if (data.type === 'lesson') {
-        // Lesson plan response
-        const formattedResponse = `
-### 📚 Lesson Plan
-${data.lesson_plan || "N/A"}
-
-### 🎮 VR Game Design
-${data.vr_game_design || "N/A"}
-
-### 🧠 Pedagogical Foundation
-${data.pedagogical_foundation || "N/A"}
-
-### 📦 Required 3D Assets
-${data.suggested_assets ? data.suggested_assets.map((a: any) => `• **${a.name}**: ${a.role}`).join('\n') : "N/A"}
-        `.trim();
-
-        const assistantMessage = {
-          role: 'assistant' as const,
-          content: formattedResponse,
-          type: 'lesson' as const
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-
-        // Store lesson data for environment generation
-        localStorage.setItem("skybox_prompt", data.skybox_prompt || "");
-        localStorage.setItem("suggested_assets", JSON.stringify(data.suggested_assets || []));
-        localStorage.setItem("vr_game_design", data.vr_game_design || "");
-      }
-
-    } catch (error) {
-      console.error("AI Interface Error:", error);
-      window.alert("Connection failed. Please check your network.");
-      setMessages(prev => prev.slice(0, -1)); // Remove user message on error
-    } finally {
-      setIsLoading(false);
-    }
+    // Store the prompt and redirect to environment-design
+    localStorage.setItem("initial_prompt", messageToSend);
+    router.push(`/environment-design?prompt=${encodeURIComponent(messageToSend)}`);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

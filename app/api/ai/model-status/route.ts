@@ -27,8 +27,6 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     const status = data.status;
 
-    console.log(`📊 Task ${taskId}: ${status}`);
-
     if (status === 'SUCCEEDED') {
       return NextResponse.json({
         status: 'SUCCEEDED',

@@ -3,18 +3,42 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CORS PROXY - Wrap external URLs to load AI-generated assets
+// ═══════════════════════════════════════════════════════════════════════════
+const PROXY_DOMAINS = ['assets.meshy.ai', 'api.meshy.ai', 'meshy.ai', 'blockadelabs', 's3.amazonaws.com', 'storage.googleapis.com', 'cloudfront.net'];
+
+function shouldProxy(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return PROXY_DOMAINS.some(domain => url.includes(domain));
+}
+
+function proxyUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (shouldProxy(url)) {
+    return `/api/proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
+// Safe scale validation
+const safeScale = (scale: number | undefined | null): number => {
+  if (scale === null || scale === undefined || !isFinite(scale) || scale <= 0) {
+    return 1;
+  }
+  return Math.max(0.001, Math.min(1000, scale));
+};
+
 export default function ViewScenePage() {
   const params = useParams();
-  const [sceneData, setSceneData] = useState(null);
+  const [sceneData, setSceneData] = useState<any>(null);
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadScene = async () => {
       try {
         const id = params.id as string;
-
-        // Fetch scene from API
         const response = await fetch(`/api/scenes/${id}`);
         const data = await response.json();
 
@@ -24,7 +48,6 @@ export default function ViewScenePage() {
 
         setSceneData(data.data);
       } catch (err: any) {
-        console.error('Failed to load scene:', err);
         setError(err.message || 'Failed to load scene');
       }
     };
@@ -40,7 +63,6 @@ export default function ViewScenePage() {
         require("aframe-extras");
       }
 
-      // Load aframe-transformer-component
       if (!document.querySelector('script[src*="aframe-transformer-component"]')) {
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/aframe-transformer-component@1.2.0/dist/aframe-transformer-component.min.js';
@@ -48,9 +70,7 @@ export default function ViewScenePage() {
         document.head.appendChild(script);
       }
 
-      const timer = setTimeout(() => {
-        setReady(true);
-      }, 150);
+      const timer = setTimeout(() => setReady(true), 150);
       return () => clearTimeout(timer);
     }
   }, [sceneData]);
@@ -78,22 +98,35 @@ export default function ViewScenePage() {
     );
   }
 
+  // Determine environment type and URLs (proxy external URLs)
+  const env = sceneData.environment;
+  const isAISkybox = env?.type === 'environment-ai' || env?.imagePath;
+  const envModelPath = proxyUrl(env?.modelPath);
+  const envImagePath = proxyUrl(env?.imagePath);
+
   return (
     <div className="h-screen w-screen bg-black">
       <a-scene
         embedded
         vr-mode-ui="enabled: true"
-        renderer="antialias: true; colorManagement: true;"
+        renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
       >
-        {/* Environment */}
-        {sceneData.environment?.modelPath ? (
+        {/* Environment - Handle both GLTF environments and AI Skyboxes */}
+        {isAISkybox && envImagePath ? (
+          // AI-generated 360 skybox
+          <a-sky
+            src={envImagePath}
+            rotation={`${env?.rotation?.x || 0} ${env?.rotation?.y || -130} ${env?.rotation?.z || 0}`}
+          ></a-sky>
+        ) : envModelPath ? (
+          // GLTF environment model
           <>
             <a-gltf-model
-              src={sceneData.environment.modelPath}
+              src={envModelPath}
               crossorigin="anonymous"
-              position={`${sceneData.environment.position?.x || 0} ${sceneData.environment.position?.y || 0} ${sceneData.environment.position?.z || 0}`}
-              rotation={`${sceneData.environment.rotation?.x || 0} ${sceneData.environment.rotation?.y || 0} ${sceneData.environment.rotation?.z || 0}`}
-              scale={`${sceneData.environment.scale || 1} ${sceneData.environment.scale || 1} ${sceneData.environment.scale || 1}`}
+              position={`${env?.position?.x || 0} ${env?.position?.y || 0} ${env?.position?.z || 0}`}
+              rotation={`${env?.rotation?.x || 0} ${env?.rotation?.y || 0} ${env?.rotation?.z || 0}`}
+              scale={`${safeScale(env?.scale)} ${safeScale(env?.scale)} ${safeScale(env?.scale)}`}
               shadow="receive: true"
             ></a-gltf-model>
             <a-entity
@@ -106,14 +139,16 @@ export default function ViewScenePage() {
             ></a-entity>
           </>
         ) : (
+          // Default fallback environment
           <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2;"></a-entity>
         )}
 
-        {/* Models */}
-        {sceneData.models?.map((model, idx) => {
+        {/* Models - Proxy all external URLs */}
+        {sceneData.models?.map((model: any, idx: number) => {
           const pos = model.position || { x: (idx * 2) - 1, y: 1, z: -3 };
           const rot = model.rotation || { x: 0, y: 0, z: 0 };
-          const scale = model.scale || 1;
+          const scale = safeScale(model.scale);
+          const modelPath = proxyUrl(model.modelPath);
 
           return (
             <a-entity
@@ -125,16 +160,17 @@ export default function ViewScenePage() {
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
               {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
             >
-              {model.modelPath ? (
+              {modelPath ? (
                 <a-gltf-model
-                  src={model.modelPath}
+                  src={modelPath}
                   crossorigin="anonymous"
                   shadow="cast: true; receive: true"
                 ></a-gltf-model>
               ) : (
+                // Fallback sphere when no model path (loading failed)
                 <a-entity
                   geometry="primitive: sphere; radius: 0.4"
-                  material="color: #10b981; roughness: 0.4; metalness: 0.3"
+                  material="color: #f59e0b; roughness: 0.4; metalness: 0.3"
                   shadow="cast: true"
                 ></a-entity>
               )}
@@ -150,21 +186,26 @@ export default function ViewScenePage() {
               {/* Label */}
               <a-entity
                 position="0 -0.7 0"
-                text={`value: ${model.name}; align: center; width: 3; color: #FFF; font: kelsonsans`}
+                text={`value: ${model.name || 'Model'}; align: center; width: 3; color: #FFF; font: kelsonsans`}
               ></a-entity>
             </a-entity>
           );
         })}
 
-        {/* Lighting */}
-        <a-entity light="type: ambient; intensity: 0.5"></a-entity>
-        <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="-1 3 1"></a-entity>
+        {/* PBR-optimized Scene Lighting */}
+        <a-entity light="type: ambient; color: #ffffff; intensity: 0.6"></a-entity>
+        <a-entity
+          light="type: directional; color: #ffffff; intensity: 0.8; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048"
+          position="2 4 2"
+        ></a-entity>
+        <a-entity
+          light="type: directional; color: #b4c6e0; intensity: 0.3"
+          position="-2 2 -2"
+        ></a-entity>
+        <a-entity light="type: hemisphere; color: #ffffff; groundColor: #444444; intensity: 0.4"></a-entity>
 
         {/* Camera with WASD controls */}
-        <a-entity
-          id="camera-rig"
-          position="0 1.6 5"
-        >
+        <a-entity id="camera-rig" position="0 1.6 5">
           <a-camera
             look-controls="pointerLockEnabled: false; reverseMouseDrag: false; touchEnabled: true;"
             wasd-controls="acceleration: 65"

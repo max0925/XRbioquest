@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// ✅ 必须使用 v2 接口
+// Meshy v2 Text-to-3D API
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,11 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.MESHY_API_KEY;
 
-    // Step 1: 发起 Meshy v2 任务
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Meshy API key not configured' }, { status: 500 });
+    }
+
+    // Meshy v2 Text-to-3D request with PBR texturing enabled
     const generateResponse = await fetch(MESHY_API_URL, {
       method: 'POST',
       headers: {
@@ -21,33 +25,31 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        mode: 'preview', // ✅ v2 必填参数
-        negative_prompt: 'low quality, blurry texture, monochrome',
+        mode: 'preview',
         prompt: prompt,
         art_style: 'realistic',
-        rich_text: true //
+        negative_prompt: 'low quality, blurry, distorted, ugly, monochrome, flat shading',
+        // PBR Material settings for textured output
+        enable_pbr: true,
+        texture_richness: 'high',
       }),
     });
 
     if (!generateResponse.ok) {
       const errorText = await generateResponse.text();
-      console.error('❌ Meshy Error:', errorText);
-      return NextResponse.json({ error: 'Meshy API rejected request' }, { status: 500 });
+      return NextResponse.json({ error: 'Meshy API rejected request', details: errorText }, { status: 500 });
     }
 
     const generateData = await generateResponse.json();
-    const taskId = generateData.result; // ✅ v2 返回结构
-
-    console.log('🔄 Meshy v2 Task Started:', taskId);
+    const taskId = generateData.result;
 
     return NextResponse.json({
       success: true,
       taskId: taskId,
-      message: 'Generation started via v2'
+      message: 'Generation started with PBR texturing'
     });
 
   } catch (error: any) {
-    console.error('❌ Server Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
