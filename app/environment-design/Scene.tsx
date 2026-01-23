@@ -11,7 +11,6 @@ export default function Scene({
 }) {
   const [ready, setReady] = useState(false);
   const sceneRef = useRef(null);
-  const envModelRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -41,13 +40,16 @@ export default function Scene({
   useEffect(() => {
     if (!ready || typeof window === "undefined") return;
 
-    const handleVerticalMovement = (evt) => {
+    const handleVerticalMovement = (evt: KeyboardEvent) => {
       const key = evt.key.toLowerCase();
       const cameraRig = document.querySelector('#camera-rig');
       if (!cameraRig) return;
 
+      // Fix TS Error: Cast to any to access .x .y .z properties safely
       const currentPos = cameraRig.getAttribute('position') as any;
       const speed = 0.5; // Movement speed for vertical controls
+
+      if (!currentPos) return;
 
       if (key === 'q') {
         // Q key: move down
@@ -76,9 +78,9 @@ export default function Scene({
             console.log('Grabbed:', this.el.getAttribute('data-name'));
             // Add visual feedback
             this.el.setAttribute('material', 'emissive', '#ffff00');
-            this.el.setAttribute('material', 'emissiveIntensity', 0.3);
+            this.el.setAttribute('material', 'emissiveIntensity', '0.3');
             setTimeout(() => {
-              this.el.setAttribute('material', 'emissiveIntensity', 0);
+              this.el.setAttribute('material', 'emissiveIntensity', '0');
             }, 200);
           });
         }
@@ -109,7 +111,7 @@ export default function Scene({
         },
         remove: function() {
           this.el.removeAttribute('animation__glow');
-          this.el.setAttribute('material', 'emissiveIntensity', 0);
+          this.el.setAttribute('material', 'emissiveIntensity', '0');
         }
       });
     }
@@ -121,10 +123,10 @@ export default function Scene({
           target: { default: '.clickable' }
         },
         init: function() {
-          this.el.setAttribute('material', 'opacity', 1);
+          this.el.setAttribute('material', 'opacity', '1');
 
           // Add collision detection
-          this.onCollision = (evt) => {
+          this.onCollision = (evt: any) => {
             const collidedEl = evt.detail.body.el;
             if (collidedEl && collidedEl.classList.contains('clickable')) {
               // Change both objects' colors
@@ -175,7 +177,7 @@ export default function Scene({
           });
 
           // Mouse down - start drag
-          this.el.addEventListener('mousedown', (evt) => {
+          this.el.addEventListener('mousedown', (evt: any) => {
             evt.stopPropagation();
             this.isDragging = true;
             this.el.sceneEl.canvas.style.cursor = 'grabbing';
@@ -195,14 +197,14 @@ export default function Scene({
 
             // Add visual feedback
             this.el.setAttribute('scale', {
-              x: (currentPos.scale || 1) * 1.1,
-              y: (currentPos.scale || 1) * 1.1,
-              z: (currentPos.scale || 1) * 1.1
+              x: (currentPos.scale?.x || 1) * 1.1,
+              y: (currentPos.scale?.y || 1) * 1.1,
+              z: (currentPos.scale?.z || 1) * 1.1
             });
           });
 
           // Mouse move - drag model
-          this.el.sceneEl.addEventListener('mousemove', (evt) => {
+          this.el.sceneEl.addEventListener('mousemove', (evt: any) => {
             if (!this.isDragging || !this.dragPlane) return;
 
             const camera = this.el.sceneEl.camera;
@@ -292,7 +294,7 @@ export default function Scene({
   useEffect(() => {
     if (!ready || typeof window === "undefined") return;
 
-    const handleTransformChanged = (evt) => {
+    const handleTransformChanged = (evt: any) => {
       const uid = activeSelection?.uid;
       if (!uid || !onAssetTransform) return;
 
@@ -321,12 +323,12 @@ export default function Scene({
     if (!ready || typeof window === "undefined" || !window.THREE || !onEnvironmentLoaded) return;
 
     // Find all 3D environment assets
-    const envAssets = sceneAssets.filter(asset => asset.type === 'environment-3d' && asset.visible);
+    const envAssets = sceneAssets.filter((asset: any) => asset.type === 'environment-3d' && asset.visible);
     if (envAssets.length === 0) return;
 
     // Wait for each environment model to load
     const checkModelsLoaded = setInterval(() => {
-      envAssets.forEach(env => {
+      envAssets.forEach((env: any) => {
         const envModel = document.querySelector(`[data-uid="${env.uid}"]`) as any;
         if (!envModel || envModel.dataset.boundingBoxCalculated) return;
 
@@ -356,6 +358,7 @@ export default function Scene({
   if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
 
   return (
+    // @ts-ignore
     <a-scene
       ref={sceneRef}
       embedded
@@ -365,7 +368,7 @@ export default function Scene({
       renderer="antialias: true; colorManagement: true;"
     >
       {/* Render all scene assets */}
-      {sceneAssets.map((asset) => {
+      {sceneAssets.map((asset: any) => {
         if (!asset.visible) return null;
 
         const isSelected = activeSelection?.uid === asset.uid;
@@ -375,11 +378,12 @@ export default function Scene({
         // Render AI Skybox
         if (asset.type === 'environment-ai') {
           return (
+            // @ts-ignore
             <a-sky
               key={asset.uid}
               data-uid={asset.uid}
               src={asset.imagePath}
-              crossorigin="anonymous"
+              crossOrigin="anonymous" 
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
             ></a-sky>
           );
@@ -389,13 +393,15 @@ export default function Scene({
         if (asset.type === 'environment-3d') {
           return (
             <a-entity key={asset.uid}>
+              {/* @ts-ignore */}
               <a-gltf-model
                 data-uid={asset.uid}
-                src={asset.modelPath}
+                src={`/api/ai/proxy-model?url=${encodeURIComponent(asset.modelPath)}`}
                 position={`${pos.x} ${pos.y} ${pos.z}`}
                 rotation={`${rot.x} ${rot.y} ${rot.z}`}
                 scale={`${asset.scale || 1} ${asset.scale || 1} ${asset.scale || 1}`}
                 shadow="receive: true"
+                crossOrigin="anonymous"
               ></a-gltf-model>
               {/* Ground plane for 3D environments */}
               <a-entity
@@ -410,12 +416,6 @@ export default function Scene({
         }
 
         // Render regular model
-        // Build interaction components string
-        const fxComponents = [];
-        if (asset.interactionFX?.grabbable) fxComponents.push('grabbable');
-        if (asset.interactionFX?.glowPulse) fxComponents.push('glow-pulse');
-        if (asset.interactionFX?.collisionTrigger) fxComponents.push('collision-trigger');
-
         return (
           <a-entity
             key={asset.uid}
@@ -437,14 +437,14 @@ export default function Scene({
             animation__leave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
           >
             {/* 使用 .glb 模型或回退到球体 */}
-            {/* 修复后的模型渲染代码 */}
             {asset.modelPath ? (
+              // @ts-ignore
               <a-gltf-model
-                key={`glb-${asset.uid}-${asset.modelPath}`} // 强制刷新，防止缓存
-                src={asset.modelPath}
-                crossorigin="anonymous" // ✅ 必须加这一行，允许加载 Meshy 远程资源
+                key={`glb-${asset.uid}-${asset.modelPath}`} // 强制刷新
+                src={`/api/ai/proxy-model?url=${encodeURIComponent(asset.modelPath)}`}
+                crossOrigin="anonymous" // ✅ 修复的核心：必须是大写的 O
                 shadow="cast: true; receive: true"
-                draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;" // ✅ 确保能解压 Meshy 模型
+                draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
               ></a-gltf-model>
             ) : (
               <a-entity
@@ -454,7 +454,7 @@ export default function Scene({
               ></a-entity>
             )}
 
-            {/* Selection highlight ring - Interactive transform gizmo managed by transformer component */}
+            {/* Selection highlight ring */}
             {isSelected && (
               <a-entity
                 geometry="primitive: ring; radiusInner: 0.5; radiusOuter: 0.6"
@@ -482,8 +482,8 @@ export default function Scene({
           );
         })}
 
-      {/* Default fallback environment when no environment assets exist */}
-      {sceneAssets.filter(asset => asset.type?.includes('environment')).length === 0 && (
+      {/* Default fallback environment */}
+      {sceneAssets.filter((asset: any) => asset.type?.includes('environment')).length === 0 && (
         <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2"></a-entity>
       )}
 
@@ -491,7 +491,7 @@ export default function Scene({
       <a-entity light="type: ambient; intensity: 0.5"></a-entity>
       <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="-1 3 1"></a-entity>
 
-      {/* Camera with WASD controls and Q/E vertical movement */}
+      {/* Camera Rig */}
       <a-entity
         id="camera-rig"
         position="0 1.6 5"
@@ -504,7 +504,7 @@ export default function Scene({
           "
           wasd-controls="acceleration: 65"
         >
-          {/* Crosshair for VR interactions */}
+          {/* Crosshair */}
           <a-entity
             position="0 0 -1"
             geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
