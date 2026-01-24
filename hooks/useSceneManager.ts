@@ -152,8 +152,20 @@ export function useSceneManager(): UseSceneManagerReturn {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = 'Failed to generate skybox';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.error || errorMsg;
+        } catch {
+          errorMsg = errorText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to generate');
 
       const blockadeImageUrl = data.imagePath;
       const skyboxId = data.skyboxId;
@@ -173,23 +185,46 @@ export function useSceneManager(): UseSceneManagerReturn {
       console.log(`[SKYBOX GEN] ✓ Image fetched: ${imageBlob.size} bytes, type: ${contentType}`);
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 3: Upload to Supabase Storage for permanent hosting
+      // STEP 3: Upload directly to Supabase Storage (client-side, no 413 errors)
       // ═══════════════════════════════════════════════════════════════════════
-      console.log(`[SKYBOX GEN] Step 3: Uploading to Supabase Storage...`);
-      const formData = new FormData();
-      formData.append('image', imageBlob);
-      formData.append('skyboxId', skyboxId.toString());
-      formData.append('contentType', contentType);
+      console.log(`[SKYBOX GEN] Step 3: Uploading directly to Supabase Storage...`);
 
-      const uploadResponse = await fetch('/api/ai/upload-skybox', {
-        method: 'POST',
-        body: formData,
-      });
-      const uploadData = await uploadResponse.json();
-      if (!uploadResponse.ok) throw new Error(uploadData.error || 'Failed to upload');
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-      const supabaseImageUrl = uploadData.publicUrl;
-      console.log(`[SKYBOX GEN] ✓ Upload complete: ${supabaseImageUrl}`);
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase configuration missing');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Normalize content type
+      const normalizedType = contentType === 'image/jpg' ? 'image/jpeg' : contentType;
+      const extension = normalizedType.includes('png') ? 'png' : 'jpg';
+      const fileName = `skybox-${skyboxId}-${Date.now()}.${extension}`;
+
+      // Direct upload to Supabase Storage (bypasses Next.js API route)
+      const imageBuffer = await imageBlob.arrayBuffer();
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('skyboxes')
+        .upload(fileName, imageBuffer, {
+          contentType: normalizedType,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`Supabase upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('skyboxes')
+        .getPublicUrl(fileName);
+
+      const supabaseImageUrl = publicUrlData.publicUrl;
+      console.log(`[SKYBOX GEN] ✓ Direct upload complete: ${supabaseImageUrl}`);
 
       // ═══════════════════════════════════════════════════════════════════════
       // STEP 4: Apply to scene or show preview

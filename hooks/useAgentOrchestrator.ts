@@ -278,9 +278,20 @@ export function useAgentOrchestrator({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input, history: messages })
       });
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data.reasoning || 'API Error');
+      if (!res.ok) {
+        const errorText = await res.text();
+        let errorMsg = 'API Error';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.reasoning || errorData.error || errorMsg;
+        } catch {
+          errorMsg = errorText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await res.json();
 
       if (data.actions) {
         // Lesson Plan Display

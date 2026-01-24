@@ -24,12 +24,25 @@ export function useMeshyAI() {
     for (let i = 0; i < CONFIG.TIMEOUT_ATTEMPTS; i++) {
       try {
         const res = await fetch(`/api/ai/model-status?taskId=${taskId}`);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          let errorMsg = 'Status check failed';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMsg = errorData.error || errorMsg;
+          } catch {
+            errorMsg = errorText || errorMsg;
+          }
+          throw new Error(errorMsg);
+        }
+
         const data = await res.json();
         onUpdate(data.status, data.progress || 0);
-        
+
         if (data.status === 'SUCCEEDED') return { success: true, ...data };
         if (data.status === 'FAILED') return { success: false, error: data.error };
-        
+
         await new Promise(r => setTimeout(r, CONFIG.POLL_INTERVAL));
       } catch (e) {
         await new Promise(r => setTimeout(r, CONFIG.POLL_INTERVAL));
