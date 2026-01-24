@@ -66,7 +66,7 @@ export function useMeshyAI() {
     try {
       // 1. Preview
       onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Initializing geometry...`);
-      const startRes = await fetch('/api/ai/generate-model', {
+      const startReq = await fetch('/api/ai/generate-model', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,8 +74,17 @@ export function useMeshyAI() {
           texture_quality: CONFIG.QUALITY,
           topology: CONFIG.TOPOLOGY
         })
-      }).then(r => r.json());
+      });
 
+      // Handle 429 rate limit
+      if (startReq.status === 429) {
+        activeGenerations--;
+        const error = await startReq.json();
+        onStatus(`Rate limit: ${error.current}/${error.limit} models active`);
+        return { success: false, error: error.error, rateLimited: true };
+      }
+
+      const startRes = await startReq.json();
       if (!startRes.taskId) throw new Error(startRes.error || 'Start failed');
 
       const previewRes = await pollStatus(startRes.taskId, (s, p) =>

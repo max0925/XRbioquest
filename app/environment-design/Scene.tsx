@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Scene({
   sceneAssets = [],
@@ -11,6 +12,7 @@ export default function Scene({
 }) {
   const [ready, setReady] = useState(false);
   const sceneRef = useRef(null);
+  const [loadingModels, setLoadingModels] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -355,10 +357,87 @@ export default function Scene({
     return () => clearInterval(checkModelsLoaded);
   }, [ready, sceneAssets, onEnvironmentLoaded]);
 
+  // Track model loading progress with Three.js LoadingManager
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.THREE) return;
+
+    const handleModelLoading = () => {
+      sceneAssets.forEach((asset: any) => {
+        if (!asset.modelPath || asset.type !== 'model') return;
+
+        const modelEl = document.querySelector(`[data-loading-uid="${asset.uid}"]`) as any;
+        if (!modelEl) return;
+
+        // Track loading start
+        const onProgress = () => {
+          // Since A-Frame doesn't expose granular progress, we simulate it
+          setLoadingModels(prev => {
+            const newMap = new Map(prev);
+            const current = newMap.get(asset.uid) || 0;
+            if (current < 90) {
+              newMap.set(asset.uid, Math.min(current + 10, 90));
+            }
+            return newMap;
+          });
+        };
+
+        const onLoaded = () => {
+          setLoadingModels(prev => {
+            const newMap = new Map(prev);
+            newMap.set(asset.uid, 100);
+            return newMap;
+          });
+
+          // Remove from loading after animation
+          setTimeout(() => {
+            setLoadingModels(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(asset.uid);
+              return newMap;
+            });
+          }, 500);
+        };
+
+        const onError = () => {
+          setLoadingModels(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(asset.uid);
+            return newMap;
+          });
+        };
+
+        // Listen to A-Frame model events
+        modelEl.addEventListener('model-loaded', onLoaded);
+        modelEl.addEventListener('model-error', onError);
+
+        // Start simulated progress
+        if (!loadingModels.has(asset.uid)) {
+          setLoadingModels(prev => new Map(prev).set(asset.uid, 10));
+          const progressInterval = setInterval(onProgress, 300);
+
+          // Cleanup
+          modelEl._progressInterval = progressInterval;
+        }
+
+        return () => {
+          modelEl.removeEventListener('model-loaded', onLoaded);
+          modelEl.removeEventListener('model-error', onError);
+          if (modelEl._progressInterval) {
+            clearInterval(modelEl._progressInterval);
+          }
+        };
+      });
+    };
+
+    const timer = setTimeout(handleModelLoading, 100);
+    return () => clearTimeout(timer);
+  }, [ready, sceneAssets]);
+
   if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
 
   return (
-    // @ts-ignore
+    <>
+    {/* @ts-ignore */}
     <a-scene
       ref={sceneRef}
       embedded
@@ -436,57 +515,24 @@ export default function Scene({
             animation__hover="property: scale; to: 1.05 1.05 1.05; startEvents: mouseenter; dur: 200"
             animation__leave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
           >
-            {/* 使用 .glb 模型或回退到加载动画 */}
+            {/* Model or simple loading state */}
             {asset.modelPath ? (
               // @ts-ignore
               <a-gltf-model
-                key={`glb-${asset.uid}-${asset.modelPath}`} // 强制刷新
+                key={`glb-${asset.uid}-${asset.modelPath}`}
                 src={`/api/ai/proxy-model?url=${encodeURIComponent(asset.modelPath)}`}
-                crossOrigin="anonymous" // ✅ 修复的核心：必须是大写的 O
+                crossOrigin="anonymous"
                 shadow="cast: true; receive: true"
                 draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
+                data-loading-uid={asset.uid}
               ></a-gltf-model>
             ) : (
-              // Loading indicator with animated rings
-              <a-entity>
-                {/* Core sphere */}
-                <a-entity
-                  geometry="primitive: sphere; radius: 0.25"
-                  material="color: #10b981; opacity: 0.3; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
-                  animation="property: scale; to: 1.2 1.2 1.2; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine"
-                ></a-entity>
-
-                {/* Outer rotating ring 1 */}
-                <a-entity
-                  geometry="primitive: torus; radius: 0.5; radiusTubular: 0.02"
-                  material="color: #10b981; opacity: 0.6; transparent: true; emissive: #10b981; emissiveIntensity: 0.8"
-                  rotation="45 0 0"
-                  animation="property: rotation; to: 45 360 0; dur: 2000; loop: true; easing: linear"
-                ></a-entity>
-
-                {/* Outer rotating ring 2 */}
-                <a-entity
-                  geometry="primitive: torus; radius: 0.5; radiusTubular: 0.02"
-                  material="color: #10b981; opacity: 0.6; transparent: true; emissive: #10b981; emissiveIntensity: 0.8"
-                  rotation="0 45 0"
-                  animation="property: rotation; to: 360 45 0; dur: 3000; loop: true; easing: linear"
-                ></a-entity>
-
-                {/* Inner orbit particles */}
-                <a-entity
-                  geometry="primitive: sphere; radius: 0.05"
-                  material="color: #10b981; emissive: #10b981; emissiveIntensity: 1"
-                  position="0.35 0 0"
-                  animation="property: object3D.position.x; to: -0.35; dir: alternate; dur: 1500; loop: true; easing: easeInOutQuad"
-                ></a-entity>
-
-                <a-entity
-                  geometry="primitive: sphere; radius: 0.05"
-                  material="color: #10b981; emissive: #10b981; emissiveIntensity: 1"
-                  position="0 0.35 0"
-                  animation="property: object3D.position.y; to: -0.35; dir: alternate; dur: 1500; loop: true; easing: easeInOutQuad"
-                ></a-entity>
-              </a-entity>
+              // Minimal loading placeholder - just pulsing emerald glow
+              <a-entity
+                geometry="primitive: sphere; radius: 0.3"
+                material="color: #10b981; opacity: 0.4; transparent: true; emissive: #10b981; emissiveIntensity: 0.8"
+                animation="property: components.material.material.emissiveIntensity; from: 0.3; to: 1.2; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine"
+              ></a-entity>
             )}
 
             {/* Selection highlight ring */}
@@ -548,5 +594,65 @@ export default function Scene({
         </a-camera>
       </a-entity>
     </a-scene>
+
+    {/* Loading Progress Overlay */}
+    <AnimatePresence>
+      {Array.from(loadingModels.entries()).map(([uid, progress]) => {
+        const asset = sceneAssets.find((a: any) => a.uid === uid);
+        if (!asset) return null;
+
+        return (
+          <motion.div
+            key={uid}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed bottom-24 right-6 z-[230]"
+            style={{ marginBottom: `${Array.from(loadingModels.keys()).indexOf(uid) * 80}px` }}
+          >
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.3)] min-w-[260px]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-white font-medium truncate max-w-[170px]">
+                  {asset.name}
+                </span>
+                <span className="text-xs text-emerald-500 font-mono font-semibold">
+                  {progress}%
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                />
+              </div>
+
+              {/* Loading status */}
+              <div className="mt-2 flex items-center gap-1.5">
+                <div className="text-[10px] text-white/40">Downloading model</div>
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-1 h-1 bg-emerald-500/60 rounded-full"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        delay: i * 0.2
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
+    </AnimatePresence>
+  </>
   );
 }

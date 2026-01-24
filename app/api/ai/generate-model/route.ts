@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getClientId, checkRateLimit, incrementGeneration } from '@/lib/meshyRateLimit';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MESHY API GUARD - Set to true to disable all Meshy API calls for testing
 // ═══════════════════════════════════════════════════════════════════════════
-const MESHY_DISABLED = true; // 🔧 SET TO false TO RE-ENABLE
+const MESHY_DISABLED = false; // ✅ RE-ENABLED with server-side hard limits
 
 // Meshy v2 Text-to-3D API
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
@@ -16,6 +17,22 @@ export async function POST(request: NextRequest) {
       disabled: true
     }, { status: 503 });
   }
+
+  // 🔒 SERVER-SIDE HARD LIMIT ENFORCEMENT
+  const clientId = getClientId(request.headers);
+  const rateCheck = checkRateLimit(clientId);
+
+  if (!rateCheck.allowed) {
+    return NextResponse.json({
+      error: `Rate limit exceeded: Maximum ${rateCheck.limit} concurrent model generations allowed`,
+      limit: rateCheck.limit,
+      current: rateCheck.current
+    }, { status: 429 });
+  }
+
+  // Increment counter
+  incrementGeneration(clientId);
+
   try {
     const { prompt } = await request.json();
 
@@ -58,7 +75,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       taskId: taskId,
-      message: 'Generation started with PBR texturing'
+      message: 'Generation started with PBR texturing',
+      clientId: clientId // Return clientId for tracking
     });
 
   } catch (error: any) {
