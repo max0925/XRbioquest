@@ -15,6 +15,7 @@ export interface DesignerPanelProps {
   isOpen: boolean;
   sceneAssets: SceneAsset[];
   activeSelection: SceneAsset | null;
+  loadingModels?: Map<string, number>;
   onSelectAsset: (asset: SceneAsset | null) => void;
   onUpdateTransform: (uid: string, transform: Partial<SceneAsset>) => void;
   onToggleVisibility: (uid: string) => void;
@@ -26,6 +27,7 @@ export default function DesignerPanel({
   isOpen,
   sceneAssets,
   activeSelection,
+  loadingModels,
   onSelectAsset,
   onUpdateTransform,
   onToggleVisibility,
@@ -61,6 +63,7 @@ export default function DesignerPanel({
             <SceneAssetsList
               sceneAssets={sceneAssets}
               activeSelection={activeSelection}
+              loadingModels={loadingModels}
               onSelectAsset={onSelectAsset}
               onToggleVisibility={onToggleVisibility}
               onRemoveAsset={onRemoveAsset}
@@ -327,6 +330,7 @@ function InteractionFXSection({ activeSelection, onUpdateTransform }: Interactio
 interface SceneAssetsListProps {
   sceneAssets: SceneAsset[];
   activeSelection: SceneAsset | null;
+  loadingModels?: Map<string, number>;
   onSelectAsset: (asset: SceneAsset) => void;
   onToggleVisibility: (uid: string) => void;
   onRemoveAsset: (uid: string) => void;
@@ -335,6 +339,7 @@ interface SceneAssetsListProps {
 function SceneAssetsList({
   sceneAssets,
   activeSelection,
+  loadingModels,
   onSelectAsset,
   onToggleVisibility,
   onRemoveAsset,
@@ -372,6 +377,17 @@ function SceneAssetsList({
                   {asset.type === 'environment-3d' ? 'Environment' :
                    asset.type === 'environment-ai' ? 'AI Skybox' : 'Model'}
                 </span>
+                {/* Inline loading progress */}
+                {loadingModels && loadingModels.has(asset.uid) && (
+                  <span className="text-[10px] text-emerald-500/70 mt-0.5">
+                    {asset.pendingGeneration ? 'Generating' : 'Loading'}… {loadingModels.get(asset.uid)}%
+                  </span>
+                )}
+                {asset.pendingGeneration && (!loadingModels || !loadingModels.has(asset.uid)) && (
+                  <span className="text-[10px] text-emerald-500/70 mt-0.5">
+                    Generating…
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-0.5">

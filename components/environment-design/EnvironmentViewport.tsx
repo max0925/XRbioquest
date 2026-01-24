@@ -40,6 +40,7 @@ export interface EnvironmentViewportProps {
   onToggleRightPanel: () => void;
   onSetTransformMode: (mode: 'translate' | 'rotate' | 'scale') => void;
   onResetTransform: () => void;
+  onLoadingStateChange?: (loadingModels: Map<string, number>) => void;
 }
 
 export default function EnvironmentViewport({
@@ -48,6 +49,7 @@ export default function EnvironmentViewport({
   transformMode,
   leftPanelOpen,
   rightPanelOpen,
+  onLoadingStateChange,
   onSelectAsset,
   onUpdateTransform,
   onEnvironmentLoaded,
@@ -90,6 +92,7 @@ export default function EnvironmentViewport({
         onAssetClick={onSelectAsset}
         onAssetTransform={onUpdateTransform}
         onEnvironmentLoaded={onEnvironmentLoaded}
+        onLoadingStateChange={onLoadingStateChange}
       />
 
       {/* Transform Toolbar */}

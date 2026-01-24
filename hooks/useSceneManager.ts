@@ -99,6 +99,10 @@ export interface UseSceneManagerReturn {
   toggleAssetVisibility: (uid: string) => void;
   removeAsset: (uid: string) => void;
 
+  // Loading state
+  loadingModels: Map<string, number>;
+  handleLoadingStateChange: (loadingModels: Map<string, number>) => void;
+
   // Agent
   agent: ReturnType<typeof useAgentOrchestrator>;
 
@@ -119,6 +123,9 @@ export function useSceneManager(): UseSceneManagerReturn {
   const [transformMode, setTransformMode] = useState<'translate' | 'rotate' | 'scale'>('translate');
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+
+  // Loading state
+  const [loadingModels, setLoadingModels] = useState<Map<string, number>>(new Map());
 
   // Export state
   const [showExportPopup, setShowExportPopup] = useState(false);
@@ -411,6 +418,10 @@ export function useSceneManager(): UseSceneManagerReturn {
     if (activeSelection?.uid === uid) setActiveSelection(null);
   }, [activeSelection]);
 
+  const handleLoadingStateChange = useCallback((newLoadingModels: Map<string, number>) => {
+    setLoadingModels(newLoadingModels);
+  }, []);
+
   return {
     // Scene state
     sceneAssets,
@@ -446,6 +457,10 @@ export function useSceneManager(): UseSceneManagerReturn {
     // Asset management
     toggleAssetVisibility,
     removeAsset,
+
+    // Loading state
+    loadingModels,
+    handleLoadingStateChange,
 
     // Agent
     agent,

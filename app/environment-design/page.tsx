@@ -56,6 +56,7 @@ function EnvironmentDesignContent() {
           onToggleRightPanel={scene.toggleRightPanel}
           onSetTransformMode={scene.setTransformMode}
           onResetTransform={scene.handleResetTransform}
+          onLoadingStateChange={scene.handleLoadingStateChange}
         />
 
         {/* Right: Designer Panel */}
@@ -63,6 +64,7 @@ function EnvironmentDesignContent() {
           isOpen={scene.rightPanelOpen}
           sceneAssets={scene.sceneAssets}
           activeSelection={scene.activeSelection}
+          loadingModels={scene.loadingModels}
           onSelectAsset={scene.setActiveSelection}
           onUpdateTransform={scene.updateAssetTransform}
           onToggleVisibility={scene.toggleAssetVisibility}

@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
 export default function Scene({
   sceneAssets = [],
@@ -8,11 +7,19 @@ export default function Scene({
   transformMode,
   onAssetClick,
   onAssetTransform,
-  onEnvironmentLoaded
+  onEnvironmentLoaded,
+  onLoadingStateChange
 }) {
   const [ready, setReady] = useState(false);
   const sceneRef = useRef(null);
   const [loadingModels, setLoadingModels] = useState<Map<string, number>>(new Map());
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(loadingModels);
+    }
+  }, [loadingModels, onLoadingStateChange]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -594,65 +601,6 @@ export default function Scene({
         </a-camera>
       </a-entity>
     </a-scene>
-
-    {/* Loading Progress Overlay */}
-    <AnimatePresence>
-      {Array.from(loadingModels.entries()).map(([uid, progress]) => {
-        const asset = sceneAssets.find((a: any) => a.uid === uid);
-        if (!asset) return null;
-
-        return (
-          <motion.div
-            key={uid}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed bottom-24 right-6 z-[230]"
-            style={{ marginBottom: `${Array.from(loadingModels.keys()).indexOf(uid) * 80}px` }}
-          >
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.3)] min-w-[260px]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-white font-medium truncate max-w-[170px]">
-                  {asset.name}
-                </span>
-                <span className="text-xs text-emerald-500 font-mono font-semibold">
-                  {progress}%
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }}
-                />
-              </div>
-
-              {/* Loading status */}
-              <div className="mt-2 flex items-center gap-1.5">
-                <div className="text-[10px] text-white/40">Downloading model</div>
-                <div className="flex gap-1">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="w-1 h-1 bg-emerald-500/60 rounded-full"
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        delay: i * 0.2
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        );
-      })}
-    </AnimatePresence>
   </>
   );
 }
