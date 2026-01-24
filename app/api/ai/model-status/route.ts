@@ -48,9 +48,21 @@ export async function GET(request: NextRequest) {
       // ✅ Decrement counter on success
       decrementGeneration(clientId);
 
+      const modelUrl = data.model_urls?.glb;
+      if (!modelUrl) {
+        console.error(`[MESHY] TaskId ${taskId}: SUCCEEDED but no model URL`, data);
+        return NextResponse.json({
+          status: 'FAILED',
+          error: 'Model generation succeeded but no URL provided',
+          taskId: taskId,
+        });
+      }
+
+      console.log(`[MESHY] ✓ TaskId ${taskId}: Model ready - ${modelUrl.substring(0, 60)}...`);
+
       return NextResponse.json({
         status: 'SUCCEEDED',
-        modelUrl: data.model_urls?.glb, // ✅ v2 GLB 路径
+        modelUrl: modelUrl,
         thumbnail: data.thumbnail_url || null,
         taskId: taskId,
       });
@@ -58,15 +70,22 @@ export async function GET(request: NextRequest) {
       // ✅ Decrement counter on failure
       decrementGeneration(clientId);
 
+      const errorMsg = data.task_error?.message || 'Generation failed';
+      console.error(`[MESHY] ✗ TaskId ${taskId}: ${status} - ${errorMsg}`);
+
       return NextResponse.json({
         status: status,
-        error: data.task_error?.message || 'Generation failed',
+        error: errorMsg,
         taskId: taskId,
       });
     } else {
+      // Status is PENDING or IN_PROGRESS
+      const progress = data.progress || 0;
+      console.log(`[MESHY] TaskId ${taskId}: ${status} (${progress}%)`);
+
       return NextResponse.json({
         status: status,
-        progress: data.progress || 0,
+        progress: progress,
         taskId: taskId,
       });
     }

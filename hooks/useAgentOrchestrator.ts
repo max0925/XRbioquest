@@ -177,6 +177,7 @@ export function useAgentOrchestrator({
           }).then(res => {
             if (res.success && res.modelUrl) {
               updateStep(stepId, 'success', 'Model Ready');
+              addLog(`[MESHY] ✓ ${name}: Model URL received`);
               onSceneAssetsChange(prev => prev.map(a => a.uid === uid ? {
                 ...a,
                 modelPath: res.modelUrl,
@@ -185,8 +186,19 @@ export function useAgentOrchestrator({
                 interactionFX: { ...a.interactionFX, glowPulse: false }
               } : a));
             } else {
-              updateStep(stepId, 'failed', res.error);
-              addLog(`[MESHY] Failed: ${res.error}`);
+              // Handle failures: remove the placeholder asset
+              updateStep(stepId, 'failed', res.error || 'Generation failed');
+              addLog(`[MESHY] ✗ ${name}: ${res.error || 'Failed'}`);
+
+              // Remove the placeholder asset since generation failed
+              onSceneAssetsChange(prev => prev.filter(a => a.uid !== uid));
+
+              // Show error in automation steps
+              if (res.disabled) {
+                updateStep(stepId, 'failed', 'Meshy AI is disabled');
+              } else if (res.rateLimited || res.queued) {
+                updateStep(stepId, 'failed', 'Rate limit reached (max 2 concurrent)');
+              }
             }
           });
           break;

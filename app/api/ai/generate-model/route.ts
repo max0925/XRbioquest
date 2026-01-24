@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
   const rateCheck = checkRateLimit(clientId);
 
   if (!rateCheck.allowed) {
+    console.warn(`[RATE LIMIT] ✗ Client ${clientId.substring(0, 10)}: Request blocked (${rateCheck.current}/${rateCheck.limit})`);
     return NextResponse.json({
       error: `Rate limit exceeded: Maximum ${rateCheck.limit} concurrent model generations allowed`,
       limit: rateCheck.limit,
@@ -71,6 +72,13 @@ export async function POST(request: NextRequest) {
 
     const generateData = await generateResponse.json();
     const taskId = generateData.result;
+
+    if (!taskId) {
+      console.error('[MESHY] No taskId received from API:', generateData);
+      return NextResponse.json({ error: 'Meshy API did not return a taskId' }, { status: 500 });
+    }
+
+    console.log(`[MESHY] ✓ Generation started - TaskId: ${taskId}, Prompt: "${prompt.substring(0, 50)}..."`);
 
     return NextResponse.json({
       success: true,

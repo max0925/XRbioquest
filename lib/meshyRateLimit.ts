@@ -34,13 +34,17 @@ export function checkRateLimit(clientId: string): { allowed: boolean; current: n
 
 export function incrementGeneration(clientId: string): void {
   const current = activeGenerationsMap.get(clientId) || 0;
-  activeGenerationsMap.set(clientId, current + 1);
+  const newCount = current + 1;
+  activeGenerationsMap.set(clientId, newCount);
+  console.log(`[RATE LIMIT] Client ${clientId.substring(0, 10)}: ${current} → ${newCount} active generations`);
 }
 
 export function decrementGeneration(clientId: string): void {
   const current = activeGenerationsMap.get(clientId) || 0;
   if (current > 0) {
-    activeGenerationsMap.set(clientId, current - 1);
+    const newCount = current - 1;
+    activeGenerationsMap.set(clientId, newCount);
+    console.log(`[RATE LIMIT] Client ${clientId.substring(0, 10)}: ${current} → ${newCount} active generations (completed)`);
   }
 }
 

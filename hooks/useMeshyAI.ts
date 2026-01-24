@@ -97,8 +97,27 @@ export function useMeshyAI() {
         return { success: false, error: error.error, rateLimited: true };
       }
 
+      if (!startReq.ok) {
+        const errorText = await startReq.text();
+        let errorMsg = 'Failed to start generation';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.error || errorMsg;
+        } catch {
+          errorMsg = errorText || errorMsg;
+        }
+        activeGenerations--;
+        onStatus(`Error: ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+
       const startRes = await startReq.json();
-      if (!startRes.taskId) throw new Error(startRes.error || 'Start failed');
+      if (!startRes.taskId) {
+        activeGenerations--;
+        throw new Error(startRes.error || 'No taskId received from Meshy API');
+      }
+
+      onStatus(`TaskId: ${startRes.taskId} - Waiting for completion...`);
 
       const previewRes = await pollStatus(startRes.taskId, (s, p) =>
         onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Sculpting: ${s} ${p}%`)
