@@ -436,7 +436,7 @@ export default function Scene({
             animation__hover="property: scale; to: 1.05 1.05 1.05; startEvents: mouseenter; dur: 200"
             animation__leave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
           >
-            {/* 使用 .glb 模型或回退到球体 */}
+            {/* 使用 .glb 模型或回退到加载动画 */}
             {asset.modelPath ? (
               // @ts-ignore
               <a-gltf-model
@@ -447,11 +447,46 @@ export default function Scene({
                 draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
               ></a-gltf-model>
             ) : (
-              <a-entity
-                geometry="primitive: sphere; radius: 0.4"
-                material="color: #10b981; roughness: 0.4; metalness: 0.3"
-                shadow="cast: true"
-              ></a-entity>
+              // Loading indicator with animated rings
+              <a-entity>
+                {/* Core sphere */}
+                <a-entity
+                  geometry="primitive: sphere; radius: 0.25"
+                  material="color: #10b981; opacity: 0.3; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+                  animation="property: scale; to: 1.2 1.2 1.2; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine"
+                ></a-entity>
+
+                {/* Outer rotating ring 1 */}
+                <a-entity
+                  geometry="primitive: torus; radius: 0.5; radiusTubular: 0.02"
+                  material="color: #10b981; opacity: 0.6; transparent: true; emissive: #10b981; emissiveIntensity: 0.8"
+                  rotation="45 0 0"
+                  animation="property: rotation; to: 45 360 0; dur: 2000; loop: true; easing: linear"
+                ></a-entity>
+
+                {/* Outer rotating ring 2 */}
+                <a-entity
+                  geometry="primitive: torus; radius: 0.5; radiusTubular: 0.02"
+                  material="color: #10b981; opacity: 0.6; transparent: true; emissive: #10b981; emissiveIntensity: 0.8"
+                  rotation="0 45 0"
+                  animation="property: rotation; to: 360 45 0; dur: 3000; loop: true; easing: linear"
+                ></a-entity>
+
+                {/* Inner orbit particles */}
+                <a-entity
+                  geometry="primitive: sphere; radius: 0.05"
+                  material="color: #10b981; emissive: #10b981; emissiveIntensity: 1"
+                  position="0.35 0 0"
+                  animation="property: object3D.position.x; to: -0.35; dir: alternate; dur: 1500; loop: true; easing: easeInOutQuad"
+                ></a-entity>
+
+                <a-entity
+                  geometry="primitive: sphere; radius: 0.05"
+                  material="color: #10b981; emissive: #10b981; emissiveIntensity: 1"
+                  position="0 0.35 0"
+                  animation="property: object3D.position.y; to: -0.35; dir: alternate; dur: 1500; loop: true; easing: easeInOutQuad"
+                ></a-entity>
+              </a-entity>
             )}
 
             {/* Selection highlight ring */}

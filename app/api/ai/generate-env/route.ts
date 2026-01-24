@@ -108,12 +108,14 @@ export async function POST(request: NextRequest) {
     // Step 2: Poll for completion
     const completedSkybox = await pollSkyboxStatus(skyboxId);
 
-    // Step 3: Get the image URL directly (no local download)
+    // Step 3: Get the image URL from Blockade Labs
     const imageUrl = completedSkybox.file_url || completedSkybox.thumb_url;
 
     if (!imageUrl) {
       throw new Error('No image URL found in response');
     }
+
+    console.log(`[SKYBOX GEN] ✓ Blockade Labs generation complete: ${imageUrl.substring(0, 60)}...`);
 
     return NextResponse.json({
       success: true,

@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MESHY API GUARD - Set to true to disable all Meshy API calls for testing
+// ═══════════════════════════════════════════════════════════════════════════
+const MESHY_DISABLED = true; // 🔧 SET TO false TO RE-ENABLE
+
 // Meshy v2 Text-to-3D API
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
 
 export async function POST(request: NextRequest) {
+  // Guard: Return immediately if Meshy is disabled
+  if (MESHY_DISABLED) {
+    return NextResponse.json({
+      error: 'Meshy AI is temporarily disabled for testing',
+      disabled: true
+    }, { status: 503 });
+  }
   try {
     const { prompt } = await request.json();
 

@@ -1,12 +1,22 @@
 // hooks/useMeshyAI.ts
 import { useCallback } from 'react';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MESHY API GUARD - Set to true to disable all Meshy AI calls for testing
+// ═══════════════════════════════════════════════════════════════════════════
+const MESHY_DISABLED = false; // ✅ RE-ENABLED with safety limits
+
 const CONFIG = {
   TIMEOUT_ATTEMPTS: 60,
   POLL_INTERVAL: 5000,
   QUALITY: 'high',
-  TOPOLOGY: 'quad'
+  TOPOLOGY: 'quad',
+  MAX_CONCURRENT_GENERATIONS: 2 // 🔒 Cost control: max 2 concurrent generations
 };
+
+// Global tracker for concurrent generations
+let activeGenerations = 0;
+const generationQueue: Array<() => void> = [];
 
 export function useMeshyAI() {
   
@@ -29,28 +39,55 @@ export function useMeshyAI() {
   };
 
   const generate3DModel = useCallback(async (prompt: string, onStatus: (msg: string) => void) => {
+    // Guard: Return immediately if Meshy is disabled
+    if (MESHY_DISABLED) {
+      onStatus('Meshy AI is disabled for testing');
+      return {
+        success: false,
+        error: 'Meshy AI is temporarily disabled for testing',
+        disabled: true
+      };
+    }
+
+    // 🔒 Concurrent limit check
+    if (activeGenerations >= CONFIG.MAX_CONCURRENT_GENERATIONS) {
+      onStatus(`Queue: ${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS} generations active...`);
+      return {
+        success: false,
+        error: `Max concurrent generations reached (${CONFIG.MAX_CONCURRENT_GENERATIONS}). Please wait for current models to complete.`,
+        queued: true
+      };
+    }
+
+    // Track active generation
+    activeGenerations++;
+    onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Starting generation...`);
+
     try {
       // 1. Preview
-      onStatus('Initializing geometry...');
+      onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Initializing geometry...`);
       const startRes = await fetch('/api/ai/generate-model', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt, 
-          texture_quality: CONFIG.QUALITY, 
-          topology: CONFIG.TOPOLOGY 
+        body: JSON.stringify({
+          prompt,
+          texture_quality: CONFIG.QUALITY,
+          topology: CONFIG.TOPOLOGY
         })
       }).then(r => r.json());
 
       if (!startRes.taskId) throw new Error(startRes.error || 'Start failed');
 
-      const previewRes = await pollStatus(startRes.taskId, (s, p) => 
-        onStatus(`Sculpting: ${s} ${p}%`)
+      const previewRes = await pollStatus(startRes.taskId, (s, p) =>
+        onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Sculpting: ${s} ${p}%`)
       );
-      if (!previewRes.success) return previewRes;
+      if (!previewRes.success) {
+        activeGenerations--;
+        return previewRes;
+      }
 
       // 2. Refine (PBR)
-      onStatus('Baking PBR textures (High Quality)...');
+      onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Baking PBR textures...`);
       const refineStart = await fetch('/api/ai/refine-model', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,14 +95,17 @@ export function useMeshyAI() {
       }).then(r => r.json());
 
       if (refineStart.taskId) {
-        const refineRes = await pollStatus(refineStart.taskId, (s, p) => 
-          onStatus(`Refining: ${s} ${p}%`)
+        const refineRes = await pollStatus(refineStart.taskId, (s, p) =>
+          onStatus(`[${activeGenerations}/${CONFIG.MAX_CONCURRENT_GENERATIONS}] Refining: ${s} ${p}%`)
         );
+        activeGenerations--;
         if (refineRes.success) return { ...refineRes, refineTaskId: refineStart.taskId };
       }
 
+      activeGenerations--;
       return previewRes; // Fallback to preview if refine fails
     } catch (error: any) {
+      activeGenerations--;
       return { success: false, error: error.message };
     }
   }, []);

@@ -144,9 +144,9 @@ export function useSceneManager(): UseSceneManagerReturn {
 
     try {
       // ═══════════════════════════════════════════════════════════════════════
-      // REAL API CALL: Blockade Labs Skybox Generation
+      // STEP 1: Generate skybox with Blockade Labs
       // ═══════════════════════════════════════════════════════════════════════
-      console.log(`[SKYBOX GEN] Calling Blockade Labs API...`);
+      console.log(`[SKYBOX GEN] Step 1: Calling Blockade Labs API...`);
       const response = await fetch('/api/ai/generate-env', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -155,22 +155,55 @@ export function useSceneManager(): UseSceneManagerReturn {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to generate');
 
-      const proxiedImagePath = proxyUrl(data.imagePath) || data.imagePath;
-      console.log(`[SKYBOX GEN] ✓ Generated successfully | URL: ${proxiedImagePath?.substring(0, 60)}...`);
+      const blockadeImageUrl = data.imagePath;
+      const skyboxId = data.skyboxId;
+      console.log(`[SKYBOX GEN] ✓ Blockade Labs generation complete`);
 
       // ═══════════════════════════════════════════════════════════════════════
-      // AUTO-APPLY MODE (disabled by default): Skip preview, apply immediately
+      // STEP 2: Fetch image in browser (client-side)
+      // ═══════════════════════════════════════════════════════════════════════
+      console.log(`[SKYBOX GEN] Step 2: Fetching image from Blockade Labs...`);
+      const imageResponse = await fetch(blockadeImageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch skybox image: ${imageResponse.status} ${imageResponse.statusText}`);
+      }
+
+      const imageBlob = await imageResponse.blob();
+      const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+      console.log(`[SKYBOX GEN] ✓ Image fetched: ${imageBlob.size} bytes, type: ${contentType}`);
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // STEP 3: Upload to Supabase Storage for permanent hosting
+      // ═══════════════════════════════════════════════════════════════════════
+      console.log(`[SKYBOX GEN] Step 3: Uploading to Supabase Storage...`);
+      const formData = new FormData();
+      formData.append('image', imageBlob);
+      formData.append('skyboxId', skyboxId.toString());
+      formData.append('contentType', contentType);
+
+      const uploadResponse = await fetch('/api/ai/upload-skybox', {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadData = await uploadResponse.json();
+      if (!uploadResponse.ok) throw new Error(uploadData.error || 'Failed to upload');
+
+      const supabaseImageUrl = uploadData.publicUrl;
+      console.log(`[SKYBOX GEN] ✓ Upload complete: ${supabaseImageUrl}`);
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // STEP 4: Apply to scene or show preview
       // ═══════════════════════════════════════════════════════════════════════
       if (autoApply) {
-        console.log(`[SKYBOX GEN] Auto-applying skybox to scene (preview bypassed)...`);
+        console.log(`[SKYBOX GEN] Step 4: Auto-applying skybox to scene...`);
 
         // Create and deploy the skybox asset immediately
         const newEnvAsset: SceneAsset = {
           uid: generateUniqueId('ai-env'),
           name: prompt.substring(0, 30) + '...',
           type: 'environment-ai',
-          thumbnail: proxiedImagePath,
-          imagePath: proxiedImagePath,
+          thumbnail: supabaseImageUrl,
+          imagePath: supabaseImageUrl,
           modelPath: null,
           visible: true,
           position: { x: 0, y: 0, z: 0 },
@@ -189,14 +222,14 @@ export function useSceneManager(): UseSceneManagerReturn {
 
         setShowSuccessNotification(true);
         setTimeout(() => setShowSuccessNotification(false), 3000);
-        console.log(`[SKYBOX GEN] ✓ Auto-applied to scene`);
+        console.log(`[SKYBOX GEN] ✓ Complete - Skybox added to scene`);
       } else {
         // ═══════════════════════════════════════════════════════════════════════
         // PREVIEW MODE (default): Show AI Preview modal for user confirmation
         // User can choose "Discard" or "Add to Scene"
         // ═══════════════════════════════════════════════════════════════════════
-        console.log(`[SKYBOX GEN] Showing Preview modal for user confirmation...`);
-        setAiPreviewData({ imagePath: proxiedImagePath, prompt });
+        console.log(`[SKYBOX GEN] Step 4: Showing preview modal...`);
+        setAiPreviewData({ imagePath: supabaseImageUrl, prompt });
         setShowPreviewCard(true);
         setShowSuccessNotification(true);
         setTimeout(() => setShowSuccessNotification(false), 5000);
