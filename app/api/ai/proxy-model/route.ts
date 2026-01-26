@@ -1,23 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+export async function GET(req: Request) {
+  const searchParams = new URL(req.url).searchParams;
   const url = searchParams.get('url');
 
-  if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 });
+  if (!url) return new Response(JSON.stringify({ error: 'URL required' }), { status: 400 });
 
   try {
     const response = await fetch(url);
-    const blob = await response.blob();
-    
+    const buffer = await response.arrayBuffer();
+
     // ✅ 转发二进制文件流，绕过前端 CORS
-    return new NextResponse(blob, {
+    return new Response(buffer, {
       headers: {
         'Content-Type': 'model/gltf-binary',
         'Access-Control-Allow-Origin': '*',
       },
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Proxy failed' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Proxy failed' }), { status: 500 });
   }
 }
