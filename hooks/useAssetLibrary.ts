@@ -11,13 +11,9 @@ const ASSET_LIBRARY: Record<string, { modelPath: string; name: string; thumb: st
     modelPath: '/models/animal_cell.glb', name: 'Animal Cell', thumb: '/bio.png',
     keywords: ['animal cell', 'cell', 'nucleus', 'mitochondria', 'organelle'] 
   },
-  'plant_cell.glb': { 
+  'plant_cell.glb': {
     modelPath: '/models/plant_cell.glb', name: 'Plant Cell', thumb: '/ecosystems.png',
-    keywords: ['plant cell', 'chloroplast', 'photosynthesis', 'cell wall'] 
-  },
-  'dna_helix.glb': { 
-    modelPath: '/models/dna_helix.glb', name: 'DNA Helix', thumb: '/bio.png',
-    keywords: ['dna', 'helix', 'genetics', 'gene', 'chromosome'] 
+    keywords: ['plant cell', 'chloroplast', 'photosynthesis', 'cell wall']
   },
   'classroom.glb': { 
     modelPath: '/environemnt/classroom.glb', name: 'Classroom', thumb: '/classroom.jpg',
