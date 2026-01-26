@@ -1,8 +1,9 @@
 export async function GET(req: Request) {
-  const searchParams = new URL(req.url).searchParams;
-  const url = searchParams.get('url');
+  const raw = new URL(req.url).searchParams.get('url');
 
-  if (!url) return new Response(JSON.stringify({ error: 'URL required' }), { status: 400 });
+  if (!raw) return new Response(JSON.stringify({ error: 'URL required' }), { status: 400 });
+
+  const url = encodeURI(raw);
 
   try {
     const response = await fetch(url);
@@ -16,6 +17,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
+    console.error('Proxy failed for URL:', raw);
     return new Response(JSON.stringify({ error: 'Proxy failed' }), { status: 500 });
   }
 }
