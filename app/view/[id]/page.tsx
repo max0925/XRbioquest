@@ -4,22 +4,20 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CORS PROXY - Wrap external URLs to load AI-generated assets
+// SAFE TESTING MODE - CORS proxy functions disabled (using local assets only)
 // ═══════════════════════════════════════════════════════════════════════════
-const PROXY_DOMAINS = ['assets.meshy.ai', 'api.meshy.ai', 'meshy.ai', 'blockadelabs', 's3.amazonaws.com', 'storage.googleapis.com', 'cloudfront.net'];
-
-function shouldProxy(url: string | null | undefined): boolean {
-  if (!url) return false;
-  return PROXY_DOMAINS.some(domain => url.includes(domain));
-}
-
-function proxyUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (shouldProxy(url)) {
-    return `/api/proxy?url=${encodeURIComponent(url)}`;
-  }
-  return url;
-}
+// const PROXY_DOMAINS = ['assets.meshy.ai', 'api.meshy.ai', 'meshy.ai', 'blockadelabs', 's3.amazonaws.com', 'storage.googleapis.com', 'cloudfront.net'];
+// function shouldProxy(url: string | null | undefined): boolean {
+//   if (!url) return false;
+//   return PROXY_DOMAINS.some(domain => url.includes(domain));
+// }
+// function proxyUrl(url: string | null | undefined): string | null {
+//   if (!url) return null;
+//   if (shouldProxy(url)) {
+//     return `/api/proxy?url=${encodeURIComponent(url)}`;
+//   }
+//   return url;
+// }
 
 // Safe scale validation
 const safeScale = (scale: number | undefined | null): number => {
@@ -98,11 +96,11 @@ export default function ViewScenePage() {
     );
   }
 
-  // Determine environment type and URLs (proxy external URLs)
-  const env = sceneData.environment;
-  const isAISkybox = env?.type === 'environment-ai' || env?.imagePath;
-  const envModelPath = proxyUrl(env?.modelPath);
-  const envImagePath = proxyUrl(env?.imagePath);
+  // SAFE TESTING MODE - Ignore database environment
+  // const env = sceneData.environment;
+  // const isAISkybox = env?.type === 'environment-ai' || env?.imagePath;
+  // const envModelPath = proxyUrl(env?.modelPath);
+  // const envImagePath = proxyUrl(env?.imagePath);
 
   return (
     <div className="h-screen w-screen bg-black">
@@ -111,44 +109,16 @@ export default function ViewScenePage() {
         vr-mode-ui="enabled: true"
         renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
       >
-        {/* Environment - Handle both GLTF environments and AI Skyboxes */}
-        {isAISkybox && envImagePath ? (
-          // AI-generated 360 skybox
-          <a-sky
-            src={envImagePath}
-            rotation={`${env?.rotation?.x || 0} ${env?.rotation?.y || -130} ${env?.rotation?.z || 0}`}
-          ></a-sky>
-        ) : envModelPath ? (
-          // GLTF environment model
-          <>
-            <a-gltf-model
-              src={envModelPath}
-              crossorigin="anonymous"
-              position={`${env?.position?.x || 0} ${env?.position?.y || 0} ${env?.position?.z || 0}`}
-              rotation={`${env?.rotation?.x || 0} ${env?.rotation?.y || 0} ${env?.rotation?.z || 0}`}
-              scale={`${safeScale(env?.scale)} ${safeScale(env?.scale)} ${safeScale(env?.scale)}`}
-              shadow="receive: true"
-            ></a-gltf-model>
-            <a-entity
-              geometry="primitive: plane; width: 50; height: 50"
-              rotation="-90 0 0"
-              position="0 0 0"
-              material="color: #1a1a1a; roughness: 0.9"
-              shadow="receive: true"
-              visible="false"
-            ></a-entity>
-          </>
-        ) : (
-          // Default fallback environment
-          <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2;"></a-entity>
-        )}
+        {/* SAFE TESTING MODE - Simple dark sky (no database environment) */}
+        <a-sky color="#1a1a1a"></a-sky>
 
-        {/* Models - Proxy all external URLs */}
+        {/* SAFE TESTING MODE - All models use local microscope.glb */}
         {sceneData.models?.map((model: any, idx: number) => {
           const pos = model.position || { x: (idx * 2) - 1, y: 1, z: -3 };
           const rot = model.rotation || { x: 0, y: 0, z: 0 };
           const scale = safeScale(model.scale);
-          const modelPath = proxyUrl(model.modelPath);
+          // Force all models to use local asset (ignore model.modelPath)
+          const modelPath = "/models/microscope.glb";
 
           return (
             <a-entity
@@ -156,24 +126,20 @@ export default function ViewScenePage() {
               position={`${pos.x} ${pos.y} ${pos.z}`}
               rotation={`${rot.x} ${rot.y} ${rot.z}`}
               scale={`${scale} ${scale} ${scale}`}
+              geometry="primitive: box; width: 0.5; height: 0.6; depth: 0.5"
+              material="visible: false"
+              className="clickable"
               {...(model.interactionFX?.grabbable && { grabbable: '' })}
-              {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
               {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
+              {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
             >
-              {modelPath ? (
-                <a-gltf-model
-                  src={modelPath}
-                  crossorigin="anonymous"
-                  shadow="cast: true; receive: true"
-                ></a-gltf-model>
-              ) : (
-                // Fallback sphere when no model path (loading failed)
-                <a-entity
-                  geometry="primitive: sphere; radius: 0.4"
-                  material="color: #f59e0b; roughness: 0.4; metalness: 0.3"
-                  shadow="cast: true"
-                ></a-entity>
-              )}
+              {/* Child Model - Visual only, offset downward */}
+              <a-gltf-model
+                src={modelPath}
+                position="0 -0.3 0"
+                crossorigin="anonymous"
+                shadow="cast: true; receive: true"
+              ></a-gltf-model>
 
               {/* Shadow base */}
               <a-entity
@@ -204,10 +170,14 @@ export default function ViewScenePage() {
         ></a-entity>
         <a-entity light="type: hemisphere; color: #ffffff; groundColor: #444444; intensity: 0.4"></a-entity>
 
-        {/* Camera with WASD controls */}
-        <a-entity id="camera-rig" position="0 1.6 5">
-          <a-camera
-            look-controls="pointerLockEnabled: false; reverseMouseDrag: false; touchEnabled: true;"
+        {/* VR Camera Rig with Hand Controllers */}
+        <a-entity id="camera-rig" movement-controls="speed: 0.15; fly: false; camera: #head" position="0 0 5">
+          {/* Head with Camera */}
+          <a-entity
+            id="head"
+            camera
+            position="0 1.6 0"
+            look-controls="pointerLockEnabled: false; reverseMouseDrag: false; touchEnabled: true"
             wasd-controls="acceleration: 65"
           >
             <a-entity
@@ -215,7 +185,23 @@ export default function ViewScenePage() {
               geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
               material="color: white; shader: flat; opacity: 0.5"
             ></a-entity>
-          </a-camera>
+          </a-entity>
+
+          {/* Left Hand Controller */}
+          <a-entity
+            tracked-controls="hand: left"
+            hand-controls="hand: left; handModelStyle: lowPoly"
+            laser-controls="hand: left"
+            raycaster="objects: .clickable; far: 5"
+          ></a-entity>
+
+          {/* Right Hand Controller */}
+          <a-entity
+            tracked-controls="hand: right"
+            hand-controls="hand: right; handModelStyle: lowPoly"
+            laser-controls="hand: right"
+            raycaster="objects: .clickable; far: 5"
+          ></a-entity>
         </a-entity>
       </a-scene>
 

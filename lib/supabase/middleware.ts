@@ -8,9 +8,19 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
+  // 👇【关键修改】先检查有没有 Key，如果没有，直接放行，不要崩！
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn("⚠️ [Middleware] Supabase 环境变量缺失，跳过 Auth 验证，直接放行。");
+    return response;
+  }
+  // 👆【修改结束】
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         get(name: string) {
