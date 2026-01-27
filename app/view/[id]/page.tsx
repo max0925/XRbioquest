@@ -4,20 +4,22 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SAFE TESTING MODE - CORS proxy functions disabled (using local assets only)
+// CORS PROXY - Wrap external URLs to load AI-generated assets
 // ═══════════════════════════════════════════════════════════════════════════
-// const PROXY_DOMAINS = ['assets.meshy.ai', 'api.meshy.ai', 'meshy.ai', 'blockadelabs', 's3.amazonaws.com', 'storage.googleapis.com', 'cloudfront.net'];
-// function shouldProxy(url: string | null | undefined): boolean {
-//   if (!url) return false;
-//   return PROXY_DOMAINS.some(domain => url.includes(domain));
-// }
-// function proxyUrl(url: string | null | undefined): string | null {
-//   if (!url) return null;
-//   if (shouldProxy(url)) {
-//     return `/api/proxy?url=${encodeURIComponent(url)}`;
-//   }
-//   return url;
-// }
+const PROXY_DOMAINS = ['assets.meshy.ai', 'api.meshy.ai', 'meshy.ai', 'blockadelabs', 's3.amazonaws.com', 'storage.googleapis.com', 'cloudfront.net'];
+
+function shouldProxy(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return PROXY_DOMAINS.some(domain => url.includes(domain));
+}
+
+function proxyUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (shouldProxy(url)) {
+    return `/api/proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
 
 // Safe scale validation
 const safeScale = (scale: number | undefined | null): number => {
@@ -68,6 +70,51 @@ export default function ViewScenePage() {
         document.head.appendChild(script);
       }
 
+      // Register simple-grab component for VR hand grabbing
+      if (window.AFRAME && !window.AFRAME.components['simple-grab']) {
+        window.AFRAME.registerComponent('simple-grab', {
+          init: function() {
+            this.grabbedTarget = null;
+            this.onTriggerDown = this.onTriggerDown.bind(this);
+            this.onTriggerUp = this.onTriggerUp.bind(this);
+          },
+          play: function() {
+            this.el.addEventListener('triggerdown', this.onTriggerDown);
+            this.el.addEventListener('triggerup', this.onTriggerUp);
+          },
+          pause: function() {
+            this.el.removeEventListener('triggerdown', this.onTriggerDown);
+            this.el.removeEventListener('triggerup', this.onTriggerUp);
+          },
+          onTriggerDown: function() {
+            const raycaster = this.el.components.raycaster;
+            if (raycaster && raycaster.intersections.length > 0) {
+              const intersection = raycaster.intersections[0];
+              let target = intersection.object.el;
+
+              // Find the clickable parent entity
+              while (target && !target.classList.contains('clickable')) {
+                target = target.parentElement;
+              }
+
+              if (target && target.classList.contains('clickable')) {
+                this.grabbedTarget = target;
+                // Attach target to hand
+                this.el.object3D.attach(target.object3D);
+              }
+            }
+          },
+          onTriggerUp: function() {
+            if (this.grabbedTarget) {
+              const sceneEl = this.el.sceneEl;
+              // Release back to scene
+              sceneEl.object3D.attach(this.grabbedTarget.object3D);
+              this.grabbedTarget = null;
+            }
+          }
+        });
+      }
+
       const timer = setTimeout(() => setReady(true), 150);
       return () => clearTimeout(timer);
     }
@@ -96,11 +143,11 @@ export default function ViewScenePage() {
     );
   }
 
-  // SAFE TESTING MODE - Ignore database environment
-  // const env = sceneData.environment;
-  // const isAISkybox = env?.type === 'environment-ai' || env?.imagePath;
-  // const envModelPath = proxyUrl(env?.modelPath);
-  // const envImagePath = proxyUrl(env?.imagePath);
+  // Determine environment type and URLs (proxy external URLs)
+  const env = sceneData.environment;
+  const isAISkybox = env?.type === 'environment-ai' || env?.imagePath;
+  const envModelPath = proxyUrl(env?.modelPath);
+  const envImagePath = proxyUrl(env?.imagePath);
 
   return (
     <div className="h-screen w-screen bg-black">
@@ -109,16 +156,45 @@ export default function ViewScenePage() {
         vr-mode-ui="enabled: true"
         renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
       >
-        {/* SAFE TESTING MODE - Simple dark sky (no database environment) */}
-        <a-sky color="#1a1a1a"></a-sky>
+        {/* Environment - Handle both GLTF environments and AI Skyboxes */}
+        {isAISkybox && envImagePath ? (
+          // AI-generated 360 skybox
+          <a-sky
+            src={envImagePath}
+            rotation={`${env?.rotation?.x || 0} ${env?.rotation?.y || -130} ${env?.rotation?.z || 0}`}
+          ></a-sky>
+        ) : envModelPath ? (
+          // GLTF environment model
+          <>
+            <a-gltf-model
+              src={envModelPath}
+              crossorigin="anonymous"
+              position={`${env?.position?.x || 0} ${env?.position?.y || 0} ${env?.position?.z || 0}`}
+              rotation={`${env?.rotation?.x || 0} ${env?.rotation?.y || 0} ${env?.rotation?.z || 0}`}
+              scale={`${safeScale(env?.scale)} ${safeScale(env?.scale)} ${safeScale(env?.scale)}`}
+              shadow="receive: true"
+            ></a-gltf-model>
+            <a-entity
+              geometry="primitive: plane; width: 50; height: 50"
+              rotation="-90 0 0"
+              position="0 0 0"
+              material="color: #1a1a1a; roughness: 0.9"
+              shadow="receive: true"
+              visible="false"
+            ></a-entity>
+          </>
+        ) : (
+          // Default fallback environment
+          <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2;"></a-entity>
+        )}
 
-        {/* SAFE TESTING MODE - All models use local microscope.glb */}
+        {/* Models - Render AI-generated models with proxy */}
         {sceneData.models?.map((model: any, idx: number) => {
           const pos = model.position || { x: (idx * 2) - 1, y: 1, z: -3 };
           const rot = model.rotation || { x: 0, y: 0, z: 0 };
           const scale = safeScale(model.scale);
-          // Force all models to use local asset (ignore model.modelPath)
-          const modelPath = "/models/microscope.glb";
+          // Use AI model path with fallback to local asset
+          const modelPath = proxyUrl(model.modelPath) || "/models/microscope.glb";
 
           return (
             <a-entity
@@ -189,18 +265,22 @@ export default function ViewScenePage() {
 
           {/* Left Hand Controller */}
           <a-entity
+            id="leftHand"
             tracked-controls="hand: left"
             hand-controls="hand: left; handModelStyle: lowPoly"
             laser-controls="hand: left"
-            raycaster="objects: .clickable; far: 5"
+            raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
+            simple-grab
           ></a-entity>
 
           {/* Right Hand Controller */}
           <a-entity
+            id="rightHand"
             tracked-controls="hand: right"
             hand-controls="hand: right; handModelStyle: lowPoly"
             laser-controls="hand: right"
-            raycaster="objects: .clickable; far: 5"
+            raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
+            simple-grab
           ></a-entity>
         </a-entity>
       </a-scene>
