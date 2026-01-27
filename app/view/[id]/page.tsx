@@ -188,13 +188,13 @@ export default function ViewScenePage() {
           <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2;"></a-entity>
         )}
 
-        {/* Models - Render AI-generated models with proxy */}
+        {/* Models - Render AI-generated models only (no fallback) */}
         {sceneData.models?.map((model: any, idx: number) => {
           const pos = model.position || { x: (idx * 2) - 1, y: 1, z: -3 };
           const rot = model.rotation || { x: 0, y: 0, z: 0 };
           const scale = safeScale(model.scale);
-          // Use AI model path with fallback to local asset
-          const modelPath = proxyUrl(model.modelPath) || "/models/microscope.glb";
+          // Use AI model path only - no fallback
+          const modelPath = proxyUrl(model.modelPath);
 
           return (
             <a-entity
@@ -209,13 +209,15 @@ export default function ViewScenePage() {
               {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
             >
-              {/* Child Model - Visual only, offset downward */}
-              <a-gltf-model
-                src={modelPath}
-                position="0 -0.3 0"
-                crossorigin="anonymous"
-                shadow="cast: true; receive: true"
-              ></a-gltf-model>
+              {/* Child Model - Only render if AI model path exists */}
+              {modelPath && (
+                <a-gltf-model
+                  src={modelPath}
+                  position="0 -0.3 0"
+                  crossorigin="anonymous"
+                  shadow="cast: true; receive: true"
+                ></a-gltf-model>
+              )}
 
               {/* Shadow base */}
               <a-entity

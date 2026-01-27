@@ -4,8 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     const { prompt } = await request.json();
 
-    // DISABLED FOR LOCAL TESTING - Comment out Blockade Labs API call
-    /*
+    // Call Blockade Labs API for skybox generation
     const response = await fetch('https://backend.blockadelabs.com/api/v1/skybox', {
       method: 'POST',
       headers: {
@@ -14,25 +13,17 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         prompt: prompt,
-        generator: 'stable-skybox', // 使用稳定版本
+        generator: 'stable-skybox',
       }),
     });
 
     const data = await response.json();
 
-    // 注意：这里返回的是任务信息，包含 id
-    // 因为生成全景图需要约 20 秒，我们需要返回 id 给前端进行轮询
+    // Return task information with id for frontend polling
+    // Skybox generation takes ~20 seconds, frontend needs to poll for completion
+    console.log(`[SKYBOX] ✓ Generation started - ID: ${data.id}`);
+
     return NextResponse.json({ id: data.id, status: data.status });
-    */
-
-    // Mock response for local testing
-    console.log(`[SKYBOX] ✓ MOCK Generation - Prompt: "${prompt}"`);
-
-    return NextResponse.json({
-      id: 'mock-skybox-id-' + Date.now(),
-      status: 'complete',
-      url: null // No actual skybox URL in local testing
-    });
   } catch (error) {
     return NextResponse.json({ error: 'Skybox trigger failed' }, { status: 500 });
   }

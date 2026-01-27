@@ -47,8 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Meshy API key not configured' }, { status: 500 });
     }
 
-    // DISABLED FOR LOCAL TESTING - Comment out Meshy API call
-    /*
+    // Meshy v2 Text-to-3D request with PBR texturing enabled
     const generateResponse = await fetch(MESHY_API_URL, {
       method: 'POST',
       headers: {
@@ -80,16 +79,11 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[MESHY] ✓ Generation started - TaskId: ${taskId}, Prompt: "${prompt.substring(0, 50)}..."`);
-    */
-
-    // Mock response for local testing
-    console.log(`[MESHY] ✓ MOCK Generation - Prompt: "${prompt.substring(0, 50)}..."`);
 
     return NextResponse.json({
       success: true,
-      taskId: 'mock-task-id-' + Date.now(),
-      modelUrl: null, // No actual model URL in local testing
-      message: 'Mock generation (local testing mode)',
+      taskId: taskId,
+      message: 'Generation started with PBR texturing',
       clientId: clientId // Return clientId for tracking
     });
 
