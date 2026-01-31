@@ -103,7 +103,8 @@ export default function Home() {
                 </svg>
               </Link>
 
-              <button
+              <Link
+                href="/#demo"
                 className="group px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 rounded-lg font-medium text-base border border-gray-200 hover:border-gray-300 transition-all duration-300 flex items-center gap-2"
                 style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
               >
@@ -112,7 +113,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>See Demo</span>
-              </button>
+              </Link>
             </div>
 
             {/* Feature badges - Compact */}
@@ -136,7 +137,7 @@ export default function Home() {
       </section>
 
       {/* Product Demo Section - Tighter spacing */}
-      <section ref={demoRef} className="py-16 px-6 bg-gray-50/50 scroll-fade">
+      <section id="demo" ref={demoRef} className="py-16 px-6 bg-gray-50/50 scroll-fade">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-xs font-semibold text-emerald-600 mb-2 tracking-wider uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
@@ -152,38 +153,14 @@ export default function Home() {
 
           {/* Demo preview */}
           <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-500">
-            <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center cursor-pointer transition-colors">
-                  <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-gray-500" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                  3D VR Classroom Preview
-                </p>
-              </div>
-            </div>
-
-            {/* Stats overlay */}
-            <div className="absolute bottom-4 left-4 right-4 flex gap-3">
-              <div className="flex-1 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-100">
-                <div className="text-lg font-semibold text-gray-900" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>
-                  &lt;2 min
-                </div>
-                <div className="text-xs text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                  Creation time
-                </div>
-              </div>
-              <div className="flex-1 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-100">
-                <div className="text-lg font-semibold text-gray-900" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>
-                  100%
-                </div>
-                <div className="text-xs text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                  No coding
-                </div>
-              </div>
-            </div>
+            <video
+              className="aspect-video w-full"
+              controls
+              preload="metadata"
+            >
+              <source src="/demo.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
           </div>
         </div>
       </section>
