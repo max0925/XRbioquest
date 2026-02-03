@@ -2,10 +2,10 @@
 import { useEffect, useState, useRef } from "react";
 
 interface AIState {
-  skybox_style: string;
-  lighting_color: string;
+  skybox_style?: string;
+  lighting_color?: string;
   channel_state: number;
-  skybox_url: string | null;
+  skybox_url?: string | null;
 }
 
 export default function Scene({

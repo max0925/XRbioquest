@@ -36,12 +36,12 @@ export interface EnvironmentViewportProps {
 
   // AI Orchestrator state
   aiState?: {
-    skybox_style: string;
-    lighting_color: string;
+    skybox_style?: string;
+    lighting_color?: string;
     channel_state: number;
-    skybox_url: string | null;
+    skybox_url?: string | null;
   };
-  onAiStateChange?: (state: { skybox_style: string; lighting_color: string; channel_state: number; skybox_url: string | null }) => void;
+  onAiStateChange?: (state: { skybox_style?: string; lighting_color?: string; channel_state: number; skybox_url?: string | null }) => void;
 
   // Callbacks
   onSelectAsset: (asset: SceneAsset | null) => void;
@@ -131,12 +131,12 @@ interface TransformToolbarProps {
   transformMode: 'translate' | 'rotate' | 'scale';
   activeSelection: SceneAsset | null;
   aiState?: {
-    skybox_style: string;
-    lighting_color: string;
+    skybox_style?: string;
+    lighting_color?: string;
     channel_state: number;
-    skybox_url: string | null;
+    skybox_url?: string | null;
   };
-  onAiStateChange?: (state: { skybox_style: string; lighting_color: string; channel_state: number; skybox_url: string | null }) => void;
+  onAiStateChange?: (state: { skybox_style?: string; lighting_color?: string; channel_state: number; skybox_url?: string | null }) => void;
   onSetTransformMode: (mode: 'translate' | 'rotate' | 'scale') => void;
   onResetTransform: () => void;
 }
