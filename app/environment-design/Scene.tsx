@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 
+interface AIState {
+  skybox_style: string;
+  lighting_color: string;
+  channel_state: number;
+  skybox_url: string | null;
+}
+
 export default function Scene({
   sceneAssets = [],
   activeSelection,
@@ -8,7 +15,17 @@ export default function Scene({
   onAssetClick,
   onAssetTransform,
   onEnvironmentLoaded,
-  onLoadingStateChange
+  onLoadingStateChange,
+  aiState = { skybox_style: 'Clean modern laboratory', lighting_color: '#ffffff', channel_state: 0.5, skybox_url: null }
+}: {
+  sceneAssets?: any[];
+  activeSelection?: any;
+  transformMode?: string;
+  onAssetClick?: (asset: any) => void;
+  onAssetTransform?: (uid: string, transform: any) => void;
+  onEnvironmentLoaded?: (uid: string, box: any) => void;
+  onLoadingStateChange?: (loadingModels: Map<string, number>) => void;
+  aiState?: AIState;
 }) {
   const [ready, setReady] = useState(false);
   const sceneRef = useRef(null);
@@ -153,6 +170,56 @@ export default function Scene({
         },
         remove: function() {
           this.el.removeEventListener('collide', this.onCollision);
+        }
+      });
+    }
+  }, [ready]);
+
+  // Register morph-driver component for AI-controlled morph targets
+  useEffect(() => {
+    if (!ready || typeof window === "undefined" || !window.AFRAME) return;
+
+    if (!window.AFRAME.components['morph-driver']) {
+      window.AFRAME.registerComponent('morph-driver', {
+        schema: {
+          value: { type: 'number', default: 0.5 }
+        },
+        init: function() {
+          this.currentValue = 0.5; // Start at neutral
+          this.mesh = null;
+        },
+        tick: function(time, timeDelta) {
+          // Find the mesh on first tick
+          if (!this.mesh) {
+            const object3D = this.el.object3D;
+            if (object3D) {
+              object3D.traverse((node: any) => {
+                if (node.isMesh && node.morphTargetInfluences && node.morphTargetInfluences.length > 0) {
+                  this.mesh = node;
+                }
+              });
+            }
+          }
+
+          // Smoothly animate morph target towards target value
+          if (this.mesh && this.mesh.morphTargetInfluences) {
+            const targetValue = this.data.value;
+            // Smooth lerp: current + (target - current) * lerpFactor
+            // Using THREE.MathUtils.lerp for smooth animation
+            const lerpSpeed = 0.1; // Adjust for smoothness (lower = smoother)
+            this.currentValue = window.THREE.MathUtils.lerp(
+              this.currentValue,
+              targetValue,
+              lerpSpeed
+            );
+
+            // Apply to first morph target
+            this.mesh.morphTargetInfluences[0] = this.currentValue;
+          }
+        },
+        update: function(oldData) {
+          // Called when the attribute value changes
+          // The tick function will handle the smooth transition
         }
       });
     }
@@ -502,6 +569,10 @@ export default function Scene({
         }
 
         // Render regular model
+        const isCellMembrane = asset.name?.toLowerCase().includes('cell membrane') ||
+                               asset.modelPath?.toLowerCase().includes('cell membrane') ||
+                               asset.modelPath?.toLowerCase().includes('cell_membrane');
+
         return (
           <a-entity
             key={asset.uid}
@@ -532,6 +603,7 @@ export default function Scene({
                 shadow="cast: true; receive: true"
                 draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
                 data-loading-uid={asset.uid}
+                {...(isCellMembrane && { 'morph-driver': `value: ${aiState.channel_state}` })}
               ></a-gltf-model>
             ) : (
               // Minimal loading placeholder - just pulsing emerald glow
@@ -570,14 +642,30 @@ export default function Scene({
           );
         })}
 
-      {/* Default fallback environment */}
+      {/* Environment: AI Skybox or Default A-Frame */}
       {sceneAssets.filter((asset: any) => asset.type?.includes('environment')).length === 0 && (
-        <a-entity environment="preset: default; seed: 42; shadow: true; lighting: point; grid: dots; gridColor: #333; playArea: 1.2"></a-entity>
-      )}
+        <>
+          {aiState.skybox_url ? (
+            // AI-Generated Skybox Mode
+            <>
+              {/* @ts-ignore */}
+              <a-sky src={aiState.skybox_url} rotation="0 0 0"></a-sky>
 
-      {/* 场景灯光 */}
-      <a-entity light="type: ambient; intensity: 0.5"></a-entity>
-      <a-entity light="type: directional; intensity: 0.6; castShadow: true" position="-1 3 1"></a-entity>
+              {/* Custom AI-Controlled Lighting */}
+              <a-entity light="type: ambient; intensity: 0.5"></a-entity>
+              <a-entity
+                light={`type: directional; intensity: 0.6; castShadow: true; color: ${aiState.lighting_color}`}
+                position="-1 3 1"
+              ></a-entity>
+            </>
+          ) : (
+            // Default A-Frame Environment (Unity-like grid + blue sky)
+            <a-entity
+              environment="preset: default; groundColor: #445; grid: 1x1; gridColor: #333; groundTexture: none; groundColor2: #000; dressing: none; dressingAmount: 0"
+            ></a-entity>
+          )}
+        </>
+      )}
 
       {/* Camera Rig */}
       <a-entity

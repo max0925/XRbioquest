@@ -115,7 +115,7 @@ export function useSceneManager(): UseSceneManagerReturn {
   const [mounted, setMounted] = useState(false);
   const initialPromptSent = useRef(false);
 
-  // Scene state
+  // Scene state - Start with empty scene
   const [sceneAssets, setSceneAssets] = useState<SceneAsset[]>([]);
   const [activeSelection, setActiveSelection] = useState<SceneAsset | null>(null);
 

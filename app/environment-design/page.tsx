@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Loader2 } from "lucide-react";
 import Navigation from "../../components/Navigation";
 import {
@@ -21,6 +21,14 @@ import { useSceneManager } from "../../hooks/useSceneManager";
 
 function EnvironmentDesignContent() {
   const scene = useSceneManager();
+
+  // AI Orchestrator state (shared with viewport)
+  const [aiState, setAiState] = useState({
+    skybox_style: 'Clean modern laboratory with white walls, scientific equipment, 8k',
+    lighting_color: '#ffffff',
+    channel_state: 0.0,
+    skybox_url: null as string | null
+  });
 
   if (!scene.mounted) return null;
 
@@ -49,6 +57,8 @@ function EnvironmentDesignContent() {
           transformMode={scene.transformMode}
           leftPanelOpen={scene.leftPanelOpen}
           rightPanelOpen={scene.rightPanelOpen}
+          aiState={aiState}
+          onAiStateChange={setAiState}
           onSelectAsset={scene.setActiveSelection}
           onUpdateTransform={scene.updateAssetTransform}
           onEnvironmentLoaded={(uid) => scene.updateAssetTransform(uid, { bestFitScale: 1 })}

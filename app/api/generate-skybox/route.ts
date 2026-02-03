@@ -2,29 +2,69 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await request.json();
+    const body = await request.json();
+    const API_KEY = process.env.BLOCKADE_API_KEY; 
 
-    // Call Blockade Labs API for skybox generation
-    const response = await fetch('https://backend.blockadelabs.com/api/v1/skybox', {
+    if (!body.prompt) return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
+    if (!API_KEY) return NextResponse.json({ error: 'API Key missing' }, { status: 500 });
+
+    console.log(`[SKYBOX] 🚀 Starting generation: "${body.prompt.substring(0, 20)}..."`);
+
+    // 1. 发起任务
+    const startRes = await fetch('https://backend.blockadelabs.com/api/v1/skybox', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.BLOCKADE_LABS_API_KEY!
-      },
+      headers: { 'x-api-key': API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt: prompt,
-        generator: 'stable-skybox',
+        prompt: body.prompt,
+        skybox_style_id: 3, 
       }),
     });
 
-    const data = await response.json();
+    if (!startRes.ok) {
+      const errText = await startRes.text();
+      console.error('[SKYBOX] Start failed:', errText);
+      return NextResponse.json({ error: 'Start failed' }, { status: startRes.status });
+    }
 
-    // Return task information with id for frontend polling
-    // Skybox generation takes ~20 seconds, frontend needs to poll for completion
-    console.log(`[SKYBOX] ✓ Generation started - ID: ${data.id}`);
+    const startData = await startRes.json();
+    const id = startData.id; 
+    console.log(`[SKYBOX] ✓ Task ID: ${id}`);
 
-    return NextResponse.json({ id: data.id, status: data.status });
-  } catch (error) {
-    return NextResponse.json({ error: 'Skybox trigger failed' }, { status: 500 });
+    // 2. 轮询进度
+    let attempts = 0;
+    const maxAttempts = 60; 
+
+    while (attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, 2000)); 
+      
+      const checkRes = await fetch(`https://backend.blockadelabs.com/api/v1/imagine/requests/${id}`, {
+        headers: { 'x-api-key': API_KEY }
+      });
+
+      if (checkRes.ok) {
+        const rawData = await checkRes.json();
+        
+        // 🔥 核心修复：兼容处理，取 data.request 或者 data 本身
+        const data = rawData.request || rawData;
+        
+        console.log(`[SKYBOX] Attempt ${attempts + 1}: ${data.status}`);
+
+        if (data.status === 'complete') {
+            console.log(`[SKYBOX] 🎉 Success! URL: ${data.file_url}`);
+            return NextResponse.json({ file_url: data.file_url });
+        }
+        
+        if (data.status === 'error' || data.status === 'failed') {
+            throw new Error(`Generation failed: ${data.error_message}`);
+        }
+      } 
+      attempts++;
+    }
+    
+    throw new Error("Timeout");
+
+  } catch (error: any) {
+    console.error('[SKYBOX] Error:', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

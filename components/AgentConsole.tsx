@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { Mic, Send } from 'lucide-react';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MANUS-STYLE AGENT CONSOLE
@@ -367,6 +369,11 @@ export default function AgentConsole({
   const lastMsgCount = useRef(messages.length);
   const newMsgIdx = useRef<number | null>(null);
 
+  // Voice input hook
+  const { isListening, toggleVoiceInput } = useVoiceInput((transcript) => {
+    setInput(transcript);
+  });
+
   // Track new messages
   useEffect(() => {
     if (messages.length > lastMsgCount.current) {
@@ -515,15 +522,28 @@ export default function AgentConsole({
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Describe your lesson..."
-          disabled={isAiLoading || isExecuting}
+          disabled={isAiLoading || isExecuting || isListening}
           className="input-field"
         />
         <button
-          onClick={handleSend}
-          disabled={isAiLoading || isExecuting || !input.trim()}
-          className="send-btn"
+          onClick={toggleVoiceInput}
+          disabled={isAiLoading || isExecuting}
+          className={`icon-btn ${
+            isListening
+              ? 'text-red-500 animate-pulse hover:bg-red-50'
+              : 'text-neutral-400 hover:text-purple-500 hover:bg-purple-50'
+          }`}
+          title={isListening ? 'Stop listening' : 'Voice input'}
         >
-          Send
+          <Mic className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleSend}
+          disabled={isAiLoading || isExecuting || !input.trim() || isListening}
+          className="icon-btn text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+          title="Send message"
+        >
+          <Send className="w-4 h-4" />
         </button>
       </div>
 
@@ -583,49 +603,49 @@ export default function AgentConsole({
         .console-input {
           flex-shrink: 0;
           display: flex;
-          gap: 8px;
-          padding: 16px 24px 24px;
+          align-items: center;
+          gap: 6px;
+          height: 44px;
+          padding: 8px 12px;
           border-top: 1px solid #f5f5f5;
+          background: #fafafa;
+          border-radius: 12px;
+          margin: 12px 16px 16px;
         }
 
         .input-field {
           flex: 1;
-          padding: 12px 16px;
+          padding: 0;
           font-size: 13px;
           color: #171717;
-          background: #fafafa;
+          background: transparent;
           border: none;
-          border-radius: 12px;
           outline: none;
-          transition: background 0.15s;
+          line-height: 1.4;
         }
         .input-field::placeholder {
           color: #a3a3a3;
-        }
-        .input-field:focus {
-          background: #f5f5f5;
         }
         .input-field:disabled {
           opacity: 0.5;
         }
 
-        .send-btn {
-          padding: 12px 20px;
-          font-size: 13px;
-          font-weight: 500;
-          color: white;
-          background: #171717;
+        .icon-btn {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          padding: 0;
           border: none;
-          border-radius: 12px;
+          background: transparent;
+          border-radius: 6px;
           cursor: pointer;
           transition: all 0.15s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-        .send-btn:hover:not(:disabled) {
-          background: #262626;
-        }
-        .send-btn:disabled {
-          background: #e5e5e5;
-          color: #a3a3a3;
+        .icon-btn:disabled {
+          opacity: 0.4;
           cursor: not-allowed;
         }
 
