@@ -2,6 +2,7 @@
 import "./globals.css";
 import Navigation from "../components/Navigation";
 import { ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/next";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="bg-white" suppressHydrationWarning>
         <Navigation />
         <main className="flex-1 relative overflow-hidden">{children}</main>
+        <Analytics />
       </body>
     </html>
   );
