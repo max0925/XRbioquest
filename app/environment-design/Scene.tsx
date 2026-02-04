@@ -431,80 +431,63 @@ export default function Scene({
     return () => clearInterval(checkModelsLoaded);
   }, [ready, sceneAssets, onEnvironmentLoaded]);
 
-  // Track model loading progress with Three.js LoadingManager
+  // Track model loading progress via A-Frame model-loaded / model-error events
   useEffect(() => {
-    if (!ready || typeof window === "undefined" || !window.THREE) return;
+    if (!ready || typeof window === "undefined") return;
 
-    const handleModelLoading = () => {
+    const cleanups: (() => void)[] = [];
+
+    const setup = () => {
       sceneAssets.forEach((asset: any) => {
         if (!asset.modelPath || asset.type !== 'model') return;
 
         const modelEl = document.querySelector(`[data-loading-uid="${asset.uid}"]`) as any;
-        if (!modelEl) return;
+        if (!modelEl || modelEl._loadTracked) return;
+        modelEl._loadTracked = true;
 
-        // Track loading start
-        const onProgress = () => {
-          // Since A-Frame doesn't expose granular progress, we simulate it
+        // Simulated progress (A-Frame doesn't expose real progress)
+        setLoadingModels(prev => new Map(prev).set(asset.uid, 10));
+
+        const progressInterval = setInterval(() => {
           setLoadingModels(prev => {
             const newMap = new Map(prev);
             const current = newMap.get(asset.uid) || 0;
-            if (current < 90) {
-              newMap.set(asset.uid, Math.min(current + 10, 90));
-            }
+            if (current < 90) newMap.set(asset.uid, Math.min(current + 10, 90));
             return newMap;
           });
+        }, 300);
+
+        const finish = (success: boolean) => {
+          clearInterval(progressInterval);
+          if (success) {
+            setLoadingModels(prev => new Map(prev).set(asset.uid, 100));
+            setTimeout(() => {
+              setLoadingModels(prev => { const m = new Map(prev); m.delete(asset.uid); return m; });
+            }, 500);
+          } else {
+            setLoadingModels(prev => { const m = new Map(prev); m.delete(asset.uid); return m; });
+          }
         };
 
-        const onLoaded = () => {
-          setLoadingModels(prev => {
-            const newMap = new Map(prev);
-            newMap.set(asset.uid, 100);
-            return newMap;
-          });
+        const onLoaded = () => finish(true);
+        const onError = () => finish(false);
 
-          // Remove from loading after animation
-          setTimeout(() => {
-            setLoadingModels(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(asset.uid);
-              return newMap;
-            });
-          }, 500);
-        };
-
-        const onError = () => {
-          setLoadingModels(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(asset.uid);
-            return newMap;
-          });
-        };
-
-        // Listen to A-Frame model events
         modelEl.addEventListener('model-loaded', onLoaded);
         modelEl.addEventListener('model-error', onError);
 
-        // Start simulated progress
-        if (!loadingModels.has(asset.uid)) {
-          setLoadingModels(prev => new Map(prev).set(asset.uid, 10));
-          const progressInterval = setInterval(onProgress, 300);
-
-          // Cleanup
-          modelEl._progressInterval = progressInterval;
-        }
-
-        return () => {
+        cleanups.push(() => {
+          clearInterval(progressInterval);
           modelEl.removeEventListener('model-loaded', onLoaded);
           modelEl.removeEventListener('model-error', onError);
-          if (modelEl._progressInterval) {
-            clearInterval(modelEl._progressInterval);
-          }
-        };
+        });
       });
     };
 
-    const timer = setTimeout(handleModelLoading, 100);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(setup, 100);
+    return () => {
+      clearTimeout(timer);
+      cleanups.forEach(fn => fn());
+    };
   }, [ready, sceneAssets]);
 
   if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
@@ -642,22 +625,26 @@ export default function Scene({
           );
         })}
 
+      {/* ── Always-on Lighting (PBR materials need light to render) ── */}
+      <a-entity light="type: ambient; intensity: 0.6; color: #fff"></a-entity>
+      <a-entity
+        light={`type: directional; intensity: 0.8; castShadow: true; color: ${aiState.lighting_color || '#ffffff'}`}
+        position="-2 4 2"
+      ></a-entity>
+      <a-entity
+        light="type: directional; intensity: 0.3; castShadow: false"
+        position="2 3 -2"
+      ></a-entity>
+      <a-entity
+        light="type: hemisphere; intensity: 0.4; color: #ffffee; groundColor: #080820"
+      ></a-entity>
+
       {/* Environment: AI Skybox or Default A-Frame */}
       {sceneAssets.filter((asset: any) => asset.type?.includes('environment')).length === 0 && (
         <>
           {aiState.skybox_url ? (
-            // AI-Generated Skybox Mode
-            <>
-              {/* @ts-ignore */}
-              <a-sky src={aiState.skybox_url} rotation="0 0 0"></a-sky>
-
-              {/* Custom AI-Controlled Lighting */}
-              <a-entity light="type: ambient; intensity: 0.5"></a-entity>
-              <a-entity
-                light={`type: directional; intensity: 0.6; castShadow: true; color: ${aiState.lighting_color}`}
-                position="-1 3 1"
-              ></a-entity>
-            </>
+            // @ts-ignore
+            <a-sky src={aiState.skybox_url} rotation="0 0 0"></a-sky>
           ) : (
             // Default A-Frame Environment (Unity-like grid + blue sky)
             <a-entity
