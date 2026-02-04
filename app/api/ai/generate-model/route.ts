@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClientId, checkRateLimit, incrementGeneration } from '@/lib/meshyRateLimit';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MESHY API GUARD - Set to true to disable all Meshy API calls for testing
-// ═══════════════════════════════════════════════════════════════════════════
-const MESHY_DISABLED = false; // ✅ RE-ENABLED with server-side hard limits
+export const maxDuration = 30;
 
-// Meshy v2 Text-to-3D API
+const MESHY_DISABLED = false;
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
 
 export async function POST(request: NextRequest) {
