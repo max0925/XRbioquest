@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Meshy API key not configured' }, { status: 500 });
     }
 
-    // ✅ 发起 Refine 任务，目标是精修贴图 (Texture)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+
     const response = await fetch(MESHY_API_URL, {
       method: 'POST',
       headers: {
@@ -34,11 +36,13 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        mode: 'refine', // ✅ 核心：模式改为 refine
+        mode: 'refine',
         preview_task_id: previewTaskId,
-        texture_richness: 'high'
+        texture_richness: 'high',
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
 
     if (!response.ok) {
       const errorText = await response.text();

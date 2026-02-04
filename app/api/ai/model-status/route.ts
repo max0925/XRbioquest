@@ -25,9 +25,16 @@ export async function GET(request: NextRequest) {
 
     const apiKey = process.env.MESHY_API_KEY;
 
-    // Fetch with AbortController to prevent hanging requests
+    // Fail fast if API key is missing — don't send a doomed request
+    if (!apiKey) {
+      console.error('[MESHY] MESHY_API_KEY is not set — check .env.local uses = not :');
+      return NextResponse.json({ error: 'Meshy API key not configured' }, { status: 500 });
+    }
+
+    // 8s timeout — Meshy status check is a lightweight GET, should respond in <2s.
+    // Vercel Hobby has a hard 10s ceiling; this must fit within it.
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000); // 25s client timeout
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     const response = await fetch(`${MESHY_API_URL}/${taskId}`, {
       method: 'GET',

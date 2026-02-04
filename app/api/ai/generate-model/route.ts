@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Meshy v2 Text-to-3D request with PBR texturing enabled
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+
     const generateResponse = await fetch(MESHY_API_URL, {
       method: 'POST',
       headers: {
@@ -56,11 +59,12 @@ export async function POST(request: NextRequest) {
         prompt: prompt,
         art_style: 'realistic',
         negative_prompt: 'low quality, blurry, distorted, ugly, monochrome, flat shading',
-        // PBR Material settings for textured output
         enable_pbr: true,
         texture_richness: 'high',
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
 
     if (!generateResponse.ok) {
       const errorText = await generateResponse.text();
