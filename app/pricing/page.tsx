@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   const plans = [
     {
@@ -79,6 +81,34 @@ export default function Pricing() {
     if (plan.name === "School") return "/year per teacher";
     if (plan.monthlyPrice === 0) return "";
     return "/month";
+  };
+
+  const handleCheckout = async (plan: typeof plans[number]) => {
+    // Free and School plans don't go through Stripe
+    if (plan.name === "Free" || plan.name === "School") return;
+
+    const priceEnvKey = isYearly ? "PRO_YEARLY" : "PRO_MONTHLY";
+    setCheckoutLoading(priceEnvKey);
+
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId: priceEnvKey }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("No checkout URL returned:", data.error);
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+    } finally {
+      setCheckoutLoading(null);
+    }
   };
 
   return (
@@ -201,17 +231,31 @@ export default function Pricing() {
                   </div>
 
                   {/* CTA Button */}
-                  <Link
-                    href={plan.href}
-                    className={`block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 ${
-                      plan.popular
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md"
-                        : "bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700"
-                    }`}
-                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                  >
-                    {plan.cta}
-                  </Link>
+                  {plan.name === "Pro" ? (
+                    <button
+                      onClick={() => handleCheckout(plan)}
+                      disabled={checkoutLoading !== null}
+                      className={`block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed`}
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {checkoutLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Redirecting...
+                        </span>
+                      ) : (
+                        plan.cta
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      href={plan.href}
+                      className={`block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700`}
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {plan.cta}
+                    </Link>
+                  )}
 
                   {/* Features List */}
                   <div className="space-y-3">

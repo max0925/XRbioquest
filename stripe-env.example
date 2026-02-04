@@ -1,0 +1,17 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# STRIPE ENVIRONMENT VARIABLES
+# Copy these into your .env.local and fill in with your Stripe Dashboard values
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Stripe API Keys (from https://dashboard.stripe.com/apikeys)
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Stripe Webhook Secret (from `stripe listen --forward-to localhost:3000/api/stripe/webhook`)
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Stripe Price IDs (create products in Stripe Dashboard, copy price IDs here)
+STRIPE_PRICE_PRO_MONTHLY=price_...    # $29/month recurring
+STRIPE_PRICE_PRO_YEARLY=price_...     # $290/year recurring
+STRIPE_PRICE_ADDON_ENV=price_...      # $10 one-time (Environment Pack +30)
+STRIPE_PRICE_ADDON_MODEL=price_...    # $15 one-time (3D Model Pack +20)
