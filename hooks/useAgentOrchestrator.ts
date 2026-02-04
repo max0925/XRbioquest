@@ -174,7 +174,7 @@ export function useAgentOrchestrator({
           generate3DModel(prompt, (status) => {
             updateStep(stepId, 'active', status);
             addLog(`[MESHY] ${name}: ${status}`);
-          }).then(res => {
+          }).then((res: any) => {
             if (res.success && res.modelUrl) {
               updateStep(stepId, 'success', 'Model Ready');
               addLog(`[MESHY] ✓ ${name}: Model URL received`);
