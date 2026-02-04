@@ -1,65 +1,90 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Pricing() {
+  const [isYearly, setIsYearly] = useState(false);
+
   const plans = [
     {
       name: "Free",
-      price: "0",
+      monthlyPrice: 0,
+      yearlyPrice: 0,
       description: "Perfect for trying out BioQuest",
       features: [
-        "3 VR lessons per month",
-        "Basic AI generation",
+        "3 environment generations",
+        "3 3D model generations",
+        "Basic AI features",
         "Standard 3D assets library",
         "Community support",
-        "Quest 2/3 compatible"
+        "Quest 2/3 compatible",
       ],
       cta: "Start Free",
       href: "/signup",
-      popular: false
+      popular: false,
     },
     {
       name: "Pro",
-      price: "29",
+      monthlyPrice: 29,
+      yearlyPrice: 290,
       description: "For active educators and creators",
       features: [
-        "Unlimited VR lessons",
+        "30 environment generations/month",
+        "20 3D model generations/month",
         "Advanced AI generation",
         "Premium 3D assets library",
         "Priority support",
         "All headset support",
         "Custom branding",
         "Analytics dashboard",
-        "Export & sharing"
+        "Export & sharing",
+        "Purchase add-ons when limit reached",
       ],
       cta: "Start Pro Trial",
       href: "/signup?plan=pro",
-      popular: true
+      popular: true,
     },
     {
       name: "School",
-      price: "Custom",
+      monthlyPrice: null,
+      yearlyPrice: 500,
       description: "For institutions and districts",
       features: [
+        "Unlimited generations",
         "Everything in Pro",
         "Unlimited teacher seats",
         "Student management",
         "LMS integration",
         "Dedicated support",
-        "Custom deployment",
         "Training & onboarding",
-        "SLA guarantee"
+        "SLA guarantee",
       ],
       cta: "Contact Sales",
       href: "/contact",
-      popular: false
-    }
+      popular: false,
+    },
   ];
+
+  const formatPrice = (plan: typeof plans[number]) => {
+    if (plan.name === "School") return "500";
+    if (plan.monthlyPrice === 0) return "0";
+    if (isYearly) {
+      const perMonth = Math.round((plan.yearlyPrice! / 12) * 100) / 100;
+      return perMonth % 1 === 0 ? perMonth.toString() : perMonth.toFixed(2);
+    }
+    return plan.monthlyPrice!.toString();
+  };
+
+  const getPriceSuffix = (plan: typeof plans[number]) => {
+    if (plan.name === "School") return "/year per teacher";
+    if (plan.monthlyPrice === 0) return "";
+    return "/month";
+  };
 
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <section className="pt-24 pb-16 px-6">
+      <section className="pt-24 pb-12 px-6">
         <div className="max-w-5xl mx-auto text-center">
           <p
             className="text-xs font-semibold text-emerald-600 mb-3 tracking-wider uppercase"
@@ -74,11 +99,40 @@ export default function Pricing() {
             Choose your plan
           </h1>
           <p
-            className="text-lg text-gray-600 max-w-2xl mx-auto"
+            className="text-lg text-gray-600 max-w-2xl mx-auto mb-10"
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
           >
             Start free and scale as you grow. All plans include our core VR creation tools.
           </p>
+
+          {/* Monthly / Yearly Toggle */}
+          <div className="inline-flex items-center gap-3 bg-gray-100 rounded-full p-1">
+            <button
+              onClick={() => setIsYearly(false)}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                !isYearly
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setIsYearly(true)}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                isYearly
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Yearly
+              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                Save $58
+              </span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -86,7 +140,7 @@ export default function Pricing() {
       <section className="pb-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-6">
-            {plans.map((plan, index) => (
+            {plans.map((plan) => (
               <div
                 key={plan.name}
                 className={`relative rounded-xl border transition-all duration-300 ${
@@ -122,23 +176,28 @@ export default function Pricing() {
                       {plan.description}
                     </p>
                     <div className="flex items-baseline gap-1">
-                      {plan.price !== "Custom" && (
-                        <span className="text-lg text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                          $
-                        </span>
-                      )}
+                      <span className="text-lg text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                        $
+                      </span>
                       <span
                         className="text-5xl font-semibold text-gray-900"
                         style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
                       >
-                        {plan.price}
+                        {formatPrice(plan)}
                       </span>
-                      {plan.price !== "Custom" && (
-                        <span className="text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                          /month
-                        </span>
-                      )}
+                      <span className="text-gray-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                        {getPriceSuffix(plan)}
+                      </span>
                     </div>
+                    {/* Yearly billing note for Pro */}
+                    {plan.name === "Pro" && isYearly && (
+                      <p
+                        className="text-xs text-gray-500 mt-1.5"
+                        style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                      >
+                        Billed as ${plan.yearlyPrice}/year
+                      </p>
+                    )}
                   </div>
 
                   {/* CTA Button */}
@@ -160,7 +219,7 @@ export default function Pricing() {
                       className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-4"
                       style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
                     >
-                      What's Included
+                      What&apos;s Included
                     </p>
                     {plan.features.map((feature, i) => (
                       <div key={i} className="flex items-start gap-3">
@@ -195,7 +254,7 @@ export default function Pricing() {
               className="text-sm text-gray-600 mb-6"
               style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
-              All plans include 14-day free trial • No credit card required • Cancel anytime
+              All plans include 14-day free trial &middot; No credit card required &middot; Cancel anytime
             </p>
 
             <div className="flex flex-wrap justify-center gap-6 text-sm">
@@ -206,7 +265,7 @@ export default function Pricing() {
               >
                 Contact Sales
               </Link>
-              <span className="text-gray-300">•</span>
+              <span className="text-gray-300">&middot;</span>
               <Link
                 href="/faq"
                 className="text-gray-600 hover:text-gray-900 transition"
@@ -214,7 +273,7 @@ export default function Pricing() {
               >
                 Pricing FAQ
               </Link>
-              <span className="text-gray-300">•</span>
+              <span className="text-gray-300">&middot;</span>
               <Link
                 href="/enterprise"
                 className="text-gray-600 hover:text-gray-900 transition"
@@ -241,20 +300,20 @@ export default function Pricing() {
             {[
               {
                 q: "Can I switch plans later?",
-                a: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately."
+                a: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.",
               },
               {
                 q: "What payment methods do you accept?",
-                a: "We accept all major credit cards, PayPal, and offer invoice billing for School plans."
+                a: "We accept all major credit cards, PayPal, and offer invoice billing for School plans.",
               },
               {
                 q: "Is there a student discount?",
-                a: "Yes! Students and educators with valid .edu emails receive 50% off Pro plans."
+                a: "Yes! Students and educators with valid .edu emails receive 50% off Pro plans.",
               },
               {
-                q: "What happens when I hit my lesson limit?",
-                a: "On the Free plan, you'll be prompted to upgrade. Pro plans have unlimited lessons."
-              }
+                q: "What happens when I hit my generation limit?",
+                a: "On the Free plan, you'll be prompted to upgrade. Pro users can purchase add-on packs to get more generations instantly.",
+              },
             ].map((faq, index) => (
               <div key={index} className="border-b border-gray-200 pb-6">
                 <h3

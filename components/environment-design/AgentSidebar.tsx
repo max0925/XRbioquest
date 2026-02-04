@@ -41,6 +41,7 @@ export default function AgentSidebar({
           transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
           className="h-full flex-shrink-0 p-3"
           style={{ width: '25vw', minWidth: '320px', maxWidth: '420px' }}
+          data-tour="agent-sidebar"
         >
           {/* Floating Card Container */}
           <div

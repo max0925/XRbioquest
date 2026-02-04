@@ -1,6 +1,7 @@
 // app/layout.tsx
 import "./globals.css";
 import Navigation from "../components/Navigation";
+import { Analytics } from "@vercel/analytics/react";
 import { ReactNode } from "react";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="bg-white" suppressHydrationWarning>
         <Navigation />
         <main className="flex-1 relative overflow-hidden">{children}</main>
+        <Analytics />
       </body>
     </html>
   );

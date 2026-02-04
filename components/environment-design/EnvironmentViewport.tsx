@@ -3,7 +3,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
-import { ChevronRight, ChevronLeft, Loader2, Move, RotateCcw, Maximize2, Zap, Sparkles, Send, Mic } from "lucide-react";
+import { ChevronRight, ChevronLeft, Loader2, Move, RotateCcw, Maximize2, Zap, Wand2, Send, Mic, MessagesSquare } from "lucide-react";
 import type { SceneAsset } from "../../hooks/useAgentOrchestrator";
 import { useVoiceInput } from "../../hooks/useVoiceInput";
 
@@ -72,15 +72,15 @@ export default function EnvironmentViewport({
   onResetTransform,
 }: EnvironmentViewportProps) {
   return (
-    <main className="flex-1 relative flex flex-col bg-[#1a1a1a] scene-container">
+    <main className="flex-1 relative flex flex-col bg-[#1a1a1a] scene-container" data-tour="viewport">
       {/* Left Toggle Button */}
       <div className="absolute top-4 left-4 z-30 flex gap-2">
         <button
           onClick={onToggleLeftPanel}
-          className="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white hover:bg-black/80 transition-all flex items-center gap-2"
+          className="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white hover:bg-black/80 transition-all flex items-center gap-1.5"
         >
           <ChevronRight className={`w-4 h-4 transition-transform ${leftPanelOpen ? 'rotate-180' : ''}`} />
-          <span className="text-xs font-medium">AI Orchestrator</span>
+          <MessagesSquare className="w-4 h-4" />
         </button>
         <div className="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-emerald-400 text-[10px] font-semibold uppercase flex items-center gap-2">
           <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
@@ -250,61 +250,197 @@ function TransformToolbar({
 
   return (
     <>
-      {/* AI Popover - Glassmorphism Design */}
+      {/* AI Orchestrator — Classroom Controller */}
       {showAiPopover && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-neutral-900/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-72 overflow-hidden z-40">
-          {/* Status Text */}
-          <div className="px-4 py-2.5">
-            <div className="text-xs text-white/60 mb-0.5">Current Environment</div>
-            <div className="text-sm text-white/90 font-medium truncate" title={aiState.skybox_style}>
-              {aiState.skybox_style}
+        <div
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 w-[360px]"
+          style={{ animation: 'orchestrator-enter 0.25s cubic-bezier(0.16,1,0.3,1)' }}
+        >
+          {/* Outer glow ring */}
+          <div
+            className="absolute -inset-px rounded-[20px] opacity-60"
+            style={{
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08), transparent 60%)',
+              animation: isAiLoading ? 'orchestrator-pulse 2s ease-in-out infinite' : 'none',
+            }}
+          />
+
+          <div
+            className="relative rounded-[20px] overflow-hidden"
+            style={{
+              background: 'linear-gradient(180deg, rgba(23,23,23,0.97) 0%, rgba(10,10,10,0.98) 100%)',
+              backdropFilter: 'blur(40px) saturate(1.8)',
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 24px 48px -12px rgba(0,0,0,0.6), 0 0 64px -16px rgba(251,191,36,0.08)',
+            }}
+          >
+            {/* Header — minimal, authoritative */}
+            <div className="px-5 pt-4 pb-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{
+                      background: isAiLoading ? '#fbbf24' : '#34d399',
+                      boxShadow: isAiLoading ? '0 0 8px rgba(251,191,36,0.5)' : '0 0 8px rgba(52,211,153,0.4)',
+                      animation: isAiLoading ? 'orchestrator-pulse 1.5s ease-in-out infinite' : 'none',
+                    }}
+                  />
+                  <span
+                    className="text-[11px] font-medium tracking-wide uppercase"
+                    style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em' }}
+                  >
+                    {isAiLoading ? 'Orchestrating...' : 'Scene Intelligence'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Response — only when present */}
+            {aiReply && (
+              <div className="px-5 pt-1 pb-3">
+                <p
+                  className="text-[13px] leading-relaxed"
+                  style={{ color: 'rgba(253,230,138,0.9)', fontStyle: 'italic' }}
+                >
+                  {aiReply}
+                </p>
+              </div>
+            )}
+
+            {/* Active environment indicator — subtle */}
+            {(aiState.skybox_style && aiState.skybox_style !== 'Clean modern laboratory') && (
+              <div className="px-5 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-amber-500/60" />
+                  <span
+                    className="text-[10px] truncate"
+                    style={{ color: 'rgba(255,255,255,0.25)' }}
+                    title={aiState.skybox_style}
+                  >
+                    {aiState.skybox_style}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Input — the hero element */}
+            <div className="px-4 pb-4 pt-1">
+              <div
+                className="relative rounded-2xl transition-all duration-300"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  boxShadow: isListening
+                    ? '0 0 0 2px rgba(239,68,68,0.4), 0 0 20px rgba(239,68,68,0.1)'
+                    : '0 0 0 1px rgba(255,255,255,0.06)',
+                }}
+              >
+                <textarea
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !isAiLoading && !isListening) {
+                      e.preventDefault();
+                      handleCommand();
+                    }
+                  }}
+                  placeholder="What happens to the heart in zero gravity?"
+                  disabled={isAiLoading || isListening}
+                  rows={2}
+                  className="w-full bg-transparent resize-none px-4 pt-3.5 pb-10 text-[13px] text-white/90 placeholder-white/20 focus:outline-none disabled:opacity-40 leading-relaxed"
+                  style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
+                />
+
+                {/* Bottom controls bar inside the input */}
+                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between">
+                  {/* Listening indicator */}
+                  <div className="flex items-center gap-2">
+                    {isListening && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex gap-0.5">
+                          {[0, 1, 2].map(i => (
+                            <span
+                              key={i}
+                              className="w-0.5 bg-red-400 rounded-full"
+                              style={{
+                                height: '12px',
+                                animation: `orchestrator-bar 0.8s ease-in-out ${i * 0.15}s infinite alternate`,
+                              }}
+                            />
+                          ))}
+                        </span>
+                        <span className="text-[10px] text-red-400/80">Listening...</span>
+                      </div>
+                    )}
+                    {isAiLoading && (
+                      <div className="flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'rgba(251,191,36,0.7)' }} />
+                        <span className="text-[10px]" style={{ color: 'rgba(251,191,36,0.5)' }}>Building world...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1">
+                    {/* Voice */}
+                    <button
+                      onClick={toggleVoiceInput}
+                      disabled={isAiLoading}
+                      className="p-2 rounded-xl transition-all disabled:opacity-30"
+                      style={{
+                        background: isListening ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)',
+                        color: isListening ? '#f87171' : 'rgba(255,255,255,0.35)',
+                      }}
+                      title={isListening ? 'Stop listening' : 'Ask with voice'}
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+
+                    {/* Send */}
+                    <button
+                      onClick={handleCommand}
+                      disabled={isAiLoading || !userInput.trim() || isListening}
+                      className="p-2 rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                      style={{
+                        background: (userInput.trim() && !isAiLoading && !isListening)
+                          ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                          : 'rgba(255,255,255,0.05)',
+                        color: (userInput.trim() && !isAiLoading && !isListening)
+                          ? '#000'
+                          : 'rgba(255,255,255,0.2)',
+                        boxShadow: (userInput.trim() && !isAiLoading && !isListening)
+                          ? '0 2px 12px rgba(245,158,11,0.3)'
+                          : 'none',
+                      }}
+                      title="Send"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* AI Reply */}
-          {aiReply && (
-            <div className="px-4 py-2 border-t border-white/5 bg-white/5">
-              <div className="text-xs text-emerald-400/90">{aiReply}</div>
-            </div>
-          )}
-
-          {/* Input Area */}
-          <div className="p-3 border-t border-white/5">
-            <div className="relative">
-              <input
-                type="text"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !isAiLoading && !isListening && handleCommand()}
-                placeholder="Enter command..."
-                disabled={isAiLoading || isListening}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 pr-20 text-white text-xs placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50 transition-all"
-              />
-              {/* Mic Button */}
-              <button
-                onClick={toggleVoiceInput}
-                disabled={isAiLoading}
-                className={`absolute right-11 top-1/2 -translate-y-1/2 ${
-                  isListening ? 'bg-red-500/80 animate-pulse' : 'bg-white/10 hover:bg-white/20'
-                } text-white p-1.5 rounded-md transition-all disabled:opacity-50`}
-              >
-                <Mic className="w-3 h-3" />
-              </button>
-              {/* Send Button */}
-              <button
-                onClick={handleCommand}
-                disabled={isAiLoading || !userInput.trim() || isListening}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 disabled:bg-white/5 text-white p-1.5 rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-              </button>
-            </div>
-          </div>
+          {/* Keyframes */}
+          <style>{`
+            @keyframes orchestrator-enter {
+              from { opacity: 0; transform: translateY(8px) scale(0.98); }
+              to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes orchestrator-pulse {
+              0%, 100% { opacity: 0.4; }
+              50% { opacity: 1; }
+            }
+            @keyframes orchestrator-bar {
+              from { transform: scaleY(0.3); }
+              to { transform: scaleY(1); }
+            }
+          `}</style>
         </div>
       )}
 
       {/* Toolbar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/80 backdrop-blur p-1.5 rounded-xl border border-white/10 z-30">
+      <div data-tour="transform-toolbar" className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/80 backdrop-blur p-1.5 rounded-xl border border-white/10 z-30">
         {modes.map(({ mode, icon: Icon, color, title }) => (
           <button
             key={mode}
@@ -336,14 +472,16 @@ function TransformToolbar({
         {/* AI Button */}
         <button
           onClick={() => setShowAiPopover(!showAiPopover)}
-          className={`p-2.5 rounded-lg transition-all ${
+          data-tour="ai-orchestrator-btn"
+          className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
             showAiPopover
-              ? 'bg-purple-500 text-white'
-              : 'text-purple-400 hover:text-white hover:bg-purple-500/20'
+              ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25'
+              : 'bg-gradient-to-r from-violet-600/80 to-fuchsia-600/80 text-white/90 hover:from-violet-600 hover:to-fuchsia-600 hover:text-white hover:shadow-lg hover:shadow-violet-500/25'
           }`}
           title="AI Orchestrator"
         >
-          <Sparkles className="w-4 h-4" />
+          <Wand2 className="w-4 h-4" />
+          <span className="text-xs font-medium">AI Orchestrator</span>
         </button>
       </div>
     </>

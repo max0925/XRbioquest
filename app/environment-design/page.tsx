@@ -2,7 +2,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, HelpCircle } from "lucide-react";
 import Navigation from "../../components/Navigation";
 import {
   AgentSidebar,
@@ -12,7 +12,9 @@ import {
   AIPreviewCard,
   ExportPopup
 } from "../../components/environment-design";
+import OnboardingTour from "../../components/onboarding/OnboardingTour";
 import { useSceneManager } from "../../hooks/useSceneManager";
+import { useOnboardingTour } from "../../hooks/useOnboardingTour";
 
 // ═══════════════════════════════════════════════════════════════════════════ 
 // ENVIRONMENT DESIGN PAGE - Clean Layout Container
@@ -21,6 +23,7 @@ import { useSceneManager } from "../../hooks/useSceneManager";
 
 function EnvironmentDesignContent() {
   const scene = useSceneManager();
+  const tour = useOnboardingTour();
 
   // AI Orchestrator state (shared with viewport)
   const [aiState, setAiState] = useState({
@@ -96,6 +99,18 @@ function EnvironmentDesignContent() {
         url={scene.exportUrl}
         onClose={scene.closeExportPopup}
       />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour tour={tour} />
+
+      {/* Help Button — restart tour */}
+      <button
+        onClick={() => { tour.resetTour(); setTimeout(() => tour.startTour(), 100); }}
+        className="fixed bottom-5 left-5 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white/30 hover:text-white/70 hover:bg-white/10 hover:border-white/20 transition-all"
+        title="Restart tour"
+      >
+        <HelpCircle className="w-4 h-4" />
+      </button>
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }

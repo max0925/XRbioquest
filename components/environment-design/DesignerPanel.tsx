@@ -43,6 +43,7 @@ export default function DesignerPanel({
           exit={{ x: 280, opacity: 0 }}
           transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
           className="w-[280px] bg-[#1a1a1a] border-l border-white/5 flex flex-col z-20"
+          data-tour="inspector-panel"
         >
           {/* Header */}
           <div className="px-4 py-4 border-b border-white/5">
@@ -74,6 +75,7 @@ export default function DesignerPanel({
           <div className="px-4 py-4 border-t border-white/5">
             <button
               onClick={onExport}
+              data-tour="export-btn"
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-medium text-sm transition-colors"
             >
               Export to VR
@@ -345,7 +347,7 @@ function SceneAssetsList({
   onRemoveAsset,
 }: SceneAssetsListProps) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5" data-tour="scene-assets">
       <div className="flex justify-between items-center">
         <span className="text-xs font-semibold text-white">Scene Assets</span>
         <span className="text-xs text-white/40 font-medium">
