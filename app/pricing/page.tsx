@@ -1,9 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const plans = [
     {
@@ -81,6 +84,36 @@ export default function Pricing() {
     return "/month";
   };
 
+  const handleCheckout = async () => {
+    setCheckoutError(null);
+    setCheckoutLoading(true);
+
+    try {
+      const plan = isYearly ? "PRO_YEARLY" : "PRO_MONTHLY";
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Checkout failed");
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err: any) {
+      setCheckoutError(err.message);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -133,6 +166,14 @@ export default function Pricing() {
               </span>
             </button>
           </div>
+
+          {/* Error toast */}
+          {checkoutError && (
+            <div className="mt-6 inline-flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+              <span style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{checkoutError}</span>
+              <button onClick={() => setCheckoutError(null)} className="text-red-400 hover:text-red-600 font-bold">&times;</button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -201,17 +242,31 @@ export default function Pricing() {
                   </div>
 
                   {/* CTA Button */}
-                  <Link
-                    href={plan.name === "Pro" ? "/contact" : plan.href}
-                    className={`block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 ${
-                      plan.popular
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md"
-                        : "bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700"
-                    }`}
-                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                  >
-                    {plan.name === "Pro" ? "Coming Soon" : plan.cta}
-                  </Link>
+                  {plan.name === "Pro" ? (
+                    <button
+                      onClick={handleCheckout}
+                      disabled={checkoutLoading}
+                      className="block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {checkoutLoading ? (
+                        <span className="inline-flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Redirecting to checkout...
+                        </span>
+                      ) : (
+                        plan.cta
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      href={plan.href}
+                      className="block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {plan.cta}
+                    </Link>
+                  )}
 
                   {/* Features List */}
                   <div className="space-y-3">
