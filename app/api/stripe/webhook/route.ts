@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  console.log(`[webhook] Received event: ${event.type} (${event.id})`);
+  // Log event type for monitoring (keep minimal in production)
 
   // Cast to any to bypass missing generated types for admin client
   const supabase = getSupabaseAdmin() as any;
@@ -48,13 +48,6 @@ export async function POST(req: NextRequest) {
       // ── Checkout completed (subscription or one-time) ──────────────
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log('[webhook] checkout.session.completed', {
-          sessionId: session.id,
-          mode: session.mode,
-          customerEmail: session.customer_details?.email,
-          customerId: session.customer,
-          subscriptionId: session.subscription,
-        });
 
         if (session.mode === 'subscription') {
           const customerId = session.customer as string;
@@ -68,14 +61,6 @@ export async function POST(req: NextRequest) {
           const priceId = subscriptionItem?.price.id;
           // In latest Stripe SDK, current_period_end moved from Subscription to SubscriptionItem
           const periodEnd = new Date(subscriptionItem.current_period_end * 1000);
-
-          console.log('[webhook] Subscription details:', {
-            subscriptionId,
-            priceId,
-            status: subscription.status,
-            periodEnd: periodEnd.toISOString(),
-            userId,
-          });
 
           if (userId) {
             // User ID from metadata — update by user ID
@@ -93,13 +78,10 @@ export async function POST(req: NextRequest) {
               .eq('id', userId);
 
             if (error) {
-              console.error('[webhook] Supabase update by userId failed:', error.message);
-            } else {
-              console.log(`[webhook] ✓ Updated profile for user ${userId}`);
+              console.error('[webhook] Supabase update failed:', error.message);
             }
           } else if (email) {
             // Fallback: find user by email
-            console.log(`[webhook] No userId in metadata, looking up by email: ${email}`);
             const { data: users } = await supabase
               .from('profiles')
               .select('id')
@@ -121,15 +103,13 @@ export async function POST(req: NextRequest) {
                 .eq('id', users[0].id);
 
               if (error) {
-                console.error('[webhook] Supabase update by email failed:', error.message);
-              } else {
-                console.log(`[webhook] ✓ Updated profile for email ${email} (id: ${users[0].id})`);
+                console.error('[webhook] Supabase update failed:', error.message);
               }
             } else {
-              console.warn(`[webhook] No profile found for email ${email}`);
+              console.warn('[webhook] No profile found for email:', email);
             }
           } else {
-            console.warn('[webhook] No userId or email available, cannot update profile');
+            console.warn('[webhook] No userId or email in session metadata');
           }
         }
 
@@ -137,7 +117,6 @@ export async function POST(req: NextRequest) {
         if (session.mode === 'payment') {
           const userId = session.metadata?.supabase_user_id;
           const addonPriceId = session.metadata?.addon_price_id;
-          console.log('[webhook] One-time payment:', { userId, addonPriceId });
 
           if (userId && addonPriceId) {
             // Determine credits
@@ -168,8 +147,6 @@ export async function POST(req: NextRequest) {
                   model_credits: (profile.model_credits ?? 0) + modelCredits,
                 })
                 .eq('id', userId);
-
-              console.log(`[webhook] ✓ Added ${envCredits} env + ${modelCredits} model credits for user ${userId}`);
             }
           }
         }
@@ -186,14 +163,6 @@ export async function POST(req: NextRequest) {
         // In latest Stripe SDK, current_period_end moved from Subscription to SubscriptionItem
         const periodEnd = new Date(subscriptionItem.current_period_end * 1000);
 
-        console.log('[webhook] customer.subscription.updated', {
-          subscriptionId: subscription.id,
-          customerId,
-          priceId,
-          status,
-          periodEnd: periodEnd.toISOString(),
-        });
-
         const { error } = await supabase
           .from('profiles')
           .update({
@@ -205,8 +174,6 @@ export async function POST(req: NextRequest) {
 
         if (error) {
           console.error('[webhook] Supabase update failed:', error.message);
-        } else {
-          console.log(`[webhook] ✓ Updated subscription status to "${status}" for customer ${customerId}`);
         }
         break;
       }
@@ -215,11 +182,6 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
-
-        console.log('[webhook] customer.subscription.deleted', {
-          subscriptionId: subscription.id,
-          customerId,
-        });
 
         const { error } = await supabase
           .from('profiles')
@@ -234,14 +196,12 @@ export async function POST(req: NextRequest) {
 
         if (error) {
           console.error('[webhook] Supabase cancel failed:', error.message);
-        } else {
-          console.log(`[webhook] ✓ Cancelled subscription for customer ${customerId}, reset to free credits`);
         }
         break;
       }
 
       default:
-        console.log(`[webhook] Unhandled event type: ${event.type}`);
+        // Ignore unhandled event types
         break;
     }
 
