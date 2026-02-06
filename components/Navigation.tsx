@@ -77,34 +77,36 @@ export default function Navigation() {
           </span>
         </Link>
 
-        {/* ✅ 导航菜单 */}
-        <div className="flex items-center gap-6 text-[15px] font-medium text-gray-700">
-          {navItems.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`relative transition-colors ${
-                  active
-                    ? "text-green-600 font-semibold"
-                    : "hover:text-green-500"
-                }`}
-              >
-                {item.name}
-                {active && (
-                  <motion.div
-                    layoutId="underline"
-                    className="absolute left-0 right-0 -bottom-1 h-[2px] bg-green-600 rounded-full"
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </div>
+        {/* Right side: Navigation + Auth */}
+        <div className="flex items-center gap-8">
+          {/* Navigation */}
+          <div className="flex items-center gap-6 text-[15px] font-medium text-gray-700">
+            {navItems.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`relative transition-colors ${
+                    active
+                      ? "text-green-600 font-semibold"
+                      : "hover:text-green-500"
+                  }`}
+                >
+                  {item.name}
+                  {active && (
+                    <motion.div
+                      layoutId="underline"
+                      className="absolute left-0 right-0 -bottom-1 h-[2px] bg-green-600 rounded-full"
+                    />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
 
-        {/* ✅ Auth Buttons */}
-        <div className="flex items-center gap-3">
+          {/* Auth Buttons */}
+          <div className="flex items-center gap-3">
           {loading ? (
             <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
           ) : user ? (
@@ -200,6 +202,7 @@ export default function Navigation() {
               </Link>
             </>
           )}
+          </div>
         </div>
       </div>
     </nav>
