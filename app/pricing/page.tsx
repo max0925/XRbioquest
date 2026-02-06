@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function Pricing() {
+  const router = useRouter();
   const [isYearly, setIsYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -97,6 +99,12 @@ export default function Pricing() {
       });
 
       const data = await res.json();
+
+      // Redirect to login if not authenticated
+      if (res.status === 401) {
+        router.push("/login?redirect=/pricing&message=Please log in to subscribe");
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(data.error || "Checkout failed");

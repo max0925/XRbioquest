@@ -34,7 +34,10 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Please log in to subscribe', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
     }
 
     // Check if user already has a Stripe customer ID
