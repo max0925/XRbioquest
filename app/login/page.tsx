@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/environment-design";
+  const redirectTo = searchParams.get("redirect") || "/";
   const messageParam = searchParams.get("message");
 
   const [email, setEmail] = useState("");
@@ -91,7 +91,7 @@ function LoginForm() {
       const supabase = createClient();
       // Include redirect destination in OAuth callback
       const callbackUrl = new URL("/auth/callback", window.location.origin);
-      if (redirectTo !== "/environment-design") {
+      if (redirectTo !== "/") {
         callbackUrl.searchParams.set("redirect", redirectTo);
       }
 

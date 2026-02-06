@@ -15,13 +15,9 @@ export default function Navigation() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
-    { name: "Home", href: "/" },
     { name: "AI XR Creator", href: "/environment-design" },
-    { name: "Library", href: "/library" },
-    { name: "Market", href: "/market" },
+    { name: "Use Cases", href: "/use-cases" },
     { name: "Pricing", href: "/pricing" },
-    { name: "Workshop", href: "/workshop" },
-    { name: "Community", href: "/community" },
   ];
 
   // Check auth state on mount and listen for changes
@@ -69,8 +65,8 @@ export default function Navigation() {
   return (
     <nav className="fixed top-0 left-0 w-full bg-white border-b border-gray-100 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
-        {/* ✅ Logo */}
-        <div className="flex items-center gap-3">
+        {/* Logo - links to home */}
+        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition">
           <img
             src="/bio.png"
             alt="BioQuest Logo"
@@ -79,7 +75,7 @@ export default function Navigation() {
           <span className="text-lg font-extrabold text-gray-900 tracking-tight">
             BIOQUEST
           </span>
-        </div>
+        </Link>
 
         {/* ✅ 导航菜单 */}
         <div className="flex items-center gap-6 text-[15px] font-medium text-gray-700">
@@ -151,6 +147,17 @@ export default function Navigation() {
                     </div>
 
                     {/* Menu items */}
+                    <Link
+                      href="/library"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      My Projects
+                    </Link>
+
                     <Link
                       href="/settings"
                       onClick={() => setDropdownOpen(false)}
