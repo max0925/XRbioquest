@@ -1,6 +1,9 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes that require authentication
+const protectedRoutes = ['/environment-design']
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -8,15 +11,14 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
-  // 👇【关键修改】先检查有没有 Key，如果没有，直接放行，不要崩！
+  // Check if Supabase env vars are set
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    console.warn("⚠️ [Middleware] Supabase 环境变量缺失，跳过 Auth 验证，直接放行。");
+    console.warn("⚠️ [Middleware] Supabase env vars missing, skipping auth check.");
     return response;
   }
-  // 👆【修改结束】
 
   const supabase = createServerClient(
     supabaseUrl,
@@ -64,7 +66,19 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Check if accessing a protected route without being logged in
+  const pathname = request.nextUrl.pathname
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
+
+  if (isProtectedRoute && !user) {
+    // Redirect to login with return URL
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', pathname)
+    loginUrl.searchParams.set('message', 'Please log in to access the AI XR Creator')
+    return NextResponse.redirect(loginUrl)
+  }
 
   return response
 }
