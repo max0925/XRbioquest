@@ -35,6 +35,18 @@ CREATE TABLE IF NOT EXISTS credit_purchases (
 -- RLS policies
 ALTER TABLE credit_purchases ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own credit purchases"
-  ON credit_purchases FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'credit_purchases'
+      AND policyname = 'Users can view own credit purchases'
+  ) THEN
+    CREATE POLICY "Users can view own credit purchases"
+      ON credit_purchases FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;

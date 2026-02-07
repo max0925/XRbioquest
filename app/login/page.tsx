@@ -89,7 +89,7 @@ function LoginForm() {
   const handleGoogleLogin = async () => {
     try {
       const supabase = createClient();
-      // Include redirect destination in OAuth callback
+      // Build callback URL with redirect destination
       const callbackUrl = new URL("/auth/callback", window.location.origin);
       if (redirectTo !== "/") {
         callbackUrl.searchParams.set("redirect", redirectTo);
@@ -98,7 +98,7 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-           redirectTo: "https://bioquestxr.vercel.app",
+          redirectTo: callbackUrl.toString(),
         },
       });
 
