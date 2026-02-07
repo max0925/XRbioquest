@@ -41,7 +41,7 @@ function EnvironmentDesignContent() {
 
       {/* 3-Column Layout */}
       <div className="flex-1 mt-[64px] flex overflow-hidden">
-        {/* Left: AI Agent Sidebar */}
+        {/* Left: AI Agent Sidebar + Asset Library */}
         <AgentSidebar
           isOpen={scene.leftPanelOpen}
           messages={scene.agent.messages}
@@ -51,6 +51,7 @@ function EnvironmentDesignContent() {
           isExecuting={scene.agent.isExecuting}
           onSendMessage={scene.agent.handleAiSend}
           onClearScene={scene.agent.clearAgentAssets}
+          onAddAsset={scene.addAssetFromLibrary}
         />
 
         {/* Center: 3D Viewport */}

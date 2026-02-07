@@ -98,6 +98,12 @@ export interface UseSceneManagerReturn {
   // Asset management
   toggleAssetVisibility: (uid: string) => void;
   removeAsset: (uid: string) => void;
+  addAssetFromLibrary: (asset: {
+    name: string;
+    modelUrl: string;
+    thumbnailUrl?: string;
+    source: 'internal';
+  }) => void;
 
   // Loading state
   loadingModels: Map<string, number>;
@@ -418,6 +424,41 @@ export function useSceneManager(): UseSceneManagerReturn {
     if (activeSelection?.uid === uid) setActiveSelection(null);
   }, [activeSelection]);
 
+  // Add asset from internal library
+  const addAssetFromLibrary = useCallback((asset: {
+    name: string;
+    modelUrl: string;
+    thumbnailUrl?: string;
+    source: 'internal';
+  }) => {
+    const newAsset: SceneAsset = {
+      uid: generateUniqueId('internal'),
+      name: asset.name,
+      type: 'model',
+      thumbnail: asset.thumbnailUrl,
+      modelPath: proxyUrl(asset.modelUrl),
+      visible: true,
+      placed: true,
+      position: { x: 0, y: 1, z: -3 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: 1,
+      interactionFX: { grabbable: true, glowPulse: false, collisionTrigger: false }
+    };
+
+    console.log(`[ASSET LIBRARY] Adding internal asset: ${asset.name} | URL: ${asset.modelUrl.substring(0, 50)}...`);
+
+    setSceneAssets(prev => {
+      // Prevent duplicate by checking if same model URL already exists
+      if (prev.some(a => a.modelPath === newAsset.modelPath)) {
+        console.log(`[ASSET LIBRARY] Asset already in scene, skipping duplicate`);
+        return prev;
+      }
+      return [...prev, newAsset];
+    });
+
+    setActiveSelection(newAsset);
+  }, []);
+
   const handleLoadingStateChange = useCallback((newLoadingModels: Map<string, number>) => {
     setLoadingModels(newLoadingModels);
   }, []);
@@ -457,6 +498,7 @@ export function useSceneManager(): UseSceneManagerReturn {
     // Asset management
     toggleAssetVisibility,
     removeAsset,
+    addAssetFromLibrary,
 
     // Loading state
     loadingModels,
