@@ -347,12 +347,30 @@ Keep responses concise and friendly (2-3 sentences). Guide users toward actions 
         messages: [
           {
             role: 'system',
-            content: `You are BioQuest AI, a senior instructional designer who thinks out loud while crafting VR educational experiences. You explain your pedagogical reasoning as you design.
+            content: `You are BioQuest AI, a senior instructional designer AND creative VR game designer. You create immersive educational VR experiences that feel like exploration games, not boring classrooms.
 
-ASSET SOURCES (Priority Order):
-1. INTERNAL LIBRARY (ngss_assets database) - Curated educational models, always preferred
-2. LOCAL FILES - microscope.glb, animal_cell.glb, plant_cell.glb, dna_helix.glb, classroom.glb, low_poly_forest.glb
-3. AI GENERATION (Meshy) - Only if no internal/local match found
+═══════════════════════════════════════════════════════════════════════════
+CORE DESIGN PHILOSOPHY: Education meets Exploration Game
+═══════════════════════════════════════════════════════════════════════════
+
+Every lesson MUST have THREE layers:
+1. EDUCATIONAL CORE: Internal library assets for the learning content (heart, DNA, cells)
+2. GAME ATMOSPHERE: An exciting VR world theme that makes learning feel like an adventure
+3. DECORATIVE PROPS: AI-generated objects that enhance the game atmosphere
+
+Example: "Teach about the heart"
+- Educational: Heart model (from internal library) ← ALWAYS use internal assets
+- Game Theme: "Abandoned bio-research station floating in a crimson nebula"
+- Decorative Props: Holographic monitors, floating data crystals, alien plants ← ALWAYS generate via Meshy AI
+
+CRITICAL RULE: Internal educational assets must NEVER stop generation!
+- When you find internal assets (heart, cell, DNA), STILL generate the game atmosphere
+- ALWAYS generate skybox based on the game theme
+- ALWAYS generate 2-3 decorative props that match the atmosphere
+
+ASSET SOURCES:
+1. EDUCATIONAL ASSETS → Search internal library (ngss_assets) - hearts, cells, organs, molecules
+2. DECORATIVE PROPS → ALWAYS generate via Meshy AI - crystals, plants, tech, fantasy elements
 
 CURRICULUM STANDARDS TO DETECT:
 - IB (International Baccalaureate)
@@ -360,7 +378,6 @@ CURRICULUM STANDARDS TO DETECT:
 - AP (Advanced Placement)
 - Common Core
 - Cambridge IGCSE
-- State standards (e.g., California, Texas)
 
 You MUST respond in this JSON format:
 {
@@ -370,6 +387,11 @@ You MUST respond in this JSON format:
     "ngss_standards": ["HS-LS1-1", "MS-LS2-3"],
     "grade_level": "elementary | middle | high | college",
     "subject_area": "Biology | Chemistry | Physics | Earth Science | etc"
+  },
+  "game_atmosphere": {
+    "theme": "Creative VR world theme (NOT the lesson topic) - e.g., 'Ancient temple of knowledge', 'Neon cyberpunk lab', 'Underwater research dome'",
+    "mood": "mysterious | epic | serene | futuristic | magical | alien",
+    "description": "2-3 sentences describing the atmosphere and why it enhances learning"
   },
   "syllabus": [
     "Learning objective 1 - specific and measurable",
@@ -381,18 +403,24 @@ You MUST respond in this JSON format:
   "environment_mode": "IMMERSIVE or ARCHITECTURAL",
   "dual_layer_environment": {
     "environment_model": "filename.glb or null (see mode rules below)",
-    "skybox_prompt": "See mode rules below - NEVER leave null"
+    "skybox_prompt": "MUST match game_atmosphere.theme, NOT the lesson topic! Include atmosphere, lighting, time of day, style"
   },
-  "assets": [
+  "educational_assets": [
     {
-      "name": "Asset name",
+      "name": "Asset name (educational model)",
       "intent": "object",
       "search_keywords": ["keyword1", "keyword2", "keyword3"],
-      "category": "Cells | Organs | Molecules | Organisms | Ecosystems | Equipment | etc",
+      "category": "Cells | Organs | Molecules | Organisms | Ecosystems | Equipment",
       "curriculum_tags": ["IB", "NGSS"],
       "local_match": "filename.glb if found in local library, otherwise null",
-      "generate_prompt": "Detailed AI generation prompt if no internal/local match",
       "role": "Educational purpose of this asset in the lesson"
+    }
+  ],
+  "decorative_props": [
+    {
+      "name": "Decorative prop name (NOT educational)",
+      "generate_prompt": "Detailed Meshy AI prompt - describe style, materials, size, details",
+      "purpose": "How this prop enhances the game atmosphere"
     }
   ],
   "interactions": [
@@ -408,57 +436,54 @@ You MUST respond in this JSON format:
 ENVIRONMENT MODE SELECTION (CRITICAL - Choose ONE):
 ═══════════════════════════════════════════════════════════════════════════
 
-🌌 IMMERSIVE MODE - For abstract, open-world, or exploratory topics:
-   Topics: Space, Solar System, Inside Cells, Ocean depths, Microscopic worlds,
-           Abstract concepts, Nature exploration, Historical periods, Fantasy worlds
-
+🌌 IMMERSIVE MODE - Recommended for most lessons (more engaging):
    Rules:
-   - environment_model: null (NO interior GLB - student floats freely)
-   - skybox_prompt: Full 360° immersive environment surrounding the student
+   - environment_model: null (NO interior GLB - student floats in the game world)
+   - skybox_prompt: Based on game_atmosphere.theme, NOT the lesson topic!
 
-   Examples:
-   • "Solar System" → environment_model: null, skybox_prompt: "Deep space with distant galaxies, nebulae, stars twinkling, cosmic dust, infinite void, 8k photorealistic"
-   • "Inside a Cell" → environment_model: null, skybox_prompt: "Interior of a living cell, translucent cytoplasm, floating organelles visible in distance, soft blue bioluminescence, organic membrane walls, microscopic scale, 8k"
-   • "Underwater Ocean" → environment_model: null, skybox_prompt: "Deep ocean underwater scene, sunlight filtering through water surface above, coral reef in distance, schools of fish, blue-green water, volumetric light rays, 8k"
+   Examples with game atmospheres:
+   • Lesson: "Heart anatomy" + Game: "Floating bio-research station"
+     → skybox_prompt: "Futuristic space station interior with holographic displays, neon blue and purple lighting, floating platforms, stars visible through transparent walls, cyberpunk aesthetic, 8k"
 
-🏛️ ARCHITECTURAL MODE - For topics requiring a physical building/room:
-   Topics: Laboratory experiments, Classroom lessons, Museum exhibits,
-           Hospital/medical training, Office simulations, Historical buildings
+   • Lesson: "DNA structure" + Game: "Ancient temple of molecular secrets"
+     → skybox_prompt: "Mystical temple ruins with glowing runes, floating stone platforms, bioluminescent vines, ethereal mist, golden hour lighting, fantasy RPG atmosphere, 8k"
 
+   • Lesson: "Cell biology" + Game: "Microscopic alien world"
+     → skybox_prompt: "Alien microscopic landscape, giant cell-like structures in distance, glowing organelles, purple and teal bioluminescence, otherworldly organic architecture, 8k"
+
+🏛️ ARCHITECTURAL MODE - Only when a physical room is essential:
    Rules:
-   - environment_model: Select appropriate GLB (classroom.glb, low_poly_forest.glb for outdoor ground)
-   - skybox_prompt: View OUTSIDE the window/door - what's BEYOND the room
-
-   ⚠️ CRITICAL RULE: The skybox must NEVER describe the same space as the GLB!
-   ⚠️ NEVER put a "classroom skybox" around a "classroom.glb"
-   ⚠️ The skybox shows what you'd see looking OUT the windows
-
-   Examples:
-   • "DNA Lab Lesson" → environment_model: "classroom.glb", skybox_prompt: "University campus quad visible through windows, green trees, students walking, blue sky with fluffy clouds, academic buildings in distance, sunny afternoon, 8k"
-   • "Biology Class" → environment_model: "classroom.glb", skybox_prompt: "Rainy city skyline through classroom windows, tall buildings, overcast sky, raindrops on glass, cozy indoor lighting contrast, 8k"
-   • "Forest Ecology" → environment_model: "low_poly_forest.glb", skybox_prompt: "Mountain range on horizon, dramatic sunset sky with orange and purple clouds, birds flying in distance, vast wilderness extending to horizon, 8k"
-   • "Chemistry Lab" → environment_model: "classroom.glb", skybox_prompt: "Modern research campus exterior, glass buildings, landscaped gardens, clear blue sky, professional academic environment, 8k"
+   - environment_model: classroom.glb or low_poly_forest.glb
+   - skybox_prompt: View OUTSIDE windows matching game_atmosphere
 
 ═══════════════════════════════════════════════════════════════════════════
+DECORATIVE PROPS (REQUIRED - Always generate 2-3):
+═══════════════════════════════════════════════════════════════════════════
+
+Decorative props enhance the game atmosphere. They are NOT educational.
+ALWAYS generate these via Meshy AI, even when educational assets come from internal library.
+
+Examples by game atmosphere:
+• "Cyberpunk lab" → Holographic monitor, floating data crystal, neon plant pot
+• "Ancient temple" → Glowing rune stone, mystical orb, stone pedestal
+• "Underwater dome" → Coral formation, bioluminescent jellyfish, treasure chest
+• "Space station" → Control panel, hovering drone, energy crystal
+
+═══════════════════════════════════════════════════════════════════════════
+OUTPUT REQUIREMENTS (ALL MUST BE PRESENT):
+═══════════════════════════════════════════════════════════════════════════
+
+✓ educational_assets: Search from internal library (hearts, cells, DNA, organs)
+✓ decorative_props: ALWAYS 2-3 props, ALWAYS generate via Meshy AI
+✓ skybox_prompt: ALWAYS present, ALWAYS match game_atmosphere.theme
+✓ game_atmosphere: Creative theme that makes learning exciting
+
 VALIDATION CHECKLIST:
-═══════════════════════════════════════════════════════════════════════════
-□ Did I choose the correct mode (IMMERSIVE vs ARCHITECTURAL)?
-□ If ARCHITECTURAL: Does my skybox describe the EXTERIOR view, not the room itself?
-□ If IMMERSIVE: Is environment_model set to null?
-□ Is skybox_prompt detailed with atmosphere, lighting, quality (8k)?
-□ Would putting this skybox around this GLB make visual sense?
-
-INTENT RULES (assets only - NOT for skybox_prompt):
-- intent: "object" -> Use for ALL 3D models students can observe or interact with
-- Do NOT create assets with intent: "environment" - use dual_layer_environment.skybox_prompt instead
-
-CRITICAL RULES:
-1. ALWAYS search local library first using search_keywords - avoid AI generation if possible
-2. search_keywords should include: the asset name, synonyms, related terms, and category words
-3. Each asset MUST have at least one meaningful interaction
-4. ALWAYS provide skybox_prompt - NEVER leave it null
-5. Syllabus must have 3-5 specific, measurable learning objectives
-6. VR script should be engaging and describe a clear learning journey`
+□ Did I define a creative game_atmosphere.theme (NOT just the lesson topic)?
+□ Does skybox_prompt match the game atmosphere (NOT the educational content)?
+□ Do I have 2-3 decorative_props with Meshy generation prompts?
+□ Are educational_assets using search_keywords for internal library lookup?
+□ Is environment_mode set to IMMERSIVE (preferred) or ARCHITECTURAL?`
           },
           ...messages.slice(-4),
           { role: 'user', content: input },
@@ -470,52 +495,50 @@ CRITICAL RULES:
       const lessonData = JSON.parse(rawContent);
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // INTERNAL ASSET SEARCH: Check ngss_assets database before AI generation
-      // Priority: 1. Internal (ngss_assets) → 2. Local files → 3. AI generation
+      // INTERNAL ASSET SEARCH: Check ngss_assets database for educational assets
+      // Decorative props ALWAYS go to Meshy AI generation
       // ═══════════════════════════════════════════════════════════════════════════
       const curriculumInfo = lessonData.curriculum_info || {};
       const detectedCurriculum = curriculumInfo.detected_curriculum;
       const subjectArea = curriculumInfo.subject_area;
+      const gameAtmosphere = lessonData.game_atmosphere || {};
 
       console.log(`[CURRICULUM] Detected: ${detectedCurriculum || 'none'} | Subject: ${subjectArea || 'general'}`);
+      console.log(`[GAME ATMOSPHERE] Theme: ${gameAtmosphere.theme || 'default'} | Mood: ${gameAtmosphere.mood || 'neutral'}`);
 
-      // Search internal assets for each requested asset
-      const assetsWithSources: Array<{
-        asset: any;
-        searchResult: AssetSearchResult;
-      }> = [];
+      // Process EDUCATIONAL ASSETS - search internal library first
+      const educationalAssets = lessonData.educational_assets || lessonData.assets || [];
+      for (const asset of educationalAssets) {
+        const searchResult = await searchNGSSAssetsServer({
+          keywords: asset.search_keywords || [asset.name],
+          category: asset.category || subjectArea,
+          curriculum: detectedCurriculum,
+          ngssStandard: curriculumInfo.ngss_standards?.[0]
+        });
 
-      if (lessonData.assets && Array.isArray(lessonData.assets)) {
-        for (const asset of lessonData.assets) {
-          // Build search params from asset metadata
-          const searchResult = await searchNGSSAssetsServer({
-            keywords: asset.search_keywords || [asset.name],
-            category: asset.category || subjectArea,
-            curriculum: detectedCurriculum,
-            ngssStandard: curriculumInfo.ngss_standards?.[0]
-          });
-
-          if (searchResult.found && searchResult.asset) {
-            console.log(`[ASSET MATCH] ✅ "${asset.name}" → Internal: ${searchResult.asset.name} (${searchResult.matchType}, confidence: ${searchResult.confidence})`);
-            console.log(`[ASSET MATCH]    Model URL: ${searchResult.asset.model_url}`);
-            console.log(`[ASSET MATCH]    Has Animation: ${searchResult.asset.has_animation}`);
-            // Enrich asset with internal source info
-            asset.source = 'internal';
-            asset.model_url = searchResult.asset.model_url;
-            asset.thumbnail_url = searchResult.asset.thumbnail_url;
-            asset.internal_asset_id = searchResult.asset.id;
-            asset.internal_asset_name = searchResult.asset.name;
-            asset.has_animation = searchResult.asset.has_animation;
-          } else if (asset.local_match) {
-            console.log(`[ASSET MATCH] 📁 "${asset.name}" → Local: ${asset.local_match}`);
-            asset.source = 'local';
-          } else {
-            console.log(`[ASSET MATCH] 🤖 "${asset.name}" → Will generate with Meshy AI`);
-            asset.source = 'ai_generated';
-          }
-
-          assetsWithSources.push({ asset, searchResult });
+        if (searchResult.found && searchResult.asset) {
+          console.log(`[EDUCATIONAL] ✅ "${asset.name}" → Internal: ${searchResult.asset.name}`);
+          asset.source = 'internal';
+          asset.model_url = searchResult.asset.model_url;
+          asset.thumbnail_url = searchResult.asset.thumbnail_url;
+          asset.internal_asset_id = searchResult.asset.id;
+          asset.internal_asset_name = searchResult.asset.name;
+          asset.has_animation = searchResult.asset.has_animation;
+        } else if (asset.local_match) {
+          console.log(`[EDUCATIONAL] 📁 "${asset.name}" → Local: ${asset.local_match}`);
+          asset.source = 'local';
+        } else {
+          console.log(`[EDUCATIONAL] 🤖 "${asset.name}" → Will generate with Meshy AI`);
+          asset.source = 'ai_generated';
         }
+      }
+
+      // Process DECORATIVE PROPS - ALWAYS generate via Meshy (never search library)
+      const decorativeProps = lessonData.decorative_props || [];
+      console.log(`[DECORATIVE] ${decorativeProps.length} props to generate via Meshy AI`);
+      for (const prop of decorativeProps) {
+        prop.source = 'ai_generated'; // Always AI-generated
+        console.log(`[DECORATIVE] 🎨 "${prop.name}" → Meshy AI (atmosphere: ${gameAtmosphere.theme || 'default'})`);
       }
 
       // Add to conversation memory
@@ -526,20 +549,33 @@ CRITICAL RULES:
       conversationMemory.set(sessionId, messages.slice(-10));
 
       // Build structured lesson plan for display
+      const allAssets = [
+        ...educationalAssets.map((a: any) => ({
+          name: a.name,
+          role: a.role,
+          intent: a.intent || 'object',
+          searchKeywords: a.search_keywords || [a.name].filter(Boolean),
+          source: a.source || 'ai_generated',
+          modelUrl: a.model_url,
+          thumbnailUrl: a.thumbnail_url,
+          isEducational: true
+        })),
+        ...decorativeProps.map((p: any) => ({
+          name: p.name,
+          role: p.purpose || 'Atmosphere enhancement',
+          intent: 'object',
+          searchKeywords: [],
+          source: 'ai_generated',
+          isEducational: false
+        }))
+      ];
+
       const lessonPlan: LessonPlanDisplay = {
         topic: lessonData.lesson_topic || 'VR Lesson',
         syllabus: lessonData.syllabus || [],
         vrScript: lessonData.vr_script || lessonData.lesson_plan || '',
         pedagogy: lessonData.pedagogical_approach || lessonData.pedagogical_notes || '',
-        assets: (lessonData.assets || []).map((a: any) => ({
-          name: a.name,
-          role: a.role,
-          intent: a.intent || 'object',
-          searchKeywords: a.search_keywords || [a.search_query, a.name].filter(Boolean),
-          source: a.source || 'ai_generated',
-          modelUrl: a.model_url,
-          thumbnailUrl: a.thumbnail_url
-        }))
+        assets: allAssets
       };
 
       // Build structured response with VR Orchestrator logic
@@ -555,78 +591,88 @@ CRITICAL RULES:
         params: { lessonPlan }
       });
 
-      // Step 1: Process each asset via SEARCH_LIBRARY only (handles all 3 levels internally)
-      // NOTE: Removed redundant ADD_ASSET and GENERATE_MODEL actions to prevent duplication
-      // SEARCH_LIBRARY now handles: L1 (keyword) -> L2 (semantic) -> L3 (AI generation)
-      reasoningSteps.push('Step 1: Querying asset libraries...');
+      // ═══════════════════════════════════════════════════════════════════════════
+      // Step 1: Process EDUCATIONAL ASSETS (from internal library or AI generation)
+      // ═══════════════════════════════════════════════════════════════════════════
+      reasoningSteps.push('Step 1: Processing educational assets...');
 
-      if (lessonData.assets && Array.isArray(lessonData.assets)) {
-        for (const asset of lessonData.assets) {
-          // Use search_keywords for better matching
-          const searchKeywords = asset.search_keywords || [asset.search_query, asset.name].filter(Boolean);
+      for (const asset of educationalAssets) {
+        const searchKeywords = asset.search_keywords || [asset.name].filter(Boolean);
+        const assetIntent = asset.intent || 'object';
+        const assetSource: AssetSource = asset.source || 'ai_generated';
 
-          // Determine intent - default to 'object' if not specified
-          const assetIntent = asset.intent || 'object';
-
-          // Determine source-based action
-          const assetSource: AssetSource = asset.source || 'ai_generated';
-
-          if (assetSource === 'internal' && asset.model_url) {
-            // INTERNAL ASSET: Use directly from ngss_assets database
-            actions.push({
-              type: 'ADD_ASSET',
-              params: {
-                asset_name: asset.name,
-                model_url: asset.model_url,
-                thumbnail_url: asset.thumbnail_url,
-                intent: assetIntent,
-                role: asset.role,
-                internal_asset_id: asset.internal_asset_id,
-                has_animation: asset.has_animation || false,
-                grabbable: true // Internal assets should be grabbable in VR
-              },
-              source: 'internal'
-            });
-            const animTag = asset.has_animation ? ' [ANIMATED]' : '';
-            reasoningSteps.push(`  [INTERNAL] ✅ ${asset.name} -> ${asset.internal_asset_name || 'ngss_assets'}${animTag}`);
-          } else if (assetSource === 'local' && asset.local_match) {
-            // LOCAL FILE: Use from /public/models
-            actions.push({
-              type: 'ADD_ASSET',
-              params: {
-                asset_name: asset.name,
-                local_file: asset.local_match,
-                intent: assetIntent,
-                role: asset.role
-              },
-              source: 'local'
-            });
-            reasoningSteps.push(`  [LOCAL] 📁 ${asset.name} -> ${asset.local_match}`);
-          } else {
-            // AI GENERATION: Fall back to Meshy via SEARCH_LIBRARY
-            actions.push({
-              type: 'SEARCH_LIBRARY',
-              params: {
-                query: searchKeywords.join(' '),
-                keywords: searchKeywords,
-                asset_name: asset.name,
-                intent: assetIntent,
-                local_match: asset.local_match,
-                generate_prompt: asset.generate_prompt,
-                role: asset.role
-              },
-              source: 'ai_generated'
-            });
-            reasoningSteps.push(`  [AI GEN] 🤖 ${asset.name} -> Meshy generation | Keywords: ${searchKeywords.slice(0, 3).join(', ')}`);
-          }
+        if (assetSource === 'internal' && asset.model_url) {
+          // INTERNAL ASSET: Use directly from ngss_assets database
+          actions.push({
+            type: 'ADD_ASSET',
+            params: {
+              asset_name: asset.name,
+              model_url: asset.model_url,
+              thumbnail_url: asset.thumbnail_url,
+              intent: assetIntent,
+              role: asset.role,
+              internal_asset_id: asset.internal_asset_id,
+              has_animation: asset.has_animation || false,
+              grabbable: true
+            },
+            source: 'internal'
+          });
+          const animTag = asset.has_animation ? ' [ANIMATED]' : '';
+          reasoningSteps.push(`  [INTERNAL] ✅ ${asset.name} -> ${asset.internal_asset_name || 'ngss_assets'}${animTag}`);
+        } else if (assetSource === 'local' && asset.local_match) {
+          // LOCAL FILE: Use from /public/models
+          actions.push({
+            type: 'ADD_ASSET',
+            params: {
+              asset_name: asset.name,
+              local_file: asset.local_match,
+              intent: assetIntent,
+              role: asset.role
+            },
+            source: 'local'
+          });
+          reasoningSteps.push(`  [LOCAL] 📁 ${asset.name} -> ${asset.local_match}`);
+        } else {
+          // AI GENERATION: Fall back to Meshy
+          actions.push({
+            type: 'GENERATE_MODEL',
+            params: {
+              name: asset.name,
+              prompt: asset.generate_prompt || `3D model of ${asset.name}, educational quality, detailed`,
+              role: asset.role
+            },
+            source: 'ai_generated'
+          });
+          reasoningSteps.push(`  [AI GEN] 🤖 ${asset.name} -> Meshy generation`);
         }
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // DUAL-LAYER ENVIRONMENT: Immersive vs Architectural Mode
+      // Step 2: Process DECORATIVE PROPS (ALWAYS generate via Meshy AI)
+      // These enhance the game atmosphere and are never from the internal library
       // ═══════════════════════════════════════════════════════════════════════════
-      const environmentMode = lessonData.environment_mode || 'ARCHITECTURAL';
-      reasoningSteps.push(`Step 2: Configuring ${environmentMode} environment...`);
+      reasoningSteps.push('Step 2: Generating decorative props for game atmosphere...');
+      reasoningSteps.push(`  Theme: ${gameAtmosphere.theme || 'default'}`);
+
+      for (const prop of decorativeProps) {
+        actions.push({
+          type: 'GENERATE_MODEL',
+          params: {
+            name: prop.name,
+            prompt: prop.generate_prompt || `3D ${prop.name}, stylized, game asset, ${gameAtmosphere.mood || 'fantasy'} style`,
+            purpose: prop.purpose,
+            is_decorative: true
+          },
+          source: 'ai_generated'
+        });
+        reasoningSteps.push(`  [DECORATIVE] 🎨 ${prop.name} -> Meshy AI`);
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // Step 3: DUAL-LAYER ENVIRONMENT (Skybox ALWAYS generated based on game atmosphere)
+      // ═══════════════════════════════════════════════════════════════════════════
+      const environmentMode = lessonData.environment_mode || 'IMMERSIVE'; // Default to IMMERSIVE
+      reasoningSteps.push(`Step 3: Configuring ${environmentMode} environment (theme: ${gameAtmosphere.theme || 'default'})...`);
 
       const dualLayerEnv: DualLayerEnvironment = {
         environment_model: lessonData.dual_layer_environment?.environment_model || lessonData.environment?.local_file || null,
@@ -713,8 +759,8 @@ CRITICAL RULES:
         }
       }
 
-      // Step 3: Inject interaction logic
-      reasoningSteps.push('Step 3: Injecting interaction logic...');
+      // Step 4: Inject interaction logic
+      reasoningSteps.push('Step 4: Injecting interaction logic...');
       if (lessonData.interactions && Array.isArray(lessonData.interactions)) {
         for (const interaction of lessonData.interactions) {
           reasoningSteps.push(`  Adding ${interaction.type} to ${interaction.target_asset}`);
@@ -729,8 +775,8 @@ CRITICAL RULES:
         }
       }
 
-      // Final step: Create lesson metadata
-      reasoningSteps.push('Step 4: Finalizing lesson metadata...');
+      // Step 5: Create lesson metadata
+      reasoningSteps.push('Step 5: Finalizing lesson metadata...');
       actions.push({
         type: 'CREATE_LESSON',
         params: {
@@ -741,10 +787,14 @@ CRITICAL RULES:
         }
       });
 
+      const eduCount = educationalAssets.length;
+      const decoCount = decorativeProps.length;
       reasoningSteps.push(`Complete. Generated ${actions.length} actions for VR scene.`);
+      reasoningSteps.push(`[ASSETS] Educational: ${eduCount} | Decorative: ${decoCount} | Theme: ${gameAtmosphere.theme || 'default'}`);
       reasoningSteps.push(`[ENV MODE] ${environmentMode} | Interior: ${dualLayerEnv.environment_model || 'null (immersive)'} | Skybox: ${dualLayerEnv.skybox_prompt ? 'AI-generated' : 'none'}`);
 
       // Final validation log
+      console.log(`[LESSON SUMMARY] Educational: ${eduCount} | Decorative: ${decoCount} | Theme: ${gameAtmosphere.theme || 'default'}`);
       console.log(`[ENVIRONMENT SUMMARY] Mode: ${environmentMode} | GLB: ${dualLayerEnv.environment_model || 'null'} | Skybox: ${dualLayerEnv.skybox_prompt ? 'YES' : 'NO'}`);
 
       const response: AgentResponse = {
