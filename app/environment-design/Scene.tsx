@@ -239,15 +239,8 @@ export default function Scene({
       });
     }
 
-    // Legacy grabbable component alias (for backward compatibility)
-    if (!window.AFRAME.components['grabbable']) {
-      window.AFRAME.registerComponent('grabbable', {
-        init: function() {
-          // Delegate to vr-grabbable
-          this.el.setAttribute('vr-grabbable', '');
-        }
-      });
-    }
+    // Note: 'grabbable' component is provided by super-hands package
+    // We use 'vr-grabbable' for custom behavior with visual feedback
 
     // Glow Pulse component
     if (!window.AFRAME.components['glow-pulse']) {
@@ -705,7 +698,7 @@ export default function Scene({
               transformer: `mode: ${transformMode}`
             })}
             data-name={asset.name}
-            {...(asset.interactionFX?.grabbable && { grabbable: '' })}
+            {...(asset.interactionFX?.grabbable && { 'vr-grabbable': '', 'grabbable': '' })}
             {...(asset.interactionFX?.glowPulse && { 'glow-pulse': '' })}
             {...(asset.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
             onClick={() => onAssetClick(asset)}
