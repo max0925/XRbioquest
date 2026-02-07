@@ -98,7 +98,7 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: callbackUrl.toString(),
+           redirectTo: "https://bioquestxr.vercel.app",
         },
       });
 

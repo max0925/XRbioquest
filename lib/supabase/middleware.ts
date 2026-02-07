@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Routes that require authentication
-const protectedRoutes = ['/environment-design']
+const protectedRoutes = ['/environment-design', '/dashboard']
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
