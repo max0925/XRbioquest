@@ -49,3 +49,4 @@ public/scenes/
 
 # AI-generated environments
 public/imports/ai/
+supabase/.temp/

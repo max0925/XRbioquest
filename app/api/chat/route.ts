@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { searchNGSSAssets, type AssetSource, type AssetSearchResult } from '@/lib/ngssAssets';
 
 // Response types
 interface AgentAction {
   type: 'SEARCH_LIBRARY' | 'GENERATE_MODEL' | 'GENERATE_SKYBOX' | 'SET_ENVIRONMENT' | 'ADD_ASSET' | 'CHAT_RESPONSE' | 'CREATE_LESSON' | 'INJECT_LOGIC' | 'DISPLAY_LESSON_PLAN' | 'UPDATE_SKYBOX';
   params: Record<string, any>;
+  source?: AssetSource; // Track origin: 'internal' | 'ai_generated' | 'local'
 }
 
 interface LessonPlanDisplay {
@@ -13,7 +15,15 @@ interface LessonPlanDisplay {
   syllabus: string[];
   vrScript: string;
   pedagogy: string;
-  assets: Array<{ name: string; role: string; intent: 'environment' | 'object'; searchKeywords: string[] }>;
+  assets: Array<{
+    name: string;
+    role: string;
+    intent: 'environment' | 'object';
+    searchKeywords: string[];
+    source?: AssetSource;
+    modelUrl?: string;
+    thumbnailUrl?: string;
+  }>;
 }
 
 // Dual-Layer Environment Protocol
@@ -193,6 +203,7 @@ Respond in JSON:
       "name": "Asset name",
       "intent": "object",
       "search_keywords": ["keyword1", "keyword2"],
+      "category": "Cells | Organs | Molecules | etc",
       "local_match": "filename.glb if in local library, else null",
       "generate_prompt": "AI generation prompt if no local match"
     }
@@ -209,27 +220,74 @@ Respond in JSON:
       const assetData = JSON.parse(assetCompletion.choices[0]?.message?.content || '{}');
       const actions: AgentAction[] = [];
 
+      // Search internal assets first for each requested asset
       for (const asset of (assetData.assets || [])) {
-        actions.push({
-          type: 'SEARCH_LIBRARY',
-          params: {
-            query: (asset.search_keywords || [asset.name]).join(' '),
-            keywords: asset.search_keywords || [asset.name],
-            asset_name: asset.name,
-            intent: 'object',
-            local_match: asset.local_match,
-            generate_prompt: asset.generate_prompt
-          }
+        const searchKeywords = asset.search_keywords || [asset.name];
+
+        // Check internal ngss_assets database first
+        const searchResult = await searchNGSSAssets({
+          keywords: searchKeywords,
+          category: asset.category
         });
+
+        if (searchResult.found && searchResult.asset) {
+          // Use internal asset directly
+          console.log(`[ADD_ASSETS] ✅ Internal match: "${asset.name}" -> ${searchResult.asset.name}`);
+          actions.push({
+            type: 'ADD_ASSET',
+            params: {
+              asset_name: asset.name,
+              model_url: searchResult.asset.model_url,
+              thumbnail_url: searchResult.asset.thumbnail_url,
+              intent: 'object',
+              internal_asset_id: searchResult.asset.id
+            },
+            source: 'internal'
+          });
+        } else if (asset.local_match) {
+          // Use local file
+          console.log(`[ADD_ASSETS] 📁 Local match: "${asset.name}" -> ${asset.local_match}`);
+          actions.push({
+            type: 'ADD_ASSET',
+            params: {
+              asset_name: asset.name,
+              local_file: asset.local_match,
+              intent: 'object'
+            },
+            source: 'local'
+          });
+        } else {
+          // Fall back to Meshy AI generation
+          console.log(`[ADD_ASSETS] 🤖 AI generation: "${asset.name}"`);
+          actions.push({
+            type: 'SEARCH_LIBRARY',
+            params: {
+              query: searchKeywords.join(' '),
+              keywords: searchKeywords,
+              asset_name: asset.name,
+              intent: 'object',
+              local_match: asset.local_match,
+              generate_prompt: asset.generate_prompt
+            },
+            source: 'ai_generated'
+          });
+        }
       }
+
+      // Count sources for user message
+      const internalCount = actions.filter(a => a.source === 'internal').length;
+      const aiCount = actions.filter(a => a.source === 'ai_generated').length;
+      const sourceInfo = internalCount > 0
+        ? ` (${internalCount} from library${aiCount > 0 ? `, ${aiCount} AI-generated` : ''})`
+        : '';
 
       actions.push({
         type: 'CHAT_RESPONSE',
-        params: { message: `✨ Adding to scene: ${assetData.description || assetData.assets?.map((a: any) => a.name).join(', ')}` }
+        params: { message: `✨ Adding to scene: ${assetData.description || assetData.assets?.map((a: any) => a.name).join(', ')}${sourceInfo}` }
       });
 
       const response: AgentResponse = {
-        reasoning: `Partial update: Adding ${assetData.assets?.length || 0} asset(s) to scene`,
+        reasoning: `Partial update: Adding ${assetData.assets?.length || 0} asset(s) to scene. Internal: ${internalCount}, AI-generated: ${aiCount}`,
         actions,
         conversationId: sessionId,
         updateType: 'ADD_ASSETS'
@@ -291,17 +349,28 @@ Keep responses concise and friendly (2-3 sentences). Guide users toward actions 
             role: 'system',
             content: `You are BioQuest AI, a senior instructional designer who thinks out loud while crafting VR educational experiences. You explain your pedagogical reasoning as you design.
 
-LOCAL ASSET LIBRARY (ALWAYS prefer these over AI generation):
-- microscope.glb (laboratory microscope)
-- animal_cell.glb (3D animal cell model with organelles)
-- plant_cell.glb (3D plant cell model)
-- dna_helix.glb (DNA double helix structure)
-- classroom.glb (virtual classroom environment)
-- low_poly_forest.glb (nature/forest environment)
+ASSET SOURCES (Priority Order):
+1. INTERNAL LIBRARY (ngss_assets database) - Curated educational models, always preferred
+2. LOCAL FILES - microscope.glb, animal_cell.glb, plant_cell.glb, dna_helix.glb, classroom.glb, low_poly_forest.glb
+3. AI GENERATION (Meshy) - Only if no internal/local match found
+
+CURRICULUM STANDARDS TO DETECT:
+- IB (International Baccalaureate)
+- NGSS (Next Generation Science Standards) - e.g., HS-LS1-1, MS-LS2-3
+- AP (Advanced Placement)
+- Common Core
+- Cambridge IGCSE
+- State standards (e.g., California, Texas)
 
 You MUST respond in this JSON format:
 {
   "lesson_topic": "Engaging title for the lesson",
+  "curriculum_info": {
+    "detected_curriculum": "IB | NGSS | AP | Cambridge | Common Core | null",
+    "ngss_standards": ["HS-LS1-1", "MS-LS2-3"],
+    "grade_level": "elementary | middle | high | college",
+    "subject_area": "Biology | Chemistry | Physics | Earth Science | etc"
+  },
   "syllabus": [
     "Learning objective 1 - specific and measurable",
     "Learning objective 2 - specific and measurable",
@@ -319,8 +388,10 @@ You MUST respond in this JSON format:
       "name": "Asset name",
       "intent": "object",
       "search_keywords": ["keyword1", "keyword2", "keyword3"],
+      "category": "Cells | Organs | Molecules | Organisms | Ecosystems | Equipment | etc",
+      "curriculum_tags": ["IB", "NGSS"],
       "local_match": "filename.glb if found in local library, otherwise null",
-      "generate_prompt": "Detailed AI generation prompt if no local match",
+      "generate_prompt": "Detailed AI generation prompt if no internal/local match",
       "role": "Educational purpose of this asset in the lesson"
     }
   ],
@@ -398,6 +469,52 @@ CRITICAL RULES:
       const rawContent = completion.choices[0]?.message?.content || '{}';
       const lessonData = JSON.parse(rawContent);
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // INTERNAL ASSET SEARCH: Check ngss_assets database before AI generation
+      // Priority: 1. Internal (ngss_assets) → 2. Local files → 3. AI generation
+      // ═══════════════════════════════════════════════════════════════════════════
+      const curriculumInfo = lessonData.curriculum_info || {};
+      const detectedCurriculum = curriculumInfo.detected_curriculum;
+      const subjectArea = curriculumInfo.subject_area;
+
+      console.log(`[CURRICULUM] Detected: ${detectedCurriculum || 'none'} | Subject: ${subjectArea || 'general'}`);
+
+      // Search internal assets for each requested asset
+      const assetsWithSources: Array<{
+        asset: any;
+        searchResult: AssetSearchResult;
+      }> = [];
+
+      if (lessonData.assets && Array.isArray(lessonData.assets)) {
+        for (const asset of lessonData.assets) {
+          // Build search params from asset metadata
+          const searchResult = await searchNGSSAssets({
+            keywords: asset.search_keywords || [asset.name],
+            category: asset.category || subjectArea,
+            curriculum: detectedCurriculum,
+            ngssStandard: curriculumInfo.ngss_standards?.[0]
+          });
+
+          if (searchResult.found && searchResult.asset) {
+            console.log(`[ASSET MATCH] ✅ "${asset.name}" → Internal: ${searchResult.asset.name} (${searchResult.matchType}, confidence: ${searchResult.confidence})`);
+            // Enrich asset with internal source info
+            asset.source = 'internal';
+            asset.model_url = searchResult.asset.model_url;
+            asset.thumbnail_url = searchResult.asset.thumbnail_url;
+            asset.internal_asset_id = searchResult.asset.id;
+            asset.internal_asset_name = searchResult.asset.name;
+          } else if (asset.local_match) {
+            console.log(`[ASSET MATCH] 📁 "${asset.name}" → Local: ${asset.local_match}`);
+            asset.source = 'local';
+          } else {
+            console.log(`[ASSET MATCH] 🤖 "${asset.name}" → Will generate with Meshy AI`);
+            asset.source = 'ai_generated';
+          }
+
+          assetsWithSources.push({ asset, searchResult });
+        }
+      }
+
       // Add to conversation memory
       messages.push(
         { role: 'user', content: input },
@@ -414,8 +531,11 @@ CRITICAL RULES:
         assets: (lessonData.assets || []).map((a: any) => ({
           name: a.name,
           role: a.role,
-          intent: a.intent || 'object', // Default to object if not specified
-          searchKeywords: a.search_keywords || [a.search_query, a.name].filter(Boolean)
+          intent: a.intent || 'object',
+          searchKeywords: a.search_keywords || [a.search_query, a.name].filter(Boolean),
+          source: a.source || 'ai_generated',
+          modelUrl: a.model_url,
+          thumbnailUrl: a.thumbnail_url
         }))
       };
 
@@ -445,24 +565,53 @@ CRITICAL RULES:
           // Determine intent - default to 'object' if not specified
           const assetIntent = asset.intent || 'object';
 
-          // SINGLE action per asset - SEARCH_LIBRARY handles all levels internally
-          actions.push({
-            type: 'SEARCH_LIBRARY',
-            params: {
-              query: searchKeywords.join(' '),
-              keywords: searchKeywords,
-              asset_name: asset.name,
-              intent: assetIntent, // 'environment' for skyboxes, 'object' for 3D models
-              local_match: asset.local_match,
-              generate_prompt: asset.generate_prompt, // Pass for L3 fallback
-              role: asset.role
-            }
-          });
+          // Determine source-based action
+          const assetSource: AssetSource = asset.source || 'ai_generated';
 
-          if (asset.local_match) {
-            reasoningSteps.push(`  [HINT] ${asset.name} -> ${asset.local_match} (${assetIntent})`);
+          if (assetSource === 'internal' && asset.model_url) {
+            // INTERNAL ASSET: Use directly from ngss_assets database
+            actions.push({
+              type: 'ADD_ASSET',
+              params: {
+                asset_name: asset.name,
+                model_url: asset.model_url,
+                thumbnail_url: asset.thumbnail_url,
+                intent: assetIntent,
+                role: asset.role,
+                internal_asset_id: asset.internal_asset_id
+              },
+              source: 'internal'
+            });
+            reasoningSteps.push(`  [INTERNAL] ✅ ${asset.name} -> ${asset.internal_asset_name || 'ngss_assets'}`);
+          } else if (assetSource === 'local' && asset.local_match) {
+            // LOCAL FILE: Use from /public/models
+            actions.push({
+              type: 'ADD_ASSET',
+              params: {
+                asset_name: asset.name,
+                local_file: asset.local_match,
+                intent: assetIntent,
+                role: asset.role
+              },
+              source: 'local'
+            });
+            reasoningSteps.push(`  [LOCAL] 📁 ${asset.name} -> ${asset.local_match}`);
           } else {
-            reasoningSteps.push(`  [SEARCH] ${asset.name} -> ${assetIntent} | Keywords: ${searchKeywords.slice(0, 3).join(', ')}`);
+            // AI GENERATION: Fall back to Meshy via SEARCH_LIBRARY
+            actions.push({
+              type: 'SEARCH_LIBRARY',
+              params: {
+                query: searchKeywords.join(' '),
+                keywords: searchKeywords,
+                asset_name: asset.name,
+                intent: assetIntent,
+                local_match: asset.local_match,
+                generate_prompt: asset.generate_prompt,
+                role: asset.role
+              },
+              source: 'ai_generated'
+            });
+            reasoningSteps.push(`  [AI GEN] 🤖 ${asset.name} -> Meshy generation | Keywords: ${searchKeywords.slice(0, 3).join(', ')}`);
           }
         }
       }
