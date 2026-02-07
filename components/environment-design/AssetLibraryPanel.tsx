@@ -3,8 +3,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, Loader2, Box, Dna, Heart, Microscope, Sparkles } from "lucide-react";
+import { Search, Plus, Loader2, Box, Dna, Heart, Microscope, Sparkles, Atom, Leaf, Brain, Bone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+// Category-based icon mapping for placeholder thumbnails
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  'cell biology': Microscope,
+  'cells': Microscope,
+  'human anatomy': Heart,
+  'anatomy': Heart,
+  'genetics': Dna,
+  'dna': Dna,
+  'molecules': Atom,
+  'chemistry': Atom,
+  'plants': Leaf,
+  'botany': Leaf,
+  'neuroscience': Brain,
+  'brain': Brain,
+  'skeletal': Bone,
+  'bones': Bone,
+  'default': Box,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ASSET LIBRARY PANEL - Browse & Add Internal NGSS Assets
@@ -273,6 +292,11 @@ interface AssetCardProps {
 
 function AssetCard({ asset, isAdding, onAdd }: AssetCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  // Get category-based icon for placeholder
+  const categoryKey = asset.category?.toLowerCase() || 'default';
+  const PlaceholderIcon = CATEGORY_ICONS[categoryKey] || CATEGORY_ICONS['default'];
 
   return (
     <motion.div
@@ -285,15 +309,19 @@ function AssetCard({ asset, isAdding, onAdd }: AssetCardProps) {
     >
       {/* Thumbnail */}
       <div className="aspect-square relative bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden">
-        {asset.thumbnail_url ? (
+        {asset.thumbnail_url && !imgError ? (
           <img
             src={asset.thumbnail_url}
             alt={asset.name}
             className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Box className="w-8 h-8 text-gray-300" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-emerald-50 to-gray-50">
+            <PlaceholderIcon className="w-10 h-10 text-emerald-300" />
+            <span className="text-[9px] font-medium text-emerald-400 uppercase tracking-wider">
+              {asset.category || '3D Model'}
+            </span>
           </div>
         )}
 

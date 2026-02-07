@@ -37,6 +37,8 @@ export interface SceneAsset {
   pendingGeneration?: boolean;
   generationPrompt?: string;
   interactionFX?: { grabbable: boolean; glowPulse: boolean; collisionTrigger: boolean };
+  hasAnimation?: boolean; // Whether model has embedded animations to play
+  source?: 'internal' | 'local' | 'ai_generated'; // Asset source tracking
 }
 
 export interface AgentMessage {
@@ -136,6 +138,44 @@ export function useAgentOrchestrator({
               params: { name: query, prompt: `3D model of ${query}`, intent: 'object' } 
             });
           }
+          break;
+        }
+
+        // 1.5. ADD_ASSET - Add internal/local assets directly (no search/generation needed)
+        case 'ADD_ASSET': {
+          const { asset_name, model_url, local_file, thumbnail_url, has_animation, grabbable } = action.params;
+          const stepId = generateUniqueId('step-add');
+          const uid = generateUniqueId('internal');
+
+          // Determine model path
+          const modelPath = model_url || (local_file ? `/models/${local_file}` : null);
+          const source = action.source || (model_url ? 'internal' : 'local');
+
+          addLog(`[ADD_ASSET] ${source.toUpperCase()}: "${asset_name}" ${has_animation ? '[ANIMATED]' : ''}`);
+          setAutomationSteps(p => [...p, { id: stepId, label: `Adding: ${asset_name}`, status: 'active' }]);
+
+          const asset: SceneAsset = {
+            uid,
+            name: asset_name,
+            type: 'model',
+            thumbnail: thumbnail_url,
+            modelPath,
+            visible: true,
+            placed: true,
+            position: { x: newAssets.length * 2, y: 1, z: -3 },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: 1,
+            interactionFX: {
+              grabbable: grabbable !== false, // Default to true for internal assets
+              glowPulse: false,
+              collisionTrigger: false
+            },
+            // Store animation flag for A-Frame to use
+            hasAnimation: has_animation || false
+          };
+
+          newAssets.push(asset);
+          updateStep(stepId, 'success', `Added: ${asset_name}${has_animation ? ' (animated)' : ''}`);
           break;
         }
 

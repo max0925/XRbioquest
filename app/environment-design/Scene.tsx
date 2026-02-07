@@ -587,6 +587,7 @@ export default function Scene({
                 draco-loader="decoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
                 data-loading-uid={asset.uid}
                 {...(isCellMembrane && { 'morph-driver': `value: ${aiState.channel_state}` })}
+                {...(asset.hasAnimation && { 'animation-mixer': 'clip: *; loop: repeat' })}
               ></a-gltf-model>
             ) : (
               // Minimal loading placeholder - just pulsing emerald glow

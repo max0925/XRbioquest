@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { searchNGSSAssets, type AssetSource, type AssetSearchResult } from '@/lib/ngssAssets';
+import { searchNGSSAssetsServer, type AssetSource, type AssetSearchResult } from '@/lib/ngssAssetsServer';
 
 // Response types
 interface AgentAction {
@@ -225,7 +225,7 @@ Respond in JSON:
         const searchKeywords = asset.search_keywords || [asset.name];
 
         // Check internal ngss_assets database first
-        const searchResult = await searchNGSSAssets({
+        const searchResult = await searchNGSSAssetsServer({
           keywords: searchKeywords,
           category: asset.category
         });
@@ -488,7 +488,7 @@ CRITICAL RULES:
       if (lessonData.assets && Array.isArray(lessonData.assets)) {
         for (const asset of lessonData.assets) {
           // Build search params from asset metadata
-          const searchResult = await searchNGSSAssets({
+          const searchResult = await searchNGSSAssetsServer({
             keywords: asset.search_keywords || [asset.name],
             category: asset.category || subjectArea,
             curriculum: detectedCurriculum,
@@ -497,12 +497,15 @@ CRITICAL RULES:
 
           if (searchResult.found && searchResult.asset) {
             console.log(`[ASSET MATCH] ✅ "${asset.name}" → Internal: ${searchResult.asset.name} (${searchResult.matchType}, confidence: ${searchResult.confidence})`);
+            console.log(`[ASSET MATCH]    Model URL: ${searchResult.asset.model_url}`);
+            console.log(`[ASSET MATCH]    Has Animation: ${searchResult.asset.has_animation}`);
             // Enrich asset with internal source info
             asset.source = 'internal';
             asset.model_url = searchResult.asset.model_url;
             asset.thumbnail_url = searchResult.asset.thumbnail_url;
             asset.internal_asset_id = searchResult.asset.id;
             asset.internal_asset_name = searchResult.asset.name;
+            asset.has_animation = searchResult.asset.has_animation;
           } else if (asset.local_match) {
             console.log(`[ASSET MATCH] 📁 "${asset.name}" → Local: ${asset.local_match}`);
             asset.source = 'local';
@@ -578,11 +581,14 @@ CRITICAL RULES:
                 thumbnail_url: asset.thumbnail_url,
                 intent: assetIntent,
                 role: asset.role,
-                internal_asset_id: asset.internal_asset_id
+                internal_asset_id: asset.internal_asset_id,
+                has_animation: asset.has_animation || false,
+                grabbable: true // Internal assets should be grabbable in VR
               },
               source: 'internal'
             });
-            reasoningSteps.push(`  [INTERNAL] ✅ ${asset.name} -> ${asset.internal_asset_name || 'ngss_assets'}`);
+            const animTag = asset.has_animation ? ' [ANIMATED]' : '';
+            reasoningSteps.push(`  [INTERNAL] ✅ ${asset.name} -> ${asset.internal_asset_name || 'ngss_assets'}${animTag}`);
           } else if (assetSource === 'local' && asset.local_match) {
             // LOCAL FILE: Use from /public/models
             actions.push({
