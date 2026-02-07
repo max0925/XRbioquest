@@ -44,6 +44,7 @@ export default function Scene({
         require("aframe");
         require("aframe-environment-component");
         require("aframe-extras");
+        require("super-hands");
       }
 
       // Load aframe-transformer-component
@@ -95,20 +96,155 @@ export default function Scene({
   useEffect(() => {
     if (!ready || typeof window === "undefined" || !window.AFRAME) return;
 
-    // Grabbable component for VR interactions
+    // VR Grabbable component - works with super-hands for Quest controllers
+    // Uses hover-start/end and grab-start/end events from super-hands
+    if (!window.AFRAME.components['vr-grabbable']) {
+      window.AFRAME.registerComponent('vr-grabbable', {
+        schema: {
+          highlightColor: { type: 'color', default: '#10b981' },
+          grabDistance: { type: 'number', default: 0.5 }
+        },
+
+        init: function() {
+          this.el.classList.add('clickable');
+          this.grabbed = false;
+          this.hovered = false;
+          this.originalParent = this.el.parentNode;
+          this.grabber = null;
+
+          // Store original material for highlight
+          this.originalEmissive = null;
+          this.originalEmissiveIntensity = 0;
+
+          // Hover events from super-hands
+          this.el.addEventListener('hover-start', this.onHoverStart.bind(this));
+          this.el.addEventListener('hover-end', this.onHoverEnd.bind(this));
+
+          // Grab events from super-hands
+          this.el.addEventListener('grab-start', this.onGrabStart.bind(this));
+          this.el.addEventListener('grab-end', this.onGrabEnd.bind(this));
+
+          // Fallback click for desktop
+          this.el.addEventListener('click', this.onClick.bind(this));
+
+          console.log('[VR-GRABBABLE] Initialized:', this.el.getAttribute('data-name'));
+        },
+
+        onHoverStart: function(evt) {
+          if (this.grabbed) return;
+          this.hovered = true;
+          console.log('[VR-GRABBABLE] Hover start:', this.el.getAttribute('data-name'));
+
+          // Highlight on hover
+          const material = this.el.getAttribute('material') || {};
+          this.originalEmissive = material.emissive || '#000000';
+          this.originalEmissiveIntensity = material.emissiveIntensity || 0;
+
+          this.el.setAttribute('material', 'emissive', this.data.highlightColor);
+          this.el.setAttribute('material', 'emissiveIntensity', 0.3);
+        },
+
+        onHoverEnd: function(evt) {
+          if (this.grabbed) return;
+          this.hovered = false;
+          console.log('[VR-GRABBABLE] Hover end:', this.el.getAttribute('data-name'));
+
+          // Remove highlight
+          this.el.setAttribute('material', 'emissive', this.originalEmissive || '#000000');
+          this.el.setAttribute('material', 'emissiveIntensity', this.originalEmissiveIntensity || 0);
+        },
+
+        onGrabStart: function(evt) {
+          this.grabbed = true;
+          this.grabber = evt.detail.hand;
+          console.log('[VR-GRABBABLE] Grab start:', this.el.getAttribute('data-name'));
+
+          // Reparent to controller for smooth movement
+          if (this.grabber) {
+            const worldPos = new window.THREE.Vector3();
+            const worldQuat = new window.THREE.Quaternion();
+            this.el.object3D.getWorldPosition(worldPos);
+            this.el.object3D.getWorldQuaternion(worldQuat);
+
+            // Calculate local position relative to controller
+            const controllerPos = new window.THREE.Vector3();
+            this.grabber.object3D.getWorldPosition(controllerPos);
+            const localPos = worldPos.sub(controllerPos);
+
+            // Reparent
+            this.grabber.object3D.attach(this.el.object3D);
+          }
+
+          // Visual feedback
+          this.el.setAttribute('material', 'emissive', '#ffff00');
+          this.el.setAttribute('material', 'emissiveIntensity', 0.5);
+
+          // Haptic feedback if available
+          if (this.grabber && this.grabber.components['tracked-controls']) {
+            const gamepad = this.grabber.components['tracked-controls'].controller;
+            if (gamepad && gamepad.hapticActuators && gamepad.hapticActuators[0]) {
+              gamepad.hapticActuators[0].pulse(0.5, 50);
+            }
+          }
+        },
+
+        onGrabEnd: function(evt) {
+          console.log('[VR-GRABBABLE] Grab end:', this.el.getAttribute('data-name'));
+
+          // Reparent back to scene
+          if (this.grabbed && this.originalParent) {
+            const scene = document.querySelector('a-scene') as any;
+            if (scene && scene.object3D) {
+              // Get world transform before reparenting
+              const worldPos = new window.THREE.Vector3();
+              const worldQuat = new window.THREE.Quaternion();
+              this.el.object3D.getWorldPosition(worldPos);
+              this.el.object3D.getWorldQuaternion(worldQuat);
+
+              // Reparent to scene
+              scene.object3D.attach(this.el.object3D);
+
+              // Update A-Frame position/rotation attributes
+              this.el.setAttribute('position', `${worldPos.x} ${worldPos.y} ${worldPos.z}`);
+              const euler = new window.THREE.Euler().setFromQuaternion(worldQuat);
+              this.el.setAttribute('rotation', `${euler.x * 180/Math.PI} ${euler.y * 180/Math.PI} ${euler.z * 180/Math.PI}`);
+            }
+          }
+
+          this.grabbed = false;
+          this.grabber = null;
+
+          // Reset visual
+          this.el.setAttribute('material', 'emissive', this.originalEmissive || '#000000');
+          this.el.setAttribute('material', 'emissiveIntensity', this.originalEmissiveIntensity || 0);
+        },
+
+        onClick: function(evt) {
+          // Desktop click feedback
+          console.log('[VR-GRABBABLE] Click:', this.el.getAttribute('data-name'));
+          this.el.setAttribute('material', 'emissive', '#ffff00');
+          this.el.setAttribute('material', 'emissiveIntensity', 0.3);
+          setTimeout(() => {
+            this.el.setAttribute('material', 'emissiveIntensity', 0);
+          }, 200);
+        },
+
+        remove: function() {
+          this.el.removeEventListener('hover-start', this.onHoverStart);
+          this.el.removeEventListener('hover-end', this.onHoverEnd);
+          this.el.removeEventListener('grab-start', this.onGrabStart);
+          this.el.removeEventListener('grab-end', this.onGrabEnd);
+          this.el.removeEventListener('click', this.onClick);
+        }
+      });
+    }
+
+    // Legacy grabbable component alias (for backward compatibility)
     if (!window.AFRAME.components['grabbable']) {
       window.AFRAME.registerComponent('grabbable', {
         init: function() {
-          this.el.classList.add('clickable');
-          this.el.addEventListener('click', () => {
-            console.log('Grabbed:', this.el.getAttribute('data-name'));
-            // Add visual feedback
-            this.el.setAttribute('material', 'emissive', '#ffff00');
-            this.el.setAttribute('material', 'emissiveIntensity', '0.3');
-            setTimeout(() => {
-              this.el.setAttribute('material', 'emissiveIntensity', '0');
-            }, 200);
-          });
+          // Delegate to vr-grabbable
+          this.el.setAttribute('vr-grabbable', '');
         }
       });
     }
@@ -498,7 +634,7 @@ export default function Scene({
     <a-scene
       ref={sceneRef}
       embedded
-      vr-mode-ui="enabled: false"
+      vr-mode-ui="enabled: true; enterVRButton: #enterVRButton"
       cursor="rayOrigin: mouse"
       raycaster="objects: .clickable"
       renderer="antialias: true; colorManagement: true;"
@@ -655,10 +791,11 @@ export default function Scene({
         </>
       )}
 
-      {/* Camera Rig */}
+      {/* Camera Rig with VR Controllers */}
       <a-entity
         id="camera-rig"
         position="0 1.6 5"
+        movement-controls="fly: false; speed: 0.1"
       >
         <a-camera
           look-controls="
@@ -675,6 +812,42 @@ export default function Scene({
             material="color: white; shader: flat; opacity: 0.5"
           ></a-entity>
         </a-camera>
+
+        {/* Left Hand Controller - Quest/Oculus Touch */}
+        {/* @ts-ignore */}
+        <a-entity
+          id="left-hand"
+          hand-controls="hand: left; handModelStyle: lowPoly; color: #10b981"
+          laser-controls="hand: left"
+          raycaster="objects: .clickable; far: 10; lineColor: #10b981; lineOpacity: 0.5"
+          super-hands="
+            colliderEvent: raycaster-intersection;
+            colliderEventProperty: els;
+            colliderEndEvent: raycaster-intersection-cleared;
+            colliderEndEventProperty: clearedEls;
+            grabStartButtons: gripdown, triggerdown;
+            grabEndButtons: gripup, triggerup;
+          "
+          sphere-collider="objects: .clickable; radius: 0.1"
+        ></a-entity>
+
+        {/* Right Hand Controller - Quest/Oculus Touch */}
+        {/* @ts-ignore */}
+        <a-entity
+          id="right-hand"
+          hand-controls="hand: right; handModelStyle: lowPoly; color: #10b981"
+          laser-controls="hand: right"
+          raycaster="objects: .clickable; far: 10; lineColor: #10b981; lineOpacity: 0.5"
+          super-hands="
+            colliderEvent: raycaster-intersection;
+            colliderEventProperty: els;
+            colliderEndEvent: raycaster-intersection-cleared;
+            colliderEndEventProperty: clearedEls;
+            grabStartButtons: gripdown, triggerdown;
+            grabEndButtons: gripup, triggerup;
+          "
+          sphere-collider="objects: .clickable; radius: 0.1"
+        ></a-entity>
       </a-entity>
     </a-scene>
   </>
