@@ -57,11 +57,9 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         mode: 'preview',
         prompt: prompt,
-        art_style: 'low-poly',
-        negative_prompt: 'low quality, blurry, distorted, ugly, monochrome',
-        enable_pbr: true,
-        texture_richness: 'medium',
-        topology: 'quad',
+        art_style: 'cartoon',
+        negative_prompt: 'realistic, photorealistic, complex, detailed texture',
+        enable_pbr: false,
       }),
       signal: controller.signal,
     });
