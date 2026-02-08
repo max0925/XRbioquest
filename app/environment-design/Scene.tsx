@@ -383,6 +383,83 @@ export default function Scene({
     }
   }, [ready]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VR Menu Action Handler - Responds to menu-button clicks
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!ready || typeof window === "undefined") return;
+
+    const panelIds = ['objectives', 'models', 'assistant', 'tasks', 'settings'];
+
+    const handleMenuAction = (evt: any) => {
+      const action = evt.detail?.action;
+      if (!action) return;
+
+      console.log('[VR-MENU] Action:', action);
+
+      // Show panel action
+      if (panelIds.includes(action)) {
+        // Hide all panels first
+        panelIds.forEach(id => {
+          const panel = document.getElementById(`vr-panel-${id}`);
+          if (panel) panel.setAttribute('visible', 'false');
+        });
+        // Hide main menu
+        const mainMenu = document.getElementById('vr-menu-panel');
+        if (mainMenu) mainMenu.setAttribute('visible', 'false');
+        // Show target panel
+        const targetPanel = document.getElementById(`vr-panel-${action}`);
+        if (targetPanel) targetPanel.setAttribute('visible', 'true');
+        return;
+      }
+
+      // Close panel action
+      if (action.startsWith('close-')) {
+        const panelId = action.replace('close-', '');
+        const panel = document.getElementById(`vr-panel-${panelId}`);
+        if (panel) panel.setAttribute('visible', 'false');
+        // Show main menu again
+        const mainMenu = document.getElementById('vr-menu-panel');
+        if (mainMenu) mainMenu.setAttribute('visible', 'true');
+        return;
+      }
+
+      // Exit VR action
+      if (action === 'exit-vr') {
+        const scene = document.querySelector('a-scene') as any;
+        if (scene && scene.exitVR) {
+          scene.exitVR();
+        }
+        return;
+      }
+
+      // Focus model action
+      if (action.startsWith('focus-')) {
+        const uid = action.replace('focus-', '');
+        window.dispatchEvent(new CustomEvent('vr-focus-model', { detail: { uid } }));
+        return;
+      }
+
+      // AI speak action
+      if (action === 'ai-speak') {
+        window.dispatchEvent(new CustomEvent('vr-ai-speak'));
+        return;
+      }
+    };
+
+    // Listen for menu-action events on the scene
+    const scene = document.querySelector('a-scene');
+    if (scene) {
+      scene.addEventListener('menu-action', handleMenuAction);
+    }
+
+    return () => {
+      if (scene) {
+        scene.removeEventListener('menu-action', handleMenuAction);
+      }
+    };
+  }, [ready]);
+
   // Register morph-driver component for AI-controlled morph targets
   useEffect(() => {
     if (!ready || typeof window === "undefined" || !window.AFRAME) return;
@@ -883,16 +960,15 @@ export default function Scene({
           ></a-entity>
         </a-camera>
 
-        {/* Left Hand Controller - Quest/Oculus Touch */}
+        {/* Left Hand Controller - Wrist Menu Trigger */}
         {/* @ts-ignore */}
         <a-entity
           id="left-hand"
           hand-controls="hand: left; handModelStyle: lowPoly; color: #10b981"
-          laser-controls="hand: left"
-          raycaster="objects: .clickable; far: 10; lineColor: #10b981; lineOpacity: 0.5"
+          wrist-menu="menuId: vr-menu-panel"
         ></a-entity>
 
-        {/* Right Hand Controller - Quest/Oculus Touch */}
+        {/* Right Hand Controller - Laser Pointer for Selection */}
         {/* @ts-ignore */}
         <a-entity
           id="right-hand"
@@ -901,6 +977,241 @@ export default function Scene({
           raycaster="objects: .clickable; far: 10; lineColor: #10b981; lineOpacity: 0.5"
         ></a-entity>
       </a-entity>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* VR WRIST MENU - Holographic Sci-Fi Interface                               */}
+      {/* Appears when user looks at left wrist, controlled by wrist-menu component  */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* @ts-ignore */}
+      <a-entity
+        id="vr-menu-panel"
+        visible="false"
+        position="0 1.2 -0.5"
+      >
+        {/* Outer Glow Ring - Holographic border effect */}
+        {/* @ts-ignore */}
+        <a-entity
+          rounded="width: 0.36; height: 0.44; radius: 0.025; color: #10b981; opacity: 0.15"
+          position="0 0 -0.002"
+        ></a-entity>
+
+        {/* Main Panel Background - Deep space dark */}
+        {/* @ts-ignore */}
+        <a-entity
+          rounded="width: 0.32; height: 0.4; radius: 0.02; color: #0a0a12; opacity: 0.95"
+        ></a-entity>
+
+        {/* Top Accent Line - Emerald glow */}
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.28; height: 0.003"
+          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+          position="0 0.17 0.001"
+        ></a-entity>
+
+        {/* Title: BioQuest */}
+        {/* @ts-ignore */}
+        <a-text
+          value="BIOQUEST"
+          align="center"
+          color="#10b981"
+          width="0.8"
+          position="0 0.145 0.001"
+          font="kelsonsans"
+        ></a-text>
+
+        {/* Subtitle */}
+        {/* @ts-ignore */}
+        <a-text
+          value="VR Learning Environment"
+          align="center"
+          color="#4a5568"
+          width="0.4"
+          position="0 0.115 0.001"
+        ></a-text>
+
+        {/* Divider Line */}
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.26; height: 0.001"
+          material="color: #2d3748; opacity: 0.8; transparent: true"
+          position="0 0.085 0.001"
+        ></a-entity>
+
+        {/* Menu Buttons - Stacked vertically */}
+        {/* @ts-ignore */}
+        <a-entity
+          menu-button="label: 📚 Learning Objectives; action: objectives; width: 0.28; height: 0.05"
+          position="0 0.045 0.002"
+        ></a-entity>
+
+        {/* @ts-ignore */}
+        <a-entity
+          menu-button="label: 🔬 Scene Models; action: models; width: 0.28; height: 0.05"
+          position="0 -0.015 0.002"
+        ></a-entity>
+
+        {/* @ts-ignore */}
+        <a-entity
+          menu-button="label: 🤖 AI Assistant; action: assistant; width: 0.28; height: 0.05"
+          position="0 -0.075 0.002"
+        ></a-entity>
+
+        {/* @ts-ignore */}
+        <a-entity
+          menu-button="label: ✓ Tasks; action: tasks; width: 0.28; height: 0.05"
+          position="0 -0.135 0.002"
+        ></a-entity>
+
+        {/* @ts-ignore */}
+        <a-entity
+          menu-button="label: ⚙ Settings; action: settings; width: 0.28; height: 0.05"
+          position="0 -0.195 0.002"
+        ></a-entity>
+
+        {/* Bottom Corner Accents - Geometric details */}
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.04; height: 0.002"
+          material="color: #10b981; opacity: 0.6; transparent: true"
+          position="-0.12 -0.23 0.001"
+        ></a-entity>
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.04; height: 0.002"
+          material="color: #10b981; opacity: 0.6; transparent: true"
+          position="0.12 -0.23 0.001"
+        ></a-entity>
+      </a-entity>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* VR SUB-PANELS - Shown when menu items are selected                         */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+
+      {/* OBJECTIVES PANEL */}
+      {/* @ts-ignore */}
+      <a-entity
+        id="vr-panel-objectives"
+        visible="false"
+        position="0 1.4 -0.8"
+      >
+        {/* @ts-ignore */}
+        <a-entity rounded="width: 0.5; height: 0.45; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.46; height: 0.003"
+          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+          position="0 0.2 0.001"
+        ></a-entity>
+        {/* @ts-ignore */}
+        <a-text value="📚 LEARNING OBJECTIVES" align="center" color="#10b981" width="0.9" position="0 0.17 0.001" font="kelsonsans"></a-text>
+        {/* @ts-ignore */}
+        <a-text value="• Understand cell structure\n• Identify organelles\n• Explain cell functions\n• Compare cell types" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top" wrap-count="35"></a-text>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: ← Back; action: close-objectives; width: 0.2; height: 0.045" position="0 -0.18 0.002"></a-entity>
+      </a-entity>
+
+      {/* MODELS PANEL */}
+      {/* @ts-ignore */}
+      <a-entity
+        id="vr-panel-models"
+        visible="false"
+        position="0 1.4 -0.8"
+      >
+        {/* @ts-ignore */}
+        <a-entity rounded="width: 0.5; height: 0.5; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.46; height: 0.003"
+          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+          position="0 0.22 0.001"
+        ></a-entity>
+        {/* @ts-ignore */}
+        <a-text value="🔬 SCENE MODELS" align="center" color="#10b981" width="0.9" position="0 0.19 0.001" font="kelsonsans"></a-text>
+        {/* @ts-ignore */}
+        <a-text value="Models in scene:" align="left" color="#718096" width="0.5" position="-0.2 0.12 0.001"></a-text>
+        {/* Dynamic model list would be populated here */}
+        {/* @ts-ignore */}
+        <a-text value="• Heart Model\n• Cell Membrane\n• DNA Helix" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.02 0.001" baseline="top"></a-text>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: ← Back; action: close-models; width: 0.2; height: 0.045" position="0 -0.2 0.002"></a-entity>
+      </a-entity>
+
+      {/* AI ASSISTANT PANEL */}
+      {/* @ts-ignore */}
+      <a-entity
+        id="vr-panel-assistant"
+        visible="false"
+        position="0 1.4 -0.8"
+      >
+        {/* @ts-ignore */}
+        <a-entity rounded="width: 0.5; height: 0.4; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.46; height: 0.003"
+          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+          position="0 0.17 0.001"
+        ></a-entity>
+        {/* @ts-ignore */}
+        <a-text value="🤖 AI ASSISTANT" align="center" color="#10b981" width="0.9" position="0 0.14 0.001" font="kelsonsans"></a-text>
+        {/* @ts-ignore */}
+        <a-text value="Ask me anything about\nthe lesson content!" align="center" color="#e2e8f0" width="0.6" position="0 0.04 0.001"></a-text>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: 🎤 Speak; action: ai-speak; width: 0.25; height: 0.05" position="0 -0.06 0.002"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: ← Back; action: close-assistant; width: 0.2; height: 0.045" position="0 -0.15 0.002"></a-entity>
+      </a-entity>
+
+      {/* TASKS PANEL */}
+      {/* @ts-ignore */}
+      <a-entity
+        id="vr-panel-tasks"
+        visible="false"
+        position="0 1.4 -0.8"
+      >
+        {/* @ts-ignore */}
+        <a-entity rounded="width: 0.5; height: 0.45; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.46; height: 0.003"
+          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+          position="0 0.2 0.001"
+        ></a-entity>
+        {/* @ts-ignore */}
+        <a-text value="✓ TASKS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001" font="kelsonsans"></a-text>
+        {/* @ts-ignore */}
+        <a-text value="☑ Explore the heart model\n☐ Find the mitochondria\n☐ Identify the nucleus\n☐ Complete the quiz" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: ← Back; action: close-tasks; width: 0.2; height: 0.045" position="0 -0.18 0.002"></a-entity>
+      </a-entity>
+
+      {/* SETTINGS PANEL */}
+      {/* @ts-ignore */}
+      <a-entity
+        id="vr-panel-settings"
+        visible="false"
+        position="0 1.4 -0.8"
+      >
+        {/* @ts-ignore */}
+        <a-entity rounded="width: 0.5; height: 0.45; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity
+          geometry="primitive: plane; width: 0.46; height: 0.003"
+          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+          position="0 0.2 0.001"
+        ></a-entity>
+        {/* @ts-ignore */}
+        <a-text value="⚙ SETTINGS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001" font="kelsonsans"></a-text>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: 🔊 Toggle Audio; action: toggle-audio; width: 0.28; height: 0.045" position="0 0.08 0.002"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: 🌙 Toggle Theme; action: toggle-theme; width: 0.28; height: 0.045" position="0 0.02 0.002"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: 🚪 Exit VR; action: exit-vr; width: 0.28; height: 0.045" position="0 -0.04 0.002"></a-entity>
+        {/* @ts-ignore */}
+        <a-entity menu-button="label: ← Back; action: close-settings; width: 0.2; height: 0.045" position="0 -0.18 0.002"></a-entity>
+      </a-entity>
+
     </a-scene>
   </>
   );
