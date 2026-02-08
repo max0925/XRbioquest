@@ -158,6 +158,229 @@ export default function Scene({
         }
       });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VR MENU COMPONENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Rounded rectangle component using THREE.Shape
+    if (!window.AFRAME.components['rounded']) {
+      window.AFRAME.registerComponent('rounded', {
+        schema: {
+          width: { type: 'number', default: 0.4 },
+          height: { type: 'number', default: 0.3 },
+          radius: { type: 'number', default: 0.02 },
+          color: { type: 'color', default: '#1a1a2e' },
+          opacity: { type: 'number', default: 0.95 }
+        },
+        init: function() {
+          const { width, height, radius, color, opacity } = this.data;
+          const shape = new window.THREE.Shape();
+          const w = width / 2;
+          const h = height / 2;
+          const r = Math.min(radius, w, h);
+
+          shape.moveTo(-w + r, -h);
+          shape.lineTo(w - r, -h);
+          shape.quadraticCurveTo(w, -h, w, -h + r);
+          shape.lineTo(w, h - r);
+          shape.quadraticCurveTo(w, h, w - r, h);
+          shape.lineTo(-w + r, h);
+          shape.quadraticCurveTo(-w, h, -w, h - r);
+          shape.lineTo(-w, -h + r);
+          shape.quadraticCurveTo(-w, -h, -w + r, -h);
+
+          const geometry = new window.THREE.ShapeGeometry(shape);
+          const material = new window.THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: opacity,
+            side: window.THREE.DoubleSide
+          });
+
+          this.mesh = new window.THREE.Mesh(geometry, material);
+          this.el.setObject3D('mesh', this.mesh);
+        },
+        remove: function() {
+          if (this.mesh) {
+            this.el.removeObject3D('mesh');
+          }
+        }
+      });
+
+      // Register primitive a-rounded
+      window.AFRAME.registerPrimitive('a-rounded', {
+        defaultComponents: {
+          rounded: {}
+        },
+        mappings: {
+          width: 'rounded.width',
+          height: 'rounded.height',
+          radius: 'rounded.radius',
+          color: 'rounded.color',
+          opacity: 'rounded.opacity'
+        }
+      });
+    }
+
+    // Menu button component - clickable with hover effects
+    if (!window.AFRAME.components['menu-button']) {
+      window.AFRAME.registerComponent('menu-button', {
+        schema: {
+          label: { type: 'string', default: 'Button' },
+          action: { type: 'string', default: '' },
+          width: { type: 'number', default: 0.28 },
+          height: { type: 'number', default: 0.05 }
+        },
+        init: function() {
+          const { label, action, width, height } = this.data;
+
+          // Button background
+          this.el.setAttribute('geometry', {
+            primitive: 'plane',
+            width: width,
+            height: height
+          });
+          this.el.setAttribute('material', {
+            color: '#2d2d44',
+            opacity: 0.9,
+            transparent: true
+          });
+          this.el.classList.add('clickable');
+
+          // Button text
+          const textEl = document.createElement('a-text');
+          textEl.setAttribute('value', label);
+          textEl.setAttribute('align', 'center');
+          textEl.setAttribute('color', '#ffffff');
+          textEl.setAttribute('width', String(width * 2.5));
+          textEl.setAttribute('position', '0 0 0.001');
+          this.el.appendChild(textEl);
+          this.textEl = textEl;
+
+          // Hover events
+          this.el.addEventListener('mouseenter', this.onHover.bind(this));
+          this.el.addEventListener('mouseleave', this.onLeave.bind(this));
+          this.el.addEventListener('click', this.onClick.bind(this));
+
+          this.action = action;
+        },
+        onHover: function() {
+          this.el.setAttribute('material', 'color', '#10b981');
+        },
+        onLeave: function() {
+          this.el.setAttribute('material', 'color', '#2d2d44');
+        },
+        onClick: function() {
+          this.el.emit('menu-action', { action: this.action });
+          // Brief flash feedback
+          this.el.setAttribute('material', 'color', '#ffffff');
+          setTimeout(() => {
+            this.el.setAttribute('material', 'color', '#2d2d44');
+          }, 100);
+        },
+        remove: function() {
+          this.el.removeEventListener('mouseenter', this.onHover);
+          this.el.removeEventListener('mouseleave', this.onLeave);
+          this.el.removeEventListener('click', this.onClick);
+        }
+      });
+    }
+
+    // Wrist menu component - shows menu when looking at wrist
+    if (!window.AFRAME.components['wrist-menu']) {
+      window.AFRAME.registerComponent('wrist-menu', {
+        schema: {
+          menuId: { type: 'string', default: 'vr-menu-panel' }
+        },
+        init: function() {
+          this.menuEl = null;
+          this.isVisible = false;
+          this.checkInterval = null;
+          this.camera = null;
+          this.hand = this.el;
+        },
+        play: function() {
+          // Check wrist angle every 100ms
+          this.checkInterval = setInterval(() => {
+            this.checkWristAngle();
+          }, 100);
+        },
+        pause: function() {
+          if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+          }
+        },
+        checkWristAngle: function() {
+          if (!this.camera) {
+            this.camera = document.querySelector('[camera]');
+          }
+          if (!this.menuEl) {
+            this.menuEl = document.getElementById(this.data.menuId);
+          }
+          if (!this.camera || !this.menuEl) return;
+
+          // Get head and hand positions
+          const headPos = new window.THREE.Vector3();
+          const handPos = new window.THREE.Vector3();
+          this.camera.object3D.getWorldPosition(headPos);
+          this.hand.object3D.getWorldPosition(handPos);
+
+          // Calculate direction from hand to head
+          const toHead = new window.THREE.Vector3().subVectors(headPos, handPos).normalize();
+
+          // Get hand's up direction (palm facing)
+          const handUp = new window.THREE.Vector3(0, 1, 0);
+          this.hand.object3D.localToWorld(handUp);
+          handUp.sub(handPos).normalize();
+
+          // Calculate angle between hand up and direction to head
+          const angle = Math.acos(toHead.dot(handUp)) * (180 / Math.PI);
+
+          // Show menu if angle < 35 degrees (looking at wrist)
+          const shouldShow = angle < 35;
+
+          if (shouldShow && !this.isVisible) {
+            this.showMenu();
+          } else if (!shouldShow && this.isVisible) {
+            this.hideMenu();
+          }
+
+          // Update menu position to face camera
+          if (this.isVisible) {
+            this.updateMenuPosition();
+          }
+        },
+        showMenu: function() {
+          if (!this.menuEl) return;
+          this.menuEl.setAttribute('visible', true);
+          this.isVisible = true;
+        },
+        hideMenu: function() {
+          if (!this.menuEl) return;
+          this.menuEl.setAttribute('visible', false);
+          this.isVisible = false;
+        },
+        updateMenuPosition: function() {
+          if (!this.menuEl || !this.camera) return;
+
+          // Position menu 0.15m above hand
+          const handPos = new window.THREE.Vector3();
+          this.hand.object3D.getWorldPosition(handPos);
+          this.menuEl.object3D.position.set(handPos.x, handPos.y + 0.15, handPos.z);
+
+          // Make menu face camera
+          const camPos = new window.THREE.Vector3();
+          this.camera.object3D.getWorldPosition(camPos);
+          this.menuEl.object3D.lookAt(camPos);
+        },
+        remove: function() {
+          if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+          }
+        }
+      });
+    }
   }, [ready]);
 
   // Register morph-driver component for AI-controlled morph targets
