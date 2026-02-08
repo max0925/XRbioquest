@@ -130,7 +130,7 @@ export default function Scene({
           console.log('[VR-GRABBABLE] Initialized:', this.el.getAttribute('data-name'));
         },
 
-        onHoverStart: function(evt) {
+        onHoverStart: function() {
           if (this.grabbed) return;
           this.hovered = true;
           console.log('[VR-GRABBABLE] Hover start:', this.el.getAttribute('data-name'));
@@ -144,7 +144,7 @@ export default function Scene({
           this.el.setAttribute('material', 'emissiveIntensity', 0.3);
         },
 
-        onHoverEnd: function(evt) {
+        onHoverEnd: function() {
           if (this.grabbed) return;
           this.hovered = false;
           console.log('[VR-GRABBABLE] Hover end:', this.el.getAttribute('data-name'));
@@ -154,9 +154,9 @@ export default function Scene({
           this.el.setAttribute('material', 'emissiveIntensity', this.originalEmissiveIntensity || 0);
         },
 
-        onGrabStart: function(evt) {
+        onGrabStart: function(evt: any) {
           this.grabbed = true;
-          this.grabber = evt.detail.hand;
+          this.grabber = evt.detail?.hand || null;
           console.log('[VR-GRABBABLE] Grab start:', this.el.getAttribute('data-name'));
 
           // Reparent to controller for smooth movement
@@ -166,12 +166,7 @@ export default function Scene({
             this.el.object3D.getWorldPosition(worldPos);
             this.el.object3D.getWorldQuaternion(worldQuat);
 
-            // Calculate local position relative to controller
-            const controllerPos = new window.THREE.Vector3();
-            this.grabber.object3D.getWorldPosition(controllerPos);
-            const localPos = worldPos.sub(controllerPos);
-
-            // Reparent
+            // Reparent to hand controller
             this.grabber.object3D.attach(this.el.object3D);
           }
 
@@ -188,7 +183,7 @@ export default function Scene({
           }
         },
 
-        onGrabEnd: function(evt) {
+        onGrabEnd: function() {
           console.log('[VR-GRABBABLE] Grab end:', this.el.getAttribute('data-name'));
 
           // Reparent back to scene
@@ -219,7 +214,7 @@ export default function Scene({
           this.el.setAttribute('material', 'emissiveIntensity', this.originalEmissiveIntensity || 0);
         },
 
-        onClick: function(evt) {
+        onClick: function() {
           // Desktop click feedback
           console.log('[VR-GRABBABLE] Click:', this.el.getAttribute('data-name'));
           this.el.setAttribute('material', 'emissive', '#ffff00');
@@ -317,7 +312,7 @@ export default function Scene({
           this.currentValue = 0.5; // Start at neutral
           this.mesh = null;
         },
-        tick: function(time, timeDelta) {
+        tick: function() {
           // Find the mesh on first tick
           if (!this.mesh) {
             const object3D = this.el.object3D;
@@ -334,8 +329,7 @@ export default function Scene({
           if (this.mesh && this.mesh.morphTargetInfluences) {
             const targetValue = this.data.value;
             // Smooth lerp: current + (target - current) * lerpFactor
-            // Using THREE.MathUtils.lerp for smooth animation
-            const lerpSpeed = 0.1; // Adjust for smoothness (lower = smoother)
+            const lerpSpeed = 0.1;
             this.currentValue = window.THREE.MathUtils.lerp(
               this.currentValue,
               targetValue,
@@ -346,7 +340,7 @@ export default function Scene({
             this.mesh.morphTargetInfluences[0] = this.currentValue;
           }
         },
-        update: function(oldData) {
+        update: function() {
           // Called when the attribute value changes
           // The tick function will handle the smooth transition
         }
@@ -451,7 +445,6 @@ export default function Scene({
               this.el.sceneEl.canvas.style.cursor = 'grab';
 
               // Remove visual feedback
-              const currentPos = this.el.getAttribute('position');
               const currentScale = this.el.getAttribute('scale');
               this.el.setAttribute('scale', {
                 x: currentScale.x / 1.1,
@@ -698,7 +691,7 @@ export default function Scene({
               transformer: `mode: ${transformMode}`
             })}
             data-name={asset.name}
-            {...(asset.interactionFX?.grabbable && { 'vr-grabbable': '', 'grabbable': '' })}
+            {...(asset.interactionFX?.grabbable && { 'vr-grabbable': '' })}
             {...(asset.interactionFX?.glowPulse && { 'glow-pulse': '' })}
             {...(asset.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
             onClick={() => onAssetClick(asset)}
