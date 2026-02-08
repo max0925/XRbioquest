@@ -389,6 +389,11 @@ export default function Scene({
   useEffect(() => {
     if (!ready || typeof window === "undefined") return;
 
+    // Debug: Confirm menu panel exists
+    const menuPanel = document.getElementById('vr-menu-panel');
+    console.log('[VR-MENU] Menu panel:', menuPanel);
+    console.log('[VR-MENU] Menu visible:', menuPanel?.getAttribute('visible'));
+
     const panelIds = ['objectives', 'models', 'assistant', 'tasks', 'settings'];
 
     const handleMenuAction = (evt: any) => {
@@ -960,33 +965,32 @@ export default function Scene({
           ></a-entity>
         </a-camera>
 
-        {/* Left Hand Controller - Wrist Menu Trigger */}
+        {/* Left Hand Controller - Quest Touch */}
         {/* @ts-ignore */}
         <a-entity
           id="left-hand"
-          hand-controls="hand: left; handModelStyle: lowPoly; color: #10b981"
-          wrist-menu="menuId: vr-menu-panel"
+          oculus-touch-controls="hand: left"
         ></a-entity>
 
-        {/* Right Hand Controller - Laser Pointer for Selection */}
+        {/* Right Hand Controller - Quest Touch with Laser Pointer */}
         {/* @ts-ignore */}
         <a-entity
           id="right-hand"
-          hand-controls="hand: right; handModelStyle: lowPoly; color: #10b981"
+          oculus-touch-controls="hand: right"
           laser-controls="hand: right"
-          raycaster="objects: .clickable; far: 10; lineColor: #10b981; lineOpacity: 0.5"
+          raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
         ></a-entity>
       </a-entity>
 
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* VR WRIST MENU - Holographic Sci-Fi Interface                               */}
-      {/* Appears when user looks at left wrist, controlled by wrist-menu component  */}
+      {/* VR MENU - Holographic Sci-Fi Interface                                     */}
+      {/* Positioned in front of user at eye level for testing                       */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       {/* @ts-ignore */}
       <a-entity
         id="vr-menu-panel"
-        visible="false"
-        position="0 1.2 -0.5"
+        visible="true"
+        position="0 1.5 -1"
       >
         {/* Outer Glow Ring - Holographic border effect */}
         {/* @ts-ignore */}
