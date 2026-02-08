@@ -983,35 +983,42 @@ export default function Scene({
       </a-entity>
 
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* VR MENU - Holographic Sci-Fi Interface                                     */}
-      {/* Positioned in front of user at eye level for testing                       */}
+      {/* VR MENU - Simple A-Frame Primitives for Testing                            */}
+      {/* Position: in front of camera (camera at z=5, menu at z=3)                  */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       {/* @ts-ignore */}
       <a-entity
         id="vr-menu-panel"
         visible="true"
-        position="0 1.5 -1"
+        position="0 1.6 3"
       >
-        {/* Outer Glow Ring - Holographic border effect */}
+        {/* Outer Glow Border */}
         {/* @ts-ignore */}
-        <a-entity
-          rounded="width: 0.36; height: 0.44; radius: 0.025; color: #10b981; opacity: 0.15"
+        <a-plane
+          width="0.36"
+          height="0.44"
+          color="#10b981"
+          opacity="0.15"
           position="0 0 -0.002"
-        ></a-entity>
+        ></a-plane>
 
-        {/* Main Panel Background - Deep space dark */}
+        {/* Main Panel Background */}
         {/* @ts-ignore */}
-        <a-entity
-          rounded="width: 0.32; height: 0.4; radius: 0.02; color: #0a0a12; opacity: 0.95"
-        ></a-entity>
+        <a-plane
+          width="0.32"
+          height="0.4"
+          color="#0a0a12"
+          opacity="0.95"
+        ></a-plane>
 
-        {/* Top Accent Line - Emerald glow */}
+        {/* Top Accent Line */}
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.28; height: 0.003"
-          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
+        <a-plane
+          width="0.28"
+          height="0.003"
+          color="#10b981"
           position="0 0.17 0.001"
-        ></a-entity>
+        ></a-plane>
 
         {/* Title: BioQuest */}
         {/* @ts-ignore */}
@@ -1021,7 +1028,6 @@ export default function Scene({
           color="#10b981"
           width="0.8"
           position="0 0.145 0.001"
-          font="kelsonsans"
         ></a-text>
 
         {/* Subtitle */}
@@ -1036,184 +1042,154 @@ export default function Scene({
 
         {/* Divider Line */}
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.26; height: 0.001"
-          material="color: #2d3748; opacity: 0.8; transparent: true"
+        <a-plane
+          width="0.26"
+          height="0.001"
+          color="#2d3748"
+          opacity="0.8"
           position="0 0.085 0.001"
-        ></a-entity>
+        ></a-plane>
 
-        {/* Menu Buttons - Stacked vertically */}
+        {/* Menu Button 1: Learning Objectives */}
         {/* @ts-ignore */}
-        <a-entity
-          menu-button="label: 📚 Learning Objectives; action: objectives; width: 0.28; height: 0.05"
-          position="0 0.045 0.002"
-        ></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 0.045 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Learning Objectives" align="center" color="#ffffff" width="0.6" position="0 0.045 0.003"></a-text>
 
+        {/* Menu Button 2: Scene Models */}
         {/* @ts-ignore */}
-        <a-entity
-          menu-button="label: 🔬 Scene Models; action: models; width: 0.28; height: 0.05"
-          position="0 -0.015 0.002"
-        ></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.015 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Scene Models" align="center" color="#ffffff" width="0.6" position="0 -0.015 0.003"></a-text>
 
+        {/* Menu Button 3: AI Assistant */}
         {/* @ts-ignore */}
-        <a-entity
-          menu-button="label: 🤖 AI Assistant; action: assistant; width: 0.28; height: 0.05"
-          position="0 -0.075 0.002"
-        ></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.075 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="AI Assistant" align="center" color="#ffffff" width="0.6" position="0 -0.075 0.003"></a-text>
 
+        {/* Menu Button 4: Tasks */}
         {/* @ts-ignore */}
-        <a-entity
-          menu-button="label: ✓ Tasks; action: tasks; width: 0.28; height: 0.05"
-          position="0 -0.135 0.002"
-        ></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.135 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Tasks" align="center" color="#ffffff" width="0.6" position="0 -0.135 0.003"></a-text>
 
+        {/* Menu Button 5: Settings */}
         {/* @ts-ignore */}
-        <a-entity
-          menu-button="label: ⚙ Settings; action: settings; width: 0.28; height: 0.05"
-          position="0 -0.195 0.002"
-        ></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.195 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Settings" align="center" color="#ffffff" width="0.6" position="0 -0.195 0.003"></a-text>
 
-        {/* Bottom Corner Accents - Geometric details */}
+        {/* Bottom Corner Accents */}
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.04; height: 0.002"
-          material="color: #10b981; opacity: 0.6; transparent: true"
-          position="-0.12 -0.23 0.001"
-        ></a-entity>
+        <a-plane width="0.04" height="0.002" color="#10b981" opacity="0.6" position="-0.12 -0.23 0.001"></a-plane>
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.04; height: 0.002"
-          material="color: #10b981; opacity: 0.6; transparent: true"
-          position="0.12 -0.23 0.001"
-        ></a-entity>
+        <a-plane width="0.04" height="0.002" color="#10b981" opacity="0.6" position="0.12 -0.23 0.001"></a-plane>
       </a-entity>
 
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* VR SUB-PANELS - Shown when menu items are selected                         */}
+      {/* VR SUB-PANELS - Simple A-Frame primitives, positioned in front of camera  */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
 
       {/* OBJECTIVES PANEL */}
       {/* @ts-ignore */}
-      <a-entity
-        id="vr-panel-objectives"
-        visible="false"
-        position="0 1.4 -0.8"
-      >
+      <a-entity id="vr-panel-objectives" visible="false" position="0 1.6 3">
         {/* @ts-ignore */}
-        <a-entity rounded="width: 0.5; height: 0.45; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.46; height: 0.003"
-          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
-          position="0 0.2 0.001"
-        ></a-entity>
+        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
         {/* @ts-ignore */}
-        <a-text value="📚 LEARNING OBJECTIVES" align="center" color="#10b981" width="0.9" position="0 0.17 0.001" font="kelsonsans"></a-text>
+        <a-text value="LEARNING OBJECTIVES" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
         {/* @ts-ignore */}
-        <a-text value="• Understand cell structure\n• Identify organelles\n• Explain cell functions\n• Compare cell types" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top" wrap-count="35"></a-text>
+        <a-text value="- Understand cell structure\n- Identify organelles\n- Explain cell functions\n- Compare cell types" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: ← Back; action: close-objectives; width: 0.2; height: 0.045" position="0 -0.18 0.002"></a-entity>
+        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
       </a-entity>
 
       {/* MODELS PANEL */}
       {/* @ts-ignore */}
-      <a-entity
-        id="vr-panel-models"
-        visible="false"
-        position="0 1.4 -0.8"
-      >
+      <a-entity id="vr-panel-models" visible="false" position="0 1.6 3">
         {/* @ts-ignore */}
-        <a-entity rounded="width: 0.5; height: 0.5; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        <a-plane width="0.5" height="0.5" color="#0a0a12" opacity="0.95"></a-plane>
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.46; height: 0.003"
-          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
-          position="0 0.22 0.001"
-        ></a-entity>
+        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.22 0.001"></a-plane>
         {/* @ts-ignore */}
-        <a-text value="🔬 SCENE MODELS" align="center" color="#10b981" width="0.9" position="0 0.19 0.001" font="kelsonsans"></a-text>
+        <a-text value="SCENE MODELS" align="center" color="#10b981" width="0.9" position="0 0.19 0.001"></a-text>
         {/* @ts-ignore */}
         <a-text value="Models in scene:" align="left" color="#718096" width="0.5" position="-0.2 0.12 0.001"></a-text>
-        {/* Dynamic model list would be populated here */}
         {/* @ts-ignore */}
-        <a-text value="• Heart Model\n• Cell Membrane\n• DNA Helix" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.02 0.001" baseline="top"></a-text>
+        <a-text value="- Heart Model\n- Cell Membrane\n- DNA Helix" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.02 0.001" baseline="top"></a-text>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: ← Back; action: close-models; width: 0.2; height: 0.045" position="0 -0.2 0.002"></a-entity>
+        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.2 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.2 0.003"></a-text>
       </a-entity>
 
       {/* AI ASSISTANT PANEL */}
       {/* @ts-ignore */}
-      <a-entity
-        id="vr-panel-assistant"
-        visible="false"
-        position="0 1.4 -0.8"
-      >
+      <a-entity id="vr-panel-assistant" visible="false" position="0 1.6 3">
         {/* @ts-ignore */}
-        <a-entity rounded="width: 0.5; height: 0.4; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        <a-plane width="0.5" height="0.4" color="#0a0a12" opacity="0.95"></a-plane>
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.46; height: 0.003"
-          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
-          position="0 0.17 0.001"
-        ></a-entity>
+        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.17 0.001"></a-plane>
         {/* @ts-ignore */}
-        <a-text value="🤖 AI ASSISTANT" align="center" color="#10b981" width="0.9" position="0 0.14 0.001" font="kelsonsans"></a-text>
+        <a-text value="AI ASSISTANT" align="center" color="#10b981" width="0.9" position="0 0.14 0.001"></a-text>
         {/* @ts-ignore */}
         <a-text value="Ask me anything about\nthe lesson content!" align="center" color="#e2e8f0" width="0.6" position="0 0.04 0.001"></a-text>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: 🎤 Speak; action: ai-speak; width: 0.25; height: 0.05" position="0 -0.06 0.002"></a-entity>
+        <a-plane class="clickable" width="0.25" height="0.05" color="#10b981" position="0 -0.06 0.002"></a-plane>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: ← Back; action: close-assistant; width: 0.2; height: 0.045" position="0 -0.15 0.002"></a-entity>
+        <a-text value="Speak" align="center" color="#ffffff" width="0.5" position="0 -0.06 0.003"></a-text>
+        {/* @ts-ignore */}
+        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.15 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.15 0.003"></a-text>
       </a-entity>
 
       {/* TASKS PANEL */}
       {/* @ts-ignore */}
-      <a-entity
-        id="vr-panel-tasks"
-        visible="false"
-        position="0 1.4 -0.8"
-      >
+      <a-entity id="vr-panel-tasks" visible="false" position="0 1.6 3">
         {/* @ts-ignore */}
-        <a-entity rounded="width: 0.5; height: 0.45; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.46; height: 0.003"
-          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
-          position="0 0.2 0.001"
-        ></a-entity>
+        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
         {/* @ts-ignore */}
-        <a-text value="✓ TASKS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001" font="kelsonsans"></a-text>
+        <a-text value="TASKS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
         {/* @ts-ignore */}
-        <a-text value="☑ Explore the heart model\n☐ Find the mitochondria\n☐ Identify the nucleus\n☐ Complete the quiz" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
+        <a-text value="[x] Explore the heart model\n[ ] Find the mitochondria\n[ ] Identify the nucleus\n[ ] Complete the quiz" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: ← Back; action: close-tasks; width: 0.2; height: 0.045" position="0 -0.18 0.002"></a-entity>
+        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
       </a-entity>
 
       {/* SETTINGS PANEL */}
       {/* @ts-ignore */}
-      <a-entity
-        id="vr-panel-settings"
-        visible="false"
-        position="0 1.4 -0.8"
-      >
+      <a-entity id="vr-panel-settings" visible="false" position="0 1.6 3">
         {/* @ts-ignore */}
-        <a-entity rounded="width: 0.5; height: 0.45; radius: 0.02; color: #0a0a12; opacity: 0.95"></a-entity>
+        <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
         {/* @ts-ignore */}
-        <a-entity
-          geometry="primitive: plane; width: 0.46; height: 0.003"
-          material="color: #10b981; opacity: 0.9; transparent: true; emissive: #10b981; emissiveIntensity: 0.5"
-          position="0 0.2 0.001"
-        ></a-entity>
+        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
         {/* @ts-ignore */}
-        <a-text value="⚙ SETTINGS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001" font="kelsonsans"></a-text>
+        <a-text value="SETTINGS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: 🔊 Toggle Audio; action: toggle-audio; width: 0.28; height: 0.045" position="0 0.08 0.002"></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.045" color="#2d2d44" position="0 0.08 0.002"></a-plane>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: 🌙 Toggle Theme; action: toggle-theme; width: 0.28; height: 0.045" position="0 0.02 0.002"></a-entity>
+        <a-text value="Toggle Audio" align="center" color="#ffffff" width="0.5" position="0 0.08 0.003"></a-text>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: 🚪 Exit VR; action: exit-vr; width: 0.28; height: 0.045" position="0 -0.04 0.002"></a-entity>
+        <a-plane class="clickable" width="0.28" height="0.045" color="#2d2d44" position="0 0.02 0.002"></a-plane>
         {/* @ts-ignore */}
-        <a-entity menu-button="label: ← Back; action: close-settings; width: 0.2; height: 0.045" position="0 -0.18 0.002"></a-entity>
+        <a-text value="Toggle Theme" align="center" color="#ffffff" width="0.5" position="0 0.02 0.003"></a-text>
+        {/* @ts-ignore */}
+        <a-plane class="clickable" width="0.28" height="0.045" color="#ef4444" position="0 -0.04 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Exit VR" align="center" color="#ffffff" width="0.5" position="0 -0.04 0.003"></a-text>
+        {/* @ts-ignore */}
+        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
+        {/* @ts-ignore */}
+        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
       </a-entity>
 
     </a-scene>
