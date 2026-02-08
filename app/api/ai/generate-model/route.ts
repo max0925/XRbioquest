@@ -57,9 +57,10 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         mode: 'preview',
         prompt: prompt,
-        art_style: 'cartoon',
-        negative_prompt: 'realistic, photorealistic, complex, detailed texture',
-        enable_pbr: false,
+        ai_model: 'latest',
+        target_polycount: 10000,
+        should_remesh: true,
+        topology: 'triangle',
       }),
       signal: controller.signal,
     });
