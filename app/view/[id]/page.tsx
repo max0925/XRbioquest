@@ -233,7 +233,7 @@ export default function ViewScenePage() {
               scale={`${scale} ${scale} ${scale}`}
               geometry="primitive: box; width: 0.5; height: 0.6; depth: 0.5"
               material="visible: false"
-              className="clickable"
+              class="clickable grabbable"
               {...(model.interactionFX?.grabbable && { grabbable: '' })}
               {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
