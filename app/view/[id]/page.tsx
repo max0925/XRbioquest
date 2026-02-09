@@ -296,8 +296,8 @@ export default function ViewScenePage() {
 
           {/* Left Hand Controller with Wrist Menu */}
           <a-entity id="leftHand" hand-controls="hand: left" laser-controls="hand: left" raycaster="objects: .clickable, .grabbable; far: 5" simple-grab>
-            {/* Wrist Button - Hamburger icon in circle (inner wrist, facing up) */}
-            <a-entity id="wrist-btn" position="0.05 0.02 0" rotation="0 0 -90">
+            {/* Wrist Button - Hamburger icon (inner wrist like a watch) */}
+            <a-entity id="wrist-btn" position="-0.02 -0.05 0.06" rotation="-90 90 0">
               <a-circle class="clickable" radius="0.025" color="#1a1a2e" opacity="0.95" toggle-menu></a-circle>
               <a-ring radius-inner="0.023" radius-outer="0.025" color="#10b981"></a-ring>
               {/* Hamburger lines */}
@@ -306,34 +306,38 @@ export default function ViewScenePage() {
               <a-plane width="0.02" height="0.003" color="#10b981" position="0 -0.007 0.001"></a-plane>
             </a-entity>
 
-            {/* Wrist Menu Panel - Hidden by default */}
-            <a-entity id="menu-panel" position="0.05 0.08 0" rotation="0 0 -90" visible="false">
-              {/* Panel background */}
-              <a-plane width="0.12" height="0.14" color="#1a1a2e" opacity="0.95"></a-plane>
-              <a-plane width="0.11" height="0.003" color="#10b981" position="0 0.06 0.001"></a-plane>
+            {/* Wrist Menu Panel - Holographic popup above wrist */}
+            <a-entity id="menu-panel" position="-0.02 0.1 0.15" rotation="-45 0 0" visible="false">
+              {/* Panel background with glow */}
+              <a-plane width="0.27" height="0.32" color="#10b981" opacity="0.1" position="0 0 -0.002"></a-plane>
+              <a-plane width="0.25" height="0.3" color="#0a0a12" opacity="0.95"></a-plane>
+              {/* Top accent line */}
+              <a-plane width="0.23" height="0.004" color="#10b981" position="0 0.13 0.001"></a-plane>
+              {/* Title */}
+              <a-text value="MENU" align="center" color="#10b981" width="0.5" position="0 0.11 0.002"></a-text>
 
               {/* Tasks button */}
-              <a-entity position="0 0.035 0.002">
-                <a-plane class="clickable" width="0.1" height="0.025" color="#2d2d44"></a-plane>
-                <a-text value="Tasks" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              <a-entity position="0 0.06 0.002">
+                <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44"></a-plane>
+                <a-text value="Tasks" align="center" color="#ffffff" width="0.4" position="0 0 0.001"></a-text>
               </a-entity>
 
               {/* Quiz button */}
-              <a-entity position="0 0.005 0.002">
-                <a-plane class="clickable" width="0.1" height="0.025" color="#2d2d44"></a-plane>
-                <a-text value="Quiz" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              <a-entity position="0 0.01 0.002">
+                <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44"></a-plane>
+                <a-text value="Quiz" align="center" color="#ffffff" width="0.4" position="0 0 0.001"></a-text>
               </a-entity>
 
               {/* Notes button */}
-              <a-entity position="0 -0.025 0.002">
-                <a-plane class="clickable" width="0.1" height="0.025" color="#2d2d44"></a-plane>
-                <a-text value="Notes" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              <a-entity position="0 -0.04 0.002">
+                <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44"></a-plane>
+                <a-text value="Notes" align="center" color="#ffffff" width="0.4" position="0 0 0.001"></a-text>
               </a-entity>
 
               {/* Close button */}
-              <a-entity position="0 -0.055 0.002">
-                <a-plane class="clickable" width="0.1" height="0.025" color="#ef4444" close-menu></a-plane>
-                <a-text value="Close" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              <a-entity position="0 -0.1 0.002">
+                <a-plane class="clickable" width="0.2" height="0.045" color="#ef4444" close-menu></a-plane>
+                <a-text value="Close" align="center" color="#ffffff" width="0.4" position="0 0 0.001"></a-text>
               </a-entity>
             </a-entity>
           </a-entity>
