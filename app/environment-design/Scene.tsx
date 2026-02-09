@@ -968,11 +968,14 @@ export default function Scene({
         {/* Left Hand Controller - Quest Touch with Wrist Menu */}
         {/* @ts-ignore */}
         <a-entity id="left-hand" oculus-touch-controls="hand: left">
+          {/* DEBUG: Red sphere to confirm controller tracking */}
+          {/* @ts-ignore */}
+          <a-sphere radius="0.05" color="#ff0000" position="0 0 0"></a-sphere>
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           {/* VR WRIST MENU - Attached to left hand like a wristwatch                    */}
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           {/* @ts-ignore */}
-          <a-entity id="vr-menu-panel" position="0 0.05 0.1" rotation="-30 0 0" scale="0.6 0.6 0.6" visible="true">
+          <a-entity id="vr-menu-panel" position="0 0.1 0" rotation="0 0 0" scale="1 1 1" visible="true">
             {/* Outer Glow Border */}
             {/* @ts-ignore */}
             <a-plane width="0.36" height="0.44" color="#10b981" opacity="0.15" position="0 0 -0.002"></a-plane>
@@ -1118,6 +1121,10 @@ export default function Scene({
           raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
         ></a-entity>
       </a-entity>
+
+      {/* DEBUG: Green box in world space to confirm VR rendering */}
+      {/* @ts-ignore */}
+      <a-box position="0 1.5 3" width="0.5" height="0.5" depth="0.5" color="#00ff00"></a-box>
 
     </a-scene>
   </>
