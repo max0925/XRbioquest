@@ -121,42 +121,20 @@ export default function ViewScenePage() {
     }
   }, [sceneData]);
 
-  // Handle wrist menu toggle and button clicks
+  // Handle wrist button click
   useEffect(() => {
     if (!ready) return;
 
-    const handleMenuClick = () => {
-      const menuPanel = document.getElementById('wrist-menu-panel');
-      if (menuPanel) {
-        const isVisible = menuPanel.getAttribute('visible') === 'true';
-        menuPanel.setAttribute('visible', String(!isVisible));
-      }
+    const handleWristClick = () => {
+      console.log('[VR MENU] Wrist button clicked');
+      // TODO: Open menu panel
     };
 
-    const handleMenuButtonClick = (e: Event) => {
-      const target = e.target as Element;
-      const action = target.getAttribute('data-action');
-      if (action) {
-        console.log('[VR MENU] Action:', action);
-        // Close menu after action
-        const menuPanel = document.getElementById('wrist-menu-panel');
-        if (menuPanel) {
-          menuPanel.setAttribute('visible', 'false');
-        }
-      }
-    };
-
-    // Wait for A-Frame to be ready
     const setupListeners = () => {
-      const watchText = document.querySelector('#wrist-watch a-text');
-      if (watchText) {
-        watchText.addEventListener('click', handleMenuClick);
+      const wristBtn = document.querySelector('#wrist-btn .clickable');
+      if (wristBtn) {
+        wristBtn.addEventListener('click', handleWristClick);
       }
-
-      const menuButtons = document.querySelectorAll('.menu-btn');
-      menuButtons.forEach(btn => {
-        btn.addEventListener('click', handleMenuButtonClick);
-      });
     };
 
     const timer = setTimeout(setupListeners, 500);
@@ -308,50 +286,17 @@ export default function ViewScenePage() {
             ></a-entity>
           </a-entity>
 
-          {/* Left Hand Controller with Wrist Watch Menu */}
-          <a-entity id="left-hand" oculus-touch-controls="hand: left">
-            {/* Wrist Watch Menu Button */}
-            <a-entity id="wrist-watch" position="0 0.05 0.05" rotation="-30 0 0" scale="0.4 0.4 0.4">
-              <a-circle radius="0.06" color="#1a1a2e" opacity="0.95"></a-circle>
-              <a-ring radius-inner="0.055" radius-outer="0.06" color="#10b981"></a-ring>
-              <a-text value="MENU" align="center" color="#10b981" width="0.3" position="0 0 0.001" class="clickable"></a-text>
-            </a-entity>
-
-            {/* Wrist Menu Panel - Hidden by default */}
-            <a-entity id="wrist-menu-panel" position="0 0.1 0.05" rotation="-30 0 0" scale="0.35 0.35 0.35" visible="false">
-              <a-plane width="0.28" height="0.32" color="#1a1a2e" opacity="0.95"></a-plane>
-              <a-plane width="0.26" height="0.003" color="#10b981" position="0 0.14 0.001"></a-plane>
-              <a-text value="MENU" align="center" color="#10b981" width="0.6" position="0 0.12 0.001"></a-text>
-
-              {/* Tasks Button */}
-              <a-plane class="clickable menu-btn" data-action="tasks" width="0.24" height="0.045" color="#2d2d44" position="0 0.06 0.002"></a-plane>
-              <a-text value="Tasks" align="center" color="#ffffff" width="0.5" position="0 0.06 0.003"></a-text>
-
-              {/* Quiz Button */}
-              <a-plane class="clickable menu-btn" data-action="quiz" width="0.24" height="0.045" color="#2d2d44" position="0 0.005 0.002"></a-plane>
-              <a-text value="Quiz" align="center" color="#ffffff" width="0.5" position="0 0.005 0.003"></a-text>
-
-              {/* Notes Button */}
-              <a-plane class="clickable menu-btn" data-action="notes" width="0.24" height="0.045" color="#2d2d44" position="0 -0.05 0.002"></a-plane>
-              <a-text value="Notes" align="center" color="#ffffff" width="0.5" position="0 -0.05 0.003"></a-text>
-
-              {/* Settings Button */}
-              <a-plane class="clickable menu-btn" data-action="settings" width="0.24" height="0.045" color="#2d2d44" position="0 -0.105 0.002"></a-plane>
-              <a-text value="Settings" align="center" color="#ffffff" width="0.5" position="0 -0.105 0.003"></a-text>
+          {/* Left Hand Controller with Wrist Menu Button */}
+          <a-entity id="leftHand" hand-controls="hand: left" laser-controls="hand: left" raycaster="objects: .clickable; far: 5" simple-grab>
+            <a-entity id="wrist-btn" position="0 0.03 -0.05" rotation="-45 0 0">
+              <a-box class="clickable" width="0.04" height="0.04" depth="0.01" color="#10b981"></a-box>
+              <a-text value="☰" scale="0.2 0.2 0.2" align="center" color="#fff" position="0 0 0.006"></a-text>
             </a-entity>
           </a-entity>
 
           {/* Right Hand Controller */}
-          <a-entity
-            id="right-hand"
-            oculus-touch-controls="hand: right"
-            laser-controls="hand: right"
-            raycaster="objects: .clickable; far: 5"
-          ></a-entity>
+          <a-entity id="rightHand" hand-controls="hand: right" laser-controls="hand: right" raycaster="objects: .clickable; far: 5" simple-grab></a-entity>
         </a-entity>
-
-        {/* DEBUG: Green box in world space to confirm VR rendering */}
-        <a-box position="0 1.5 3" width="0.5" height="0.5" depth="0.5" color="#00ff00"></a-box>
       </a-scene>
 
       {/* VR Enter Button Overlay */}

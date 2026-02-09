@@ -965,27 +965,26 @@ export default function Scene({
           ></a-entity>
         </a-camera>
 
-        {/* Left Hand Controller - Debug only */}
-        {/* @ts-ignore */}
-        <a-entity id="left-hand" oculus-touch-controls="hand: left">
-          {/* DEBUG: Red sphere to confirm controller tracking */}
-          {/* @ts-ignore */}
-          <a-sphere radius="0.05" color="#ff0000" position="0 0 0"></a-sphere>
-        </a-entity>
-
-        {/* Right Hand Controller - Quest Touch with Laser Pointer */}
+        {/* Left Hand Controller */}
         {/* @ts-ignore */}
         <a-entity
-          id="right-hand"
-          oculus-touch-controls="hand: right"
+          id="leftHand"
+          hand-controls="hand: left"
+          laser-controls="hand: left"
+          raycaster="objects: .clickable; far: 5"
+          simple-grab
+        ></a-entity>
+
+        {/* Right Hand Controller */}
+        {/* @ts-ignore */}
+        <a-entity
+          id="rightHand"
+          hand-controls="hand: right"
           laser-controls="hand: right"
-          raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
+          raycaster="objects: .clickable; far: 5"
+          simple-grab
         ></a-entity>
       </a-entity>
-
-      {/* DEBUG: Green box in world space to confirm VR rendering */}
-      {/* @ts-ignore */}
-      <a-box position="0 1.5 3" width="0.5" height="0.5" depth="0.5" color="#00ff00"></a-box>
 
     </a-scene>
   </>
