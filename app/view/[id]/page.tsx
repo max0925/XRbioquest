@@ -71,7 +71,7 @@ export default function ViewScenePage() {
         document.head.appendChild(script);
       }
 
-      // Register simple-grab component for VR hand grabbing
+      // Register simple-grab component for VR hand grabbing (targets .grabbable, not .clickable)
       if (window.AFRAME && !window.AFRAME.components['simple-grab']) {
         window.AFRAME.registerComponent('simple-grab', {
           init: function() {
@@ -93,14 +93,13 @@ export default function ViewScenePage() {
               const intersection = raycaster.intersections[0];
               let target = intersection.object.el;
 
-              // Find the clickable parent entity
-              while (target && !target.classList.contains('clickable')) {
+              // Find the grabbable parent entity (not clickable - menu buttons are clickable but not grabbable)
+              while (target && !target.classList.contains('grabbable')) {
                 target = target.parentElement;
               }
 
-              if (target && target.classList.contains('clickable')) {
+              if (target && target.classList.contains('grabbable')) {
                 this.grabbedTarget = target;
-                // Attach target to hand
                 this.el.object3D.attach(target.object3D);
               }
             }
@@ -108,10 +107,42 @@ export default function ViewScenePage() {
           onTriggerUp: function() {
             if (this.grabbedTarget) {
               const sceneEl = this.el.sceneEl;
-              // Release back to scene
               sceneEl.object3D.attach(this.grabbedTarget.object3D);
               this.grabbedTarget = null;
             }
+          }
+        });
+      }
+
+      // Register wrist-menu-toggle component
+      if (window.AFRAME && !window.AFRAME.components['wrist-menu-toggle']) {
+        window.AFRAME.registerComponent('wrist-menu-toggle', {
+          schema: {
+            target: { type: 'selector' }
+          },
+          init: function() {
+            this.el.addEventListener('click', () => {
+              if (this.data.target) {
+                const isVisible = this.data.target.getAttribute('visible');
+                this.data.target.setAttribute('visible', !isVisible);
+              }
+            });
+          }
+        });
+      }
+
+      // Register menu-close component
+      if (window.AFRAME && !window.AFRAME.components['menu-close']) {
+        window.AFRAME.registerComponent('menu-close', {
+          schema: {
+            target: { type: 'selector' }
+          },
+          init: function() {
+            this.el.addEventListener('click', () => {
+              if (this.data.target) {
+                this.data.target.setAttribute('visible', false);
+              }
+            });
           }
         });
       }
@@ -121,25 +152,6 @@ export default function ViewScenePage() {
     }
   }, [sceneData]);
 
-  // Handle wrist button click
-  useEffect(() => {
-    if (!ready) return;
-
-    const handleWristClick = () => {
-      console.log('[VR MENU] Wrist button clicked');
-      // TODO: Open menu panel
-    };
-
-    const setupListeners = () => {
-      const wristBtn = document.querySelector('#wrist-btn .clickable');
-      if (wristBtn) {
-        wristBtn.addEventListener('click', handleWristClick);
-      }
-    };
-
-    const timer = setTimeout(setupListeners, 500);
-    return () => clearTimeout(timer);
-  }, [ready]);
 
   if (error) {
     return (
@@ -286,16 +298,52 @@ export default function ViewScenePage() {
             ></a-entity>
           </a-entity>
 
-          {/* Left Hand Controller with Wrist Menu Button */}
-          <a-entity id="leftHand" hand-controls="hand: left" laser-controls="hand: left" raycaster="objects: .clickable; far: 5" simple-grab>
-            <a-entity id="wrist-btn" position="0 0.03 -0.05" rotation="-45 0 0">
-              <a-box class="clickable" width="0.04" height="0.04" depth="0.01" color="#10b981"></a-box>
-              <a-text value="☰" scale="0.2 0.2 0.2" align="center" color="#fff" position="0 0 0.006"></a-text>
+          {/* Left Hand Controller with Wrist Menu */}
+          <a-entity id="leftHand" hand-controls="hand: left" laser-controls="hand: left" raycaster="objects: .clickable, .grabbable; far: 5" simple-grab>
+            {/* Wrist Button - Hamburger icon in circle */}
+            <a-entity id="wrist-btn" position="0 0.03 -0.05" rotation="-45 0 0" wrist-menu-toggle="target: #wrist-menu-panel">
+              <a-circle class="clickable" radius="0.025" color="#1a1a2e" opacity="0.95"></a-circle>
+              <a-ring radius-inner="0.023" radius-outer="0.025" color="#10b981"></a-ring>
+              {/* Hamburger lines */}
+              <a-plane width="0.02" height="0.003" color="#10b981" position="0 0.007 0.001"></a-plane>
+              <a-plane width="0.02" height="0.003" color="#10b981" position="0 0 0.001"></a-plane>
+              <a-plane width="0.02" height="0.003" color="#10b981" position="0 -0.007 0.001"></a-plane>
+            </a-entity>
+
+            {/* Wrist Menu Panel - Hidden by default */}
+            <a-entity id="wrist-menu-panel" position="0 0.08 -0.05" rotation="-45 0 0" visible="false">
+              {/* Panel background */}
+              <a-plane width="0.12" height="0.14" color="#1a1a2e" opacity="0.95"></a-plane>
+              <a-plane width="0.11" height="0.003" color="#10b981" position="0 0.06 0.001"></a-plane>
+
+              {/* Tasks button */}
+              <a-entity position="0 0.035 0.002">
+                <a-plane class="clickable" width="0.1" height="0.025" color="#2d2d44"></a-plane>
+                <a-text value="Tasks" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              </a-entity>
+
+              {/* Quiz button */}
+              <a-entity position="0 0.005 0.002">
+                <a-plane class="clickable" width="0.1" height="0.025" color="#2d2d44"></a-plane>
+                <a-text value="Quiz" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              </a-entity>
+
+              {/* Notes button */}
+              <a-entity position="0 -0.025 0.002">
+                <a-plane class="clickable" width="0.1" height="0.025" color="#2d2d44"></a-plane>
+                <a-text value="Notes" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              </a-entity>
+
+              {/* Close button */}
+              <a-entity position="0 -0.055 0.002" menu-close="target: #wrist-menu-panel">
+                <a-plane class="clickable" width="0.1" height="0.025" color="#ef4444"></a-plane>
+                <a-text value="Close" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
+              </a-entity>
             </a-entity>
           </a-entity>
 
           {/* Right Hand Controller */}
-          <a-entity id="rightHand" hand-controls="hand: right" laser-controls="hand: right" raycaster="objects: .clickable; far: 5" simple-grab></a-entity>
+          <a-entity id="rightHand" hand-controls="hand: right" laser-controls="hand: right" raycaster="objects: .clickable, .grabbable; far: 5" simple-grab></a-entity>
         </a-entity>
       </a-scene>
 
