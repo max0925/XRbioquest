@@ -965,12 +965,149 @@ export default function Scene({
           ></a-entity>
         </a-camera>
 
-        {/* Left Hand Controller - Quest Touch */}
+        {/* Left Hand Controller - Quest Touch with Wrist Menu */}
         {/* @ts-ignore */}
-        <a-entity
-          id="left-hand"
-          oculus-touch-controls="hand: left"
-        ></a-entity>
+        <a-entity id="left-hand" oculus-touch-controls="hand: left">
+          {/* ═══════════════════════════════════════════════════════════════════════════ */}
+          {/* VR WRIST MENU - Attached to left hand like a wristwatch                    */}
+          {/* ═══════════════════════════════════════════════════════════════════════════ */}
+          {/* @ts-ignore */}
+          <a-entity id="vr-menu-panel" position="0 0.05 0.1" rotation="-30 0 0" scale="0.6 0.6 0.6" visible="true">
+            {/* Outer Glow Border */}
+            {/* @ts-ignore */}
+            <a-plane width="0.36" height="0.44" color="#10b981" opacity="0.15" position="0 0 -0.002"></a-plane>
+            {/* Main Panel Background */}
+            {/* @ts-ignore */}
+            <a-plane width="0.32" height="0.4" color="#0a0a12" opacity="0.95"></a-plane>
+            {/* Top Accent Line */}
+            {/* @ts-ignore */}
+            <a-plane width="0.28" height="0.003" color="#10b981" position="0 0.17 0.001"></a-plane>
+            {/* Title */}
+            {/* @ts-ignore */}
+            <a-text value="BIOQUEST" align="center" color="#10b981" width="0.8" position="0 0.145 0.001"></a-text>
+            {/* Subtitle */}
+            {/* @ts-ignore */}
+            <a-text value="VR Learning" align="center" color="#4a5568" width="0.4" position="0 0.115 0.001"></a-text>
+            {/* Divider */}
+            {/* @ts-ignore */}
+            <a-plane width="0.26" height="0.001" color="#2d3748" opacity="0.8" position="0 0.085 0.001"></a-plane>
+            {/* Menu Buttons */}
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 0.045 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Objectives" align="center" color="#ffffff" width="0.6" position="0 0.045 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.015 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Models" align="center" color="#ffffff" width="0.6" position="0 -0.015 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.075 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="AI Assistant" align="center" color="#ffffff" width="0.6" position="0 -0.075 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.135 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Tasks" align="center" color="#ffffff" width="0.6" position="0 -0.135 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.195 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Settings" align="center" color="#ffffff" width="0.6" position="0 -0.195 0.003"></a-text>
+            {/* Bottom Accents */}
+            {/* @ts-ignore */}
+            <a-plane width="0.04" height="0.002" color="#10b981" opacity="0.6" position="-0.12 -0.23 0.001"></a-plane>
+            {/* @ts-ignore */}
+            <a-plane width="0.04" height="0.002" color="#10b981" opacity="0.6" position="0.12 -0.23 0.001"></a-plane>
+          </a-entity>
+
+          {/* SUB-PANELS - Also attached to wrist */}
+          {/* @ts-ignore */}
+          <a-entity id="vr-panel-objectives" position="0 0.05 0.1" rotation="-30 0 0" scale="0.5 0.5 0.5" visible="false">
+            {/* @ts-ignore */}
+            <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
+            {/* @ts-ignore */}
+            <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="OBJECTIVES" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
+            {/* @ts-ignore */}
+            <a-text value="- Cell structure\n- Organelles\n- Functions" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
+          </a-entity>
+
+          {/* @ts-ignore */}
+          <a-entity id="vr-panel-models" position="0 0.05 0.1" rotation="-30 0 0" scale="0.5 0.5 0.5" visible="false">
+            {/* @ts-ignore */}
+            <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
+            {/* @ts-ignore */}
+            <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="MODELS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
+            {/* @ts-ignore */}
+            <a-text value="- Heart\n- Cell\n- DNA" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
+          </a-entity>
+
+          {/* @ts-ignore */}
+          <a-entity id="vr-panel-assistant" position="0 0.05 0.1" rotation="-30 0 0" scale="0.5 0.5 0.5" visible="false">
+            {/* @ts-ignore */}
+            <a-plane width="0.5" height="0.35" color="#0a0a12" opacity="0.95"></a-plane>
+            {/* @ts-ignore */}
+            <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.15 0.001"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="AI ASSISTANT" align="center" color="#10b981" width="0.9" position="0 0.12 0.001"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.25" height="0.05" color="#10b981" position="0 0 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Speak" align="center" color="#ffffff" width="0.5" position="0 0 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.12 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.12 0.003"></a-text>
+          </a-entity>
+
+          {/* @ts-ignore */}
+          <a-entity id="vr-panel-tasks" position="0 0.05 0.1" rotation="-30 0 0" scale="0.5 0.5 0.5" visible="false">
+            {/* @ts-ignore */}
+            <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
+            {/* @ts-ignore */}
+            <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="TASKS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
+            {/* @ts-ignore */}
+            <a-text value="[x] Heart\n[ ] Mitochondria\n[ ] Nucleus" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
+          </a-entity>
+
+          {/* @ts-ignore */}
+          <a-entity id="vr-panel-settings" position="0 0.05 0.1" rotation="-30 0 0" scale="0.5 0.5 0.5" visible="false">
+            {/* @ts-ignore */}
+            <a-plane width="0.5" height="0.4" color="#0a0a12" opacity="0.95"></a-plane>
+            {/* @ts-ignore */}
+            <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.17 0.001"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="SETTINGS" align="center" color="#10b981" width="0.9" position="0 0.14 0.001"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.045" color="#2d2d44" position="0 0.06 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Audio" align="center" color="#ffffff" width="0.5" position="0 0.06 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.28" height="0.045" color="#ef4444" position="0 0 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Exit VR" align="center" color="#ffffff" width="0.5" position="0 0 0.003"></a-text>
+            {/* @ts-ignore */}
+            <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.15 0.002"></a-plane>
+            {/* @ts-ignore */}
+            <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.15 0.003"></a-text>
+          </a-entity>
+        </a-entity>
 
         {/* Right Hand Controller - Quest Touch with Laser Pointer */}
         {/* @ts-ignore */}
@@ -980,216 +1117,6 @@ export default function Scene({
           laser-controls="hand: right"
           raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
         ></a-entity>
-      </a-entity>
-
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* VR MENU - Simple A-Frame Primitives for Testing                            */}
-      {/* Position: in front of camera (camera at z=5, menu at z=3)                  */}
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* @ts-ignore */}
-      <a-entity
-        id="vr-menu-panel"
-        visible="true"
-        position="0 1.6 3"
-      >
-        {/* Outer Glow Border */}
-        {/* @ts-ignore */}
-        <a-plane
-          width="0.36"
-          height="0.44"
-          color="#10b981"
-          opacity="0.15"
-          position="0 0 -0.002"
-        ></a-plane>
-
-        {/* Main Panel Background */}
-        {/* @ts-ignore */}
-        <a-plane
-          width="0.32"
-          height="0.4"
-          color="#0a0a12"
-          opacity="0.95"
-        ></a-plane>
-
-        {/* Top Accent Line */}
-        {/* @ts-ignore */}
-        <a-plane
-          width="0.28"
-          height="0.003"
-          color="#10b981"
-          position="0 0.17 0.001"
-        ></a-plane>
-
-        {/* Title: BioQuest */}
-        {/* @ts-ignore */}
-        <a-text
-          value="BIOQUEST"
-          align="center"
-          color="#10b981"
-          width="0.8"
-          position="0 0.145 0.001"
-        ></a-text>
-
-        {/* Subtitle */}
-        {/* @ts-ignore */}
-        <a-text
-          value="VR Learning Environment"
-          align="center"
-          color="#4a5568"
-          width="0.4"
-          position="0 0.115 0.001"
-        ></a-text>
-
-        {/* Divider Line */}
-        {/* @ts-ignore */}
-        <a-plane
-          width="0.26"
-          height="0.001"
-          color="#2d3748"
-          opacity="0.8"
-          position="0 0.085 0.001"
-        ></a-plane>
-
-        {/* Menu Button 1: Learning Objectives */}
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 0.045 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Learning Objectives" align="center" color="#ffffff" width="0.6" position="0 0.045 0.003"></a-text>
-
-        {/* Menu Button 2: Scene Models */}
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.015 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Scene Models" align="center" color="#ffffff" width="0.6" position="0 -0.015 0.003"></a-text>
-
-        {/* Menu Button 3: AI Assistant */}
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.075 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="AI Assistant" align="center" color="#ffffff" width="0.6" position="0 -0.075 0.003"></a-text>
-
-        {/* Menu Button 4: Tasks */}
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.135 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Tasks" align="center" color="#ffffff" width="0.6" position="0 -0.135 0.003"></a-text>
-
-        {/* Menu Button 5: Settings */}
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.05" color="#2d2d44" position="0 -0.195 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Settings" align="center" color="#ffffff" width="0.6" position="0 -0.195 0.003"></a-text>
-
-        {/* Bottom Corner Accents */}
-        {/* @ts-ignore */}
-        <a-plane width="0.04" height="0.002" color="#10b981" opacity="0.6" position="-0.12 -0.23 0.001"></a-plane>
-        {/* @ts-ignore */}
-        <a-plane width="0.04" height="0.002" color="#10b981" opacity="0.6" position="0.12 -0.23 0.001"></a-plane>
-      </a-entity>
-
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-      {/* VR SUB-PANELS - Simple A-Frame primitives, positioned in front of camera  */}
-      {/* ═══════════════════════════════════════════════════════════════════════════ */}
-
-      {/* OBJECTIVES PANEL */}
-      {/* @ts-ignore */}
-      <a-entity id="vr-panel-objectives" visible="false" position="0 1.6 3">
-        {/* @ts-ignore */}
-        <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
-        {/* @ts-ignore */}
-        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="LEARNING OBJECTIVES" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-text value="- Understand cell structure\n- Identify organelles\n- Explain cell functions\n- Compare cell types" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
-      </a-entity>
-
-      {/* MODELS PANEL */}
-      {/* @ts-ignore */}
-      <a-entity id="vr-panel-models" visible="false" position="0 1.6 3">
-        {/* @ts-ignore */}
-        <a-plane width="0.5" height="0.5" color="#0a0a12" opacity="0.95"></a-plane>
-        {/* @ts-ignore */}
-        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.22 0.001"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="SCENE MODELS" align="center" color="#10b981" width="0.9" position="0 0.19 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-text value="Models in scene:" align="left" color="#718096" width="0.5" position="-0.2 0.12 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-text value="- Heart Model\n- Cell Membrane\n- DNA Helix" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.02 0.001" baseline="top"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.2 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.2 0.003"></a-text>
-      </a-entity>
-
-      {/* AI ASSISTANT PANEL */}
-      {/* @ts-ignore */}
-      <a-entity id="vr-panel-assistant" visible="false" position="0 1.6 3">
-        {/* @ts-ignore */}
-        <a-plane width="0.5" height="0.4" color="#0a0a12" opacity="0.95"></a-plane>
-        {/* @ts-ignore */}
-        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.17 0.001"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="AI ASSISTANT" align="center" color="#10b981" width="0.9" position="0 0.14 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-text value="Ask me anything about\nthe lesson content!" align="center" color="#e2e8f0" width="0.6" position="0 0.04 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.25" height="0.05" color="#10b981" position="0 -0.06 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Speak" align="center" color="#ffffff" width="0.5" position="0 -0.06 0.003"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.15 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.15 0.003"></a-text>
-      </a-entity>
-
-      {/* TASKS PANEL */}
-      {/* @ts-ignore */}
-      <a-entity id="vr-panel-tasks" visible="false" position="0 1.6 3">
-        {/* @ts-ignore */}
-        <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
-        {/* @ts-ignore */}
-        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="TASKS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-text value="[x] Explore the heart model\n[ ] Find the mitochondria\n[ ] Identify the nucleus\n[ ] Complete the quiz" align="left" color="#e2e8f0" width="0.7" position="-0.2 0.05 0.001" baseline="top"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
-      </a-entity>
-
-      {/* SETTINGS PANEL */}
-      {/* @ts-ignore */}
-      <a-entity id="vr-panel-settings" visible="false" position="0 1.6 3">
-        {/* @ts-ignore */}
-        <a-plane width="0.5" height="0.45" color="#0a0a12" opacity="0.95"></a-plane>
-        {/* @ts-ignore */}
-        <a-plane width="0.46" height="0.003" color="#10b981" position="0 0.2 0.001"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="SETTINGS" align="center" color="#10b981" width="0.9" position="0 0.17 0.001"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.045" color="#2d2d44" position="0 0.08 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Toggle Audio" align="center" color="#ffffff" width="0.5" position="0 0.08 0.003"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.045" color="#2d2d44" position="0 0.02 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Toggle Theme" align="center" color="#ffffff" width="0.5" position="0 0.02 0.003"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.28" height="0.045" color="#ef4444" position="0 -0.04 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Exit VR" align="center" color="#ffffff" width="0.5" position="0 -0.04 0.003"></a-text>
-        {/* @ts-ignore */}
-        <a-plane class="clickable" width="0.2" height="0.045" color="#2d2d44" position="0 -0.18 0.002"></a-plane>
-        {/* @ts-ignore */}
-        <a-text value="Back" align="center" color="#ffffff" width="0.4" position="0 -0.18 0.003"></a-text>
       </a-entity>
 
     </a-scene>
