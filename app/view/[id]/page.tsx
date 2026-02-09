@@ -114,33 +114,29 @@ export default function ViewScenePage() {
         });
       }
 
-      // Register wrist-menu-toggle component
-      if (window.AFRAME && !window.AFRAME.components['wrist-menu-toggle']) {
-        window.AFRAME.registerComponent('wrist-menu-toggle', {
-          schema: {
-            target: { type: 'selector' }
-          },
+      // Register toggle-menu component
+      if (window.AFRAME && !window.AFRAME.components['toggle-menu']) {
+        window.AFRAME.registerComponent('toggle-menu', {
           init: function() {
             this.el.addEventListener('click', () => {
-              if (this.data.target) {
-                const isVisible = this.data.target.getAttribute('visible');
-                this.data.target.setAttribute('visible', !isVisible);
+              const panel = document.getElementById('menu-panel');
+              if (panel) {
+                const visible = panel.getAttribute('visible') === 'true';
+                panel.setAttribute('visible', !visible);
               }
             });
           }
         });
       }
 
-      // Register menu-close component
-      if (window.AFRAME && !window.AFRAME.components['menu-close']) {
-        window.AFRAME.registerComponent('menu-close', {
-          schema: {
-            target: { type: 'selector' }
-          },
+      // Register close-menu component
+      if (window.AFRAME && !window.AFRAME.components['close-menu']) {
+        window.AFRAME.registerComponent('close-menu', {
           init: function() {
             this.el.addEventListener('click', () => {
-              if (this.data.target) {
-                this.data.target.setAttribute('visible', false);
+              const panel = document.getElementById('menu-panel');
+              if (panel) {
+                panel.setAttribute('visible', false);
               }
             });
           }
@@ -300,9 +296,9 @@ export default function ViewScenePage() {
 
           {/* Left Hand Controller with Wrist Menu */}
           <a-entity id="leftHand" hand-controls="hand: left" laser-controls="hand: left" raycaster="objects: .clickable, .grabbable; far: 5" simple-grab>
-            {/* Wrist Button - Hamburger icon in circle */}
-            <a-entity id="wrist-btn" position="0 0.03 -0.05" rotation="-45 0 0" wrist-menu-toggle="target: #wrist-menu-panel">
-              <a-circle class="clickable" radius="0.025" color="#1a1a2e" opacity="0.95"></a-circle>
+            {/* Wrist Button - Hamburger icon in circle (inner wrist, facing up) */}
+            <a-entity id="wrist-btn" position="0.05 0.02 0" rotation="0 0 -90">
+              <a-circle class="clickable" radius="0.025" color="#1a1a2e" opacity="0.95" toggle-menu></a-circle>
               <a-ring radius-inner="0.023" radius-outer="0.025" color="#10b981"></a-ring>
               {/* Hamburger lines */}
               <a-plane width="0.02" height="0.003" color="#10b981" position="0 0.007 0.001"></a-plane>
@@ -311,7 +307,7 @@ export default function ViewScenePage() {
             </a-entity>
 
             {/* Wrist Menu Panel - Hidden by default */}
-            <a-entity id="wrist-menu-panel" position="0 0.08 -0.05" rotation="-45 0 0" visible="false">
+            <a-entity id="menu-panel" position="0.05 0.08 0" rotation="0 0 -90" visible="false">
               {/* Panel background */}
               <a-plane width="0.12" height="0.14" color="#1a1a2e" opacity="0.95"></a-plane>
               <a-plane width="0.11" height="0.003" color="#10b981" position="0 0.06 0.001"></a-plane>
@@ -335,8 +331,8 @@ export default function ViewScenePage() {
               </a-entity>
 
               {/* Close button */}
-              <a-entity position="0 -0.055 0.002" menu-close="target: #wrist-menu-panel">
-                <a-plane class="clickable" width="0.1" height="0.025" color="#ef4444"></a-plane>
+              <a-entity position="0 -0.055 0.002">
+                <a-plane class="clickable" width="0.1" height="0.025" color="#ef4444" close-menu></a-plane>
                 <a-text value="Close" align="center" color="#ffffff" width="0.25" position="0 0 0.001"></a-text>
               </a-entity>
             </a-entity>
