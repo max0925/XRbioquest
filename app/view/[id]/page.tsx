@@ -296,8 +296,8 @@ export default function ViewScenePage() {
 
           {/* Left Hand Controller with Wrist Menu */}
           <a-entity id="leftHand" hand-controls="hand: left" laser-controls="hand: left" raycaster="objects: .clickable, .grabbable; far: 5" simple-grab>
-            {/* Wrist Button - Hamburger icon (inner wrist like a watch) */}
-            <a-entity id="wrist-btn" position="-0.02 -0.05 0.06" rotation="-90 90 0">
+            {/* Wrist Button - Hamburger icon (back of wrist, facing up) */}
+            <a-entity id="wrist-btn" position="0 0 -0.1" rotation="90 0 0">
               <a-circle class="clickable" radius="0.025" color="#1a1a2e" opacity="0.95" toggle-menu></a-circle>
               <a-ring radius-inner="0.023" radius-outer="0.025" color="#10b981"></a-ring>
               {/* Hamburger lines */}
@@ -306,8 +306,8 @@ export default function ViewScenePage() {
               <a-plane width="0.02" height="0.003" color="#10b981" position="0 -0.007 0.001"></a-plane>
             </a-entity>
 
-            {/* Wrist Menu Panel - Holographic popup above wrist */}
-            <a-entity id="menu-panel" position="-0.02 0.1 0.15" rotation="-45 0 0" visible="false">
+            {/* Wrist Menu Panel - Popup above wrist */}
+            <a-entity id="menu-panel" position="0 0.15 -0.1" rotation="-30 0 0" visible="false">
               {/* Panel background with glow */}
               <a-plane width="0.27" height="0.32" color="#10b981" opacity="0.1" position="0 0 -0.002"></a-plane>
               <a-plane width="0.25" height="0.3" color="#0a0a12" opacity="0.95"></a-plane>
