@@ -265,26 +265,22 @@ export default function ViewScenePage() {
             ></a-entity>
           </a-entity>
 
-          {/* Left Hand Controller */}
-          <a-entity
-            id="leftHand"
-            tracked-controls="hand: left"
-            hand-controls="hand: left; handModelStyle: lowPoly"
-            laser-controls="hand: left"
-            raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
-            simple-grab
-          ></a-entity>
+          {/* Left Hand Controller - Debug with red sphere */}
+          <a-entity id="left-hand" oculus-touch-controls="hand: left">
+            <a-sphere radius="0.05" color="#ff0000"></a-sphere>
+          </a-entity>
 
           {/* Right Hand Controller */}
           <a-entity
-            id="rightHand"
-            tracked-controls="hand: right"
-            hand-controls="hand: right; handModelStyle: lowPoly"
+            id="right-hand"
+            oculus-touch-controls="hand: right"
             laser-controls="hand: right"
-            raycaster="objects: .clickable; far: 5; lineColor: #10b981; lineOpacity: 0.5"
-            simple-grab
+            raycaster="objects: .clickable; far: 5"
           ></a-entity>
         </a-entity>
+
+        {/* DEBUG: Green box in world space to confirm VR rendering */}
+        <a-box position="0 1.5 3" width="0.5" height="0.5" depth="0.5" color="#00ff00"></a-box>
       </a-scene>
 
       {/* VR Enter Button Overlay */}
