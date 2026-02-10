@@ -93,7 +93,7 @@ export default function Home() {
               style={{ animationDelay: '0.3s' }}
             >
               <Link
-                href="/create-lesson"
+                href="/environment-design"
                 className="group relative px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-base transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow-md hover:scale-[1.02]"
                 style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
               >
@@ -303,7 +303,7 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-6">
             <Link
-              href="/create-lesson"
+              href="/environment-design"
               className="group px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-base transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow-md hover:scale-[1.02]"
               style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
@@ -336,7 +336,7 @@ export default function Home() {
               © 2025 BioQuest. All rights reserved.
             </div>
             <div className="flex gap-6">
-              <Link href="/create-lesson" className="text-xs text-gray-600 hover:text-emerald-600 transition-colors" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+              <Link href="/environment-design" className="text-xs text-gray-600 hover:text-emerald-600 transition-colors" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                 Create Lesson
               </Link>
               <Link href="/community" className="text-xs text-gray-600 hover:text-emerald-600 transition-colors" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
