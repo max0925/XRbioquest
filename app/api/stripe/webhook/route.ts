@@ -11,6 +11,7 @@ const PLAN_CREDITS = {
   SCHOOL: { env: 20, model: 20 },
   ADDON_ENV: { env: 15, model: 0 },
   ADDON_MODEL: { env: 0, model: 15 },
+  ADDON_SEASONAL: { env: 25, model: 0 },
 };
 
 export async function POST(req: NextRequest) {
@@ -129,8 +130,15 @@ export async function POST(req: NextRequest) {
 
           if (userId && addonType) {
             // Determine credits based on addon type
-            const envCredits = addonType === 'ENV_PACK' ? PLAN_CREDITS.ADDON_ENV.env : 0;
-            const modelCredits = addonType === 'MODEL_PACK' ? PLAN_CREDITS.ADDON_MODEL.model : 0;
+            let envCredits = 0;
+            let modelCredits = 0;
+            if (addonType === 'ENV_PACK') {
+              envCredits = PLAN_CREDITS.ADDON_ENV.env;
+            } else if (addonType === 'MODEL_PACK') {
+              modelCredits = PLAN_CREDITS.ADDON_MODEL.model;
+            } else if (addonType === 'SEASONAL_PACK') {
+              envCredits = PLAN_CREDITS.ADDON_SEASONAL.env;
+            }
 
             // Record purchase
             await supabase.from('credit_purchases').insert({

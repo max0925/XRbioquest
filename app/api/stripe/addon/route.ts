@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
     const addonMap: Record<string, { priceId: string; type: string }> = {
       ENV_PACK: { priceId: PRICES.ADDON_ENV_PACK, type: 'ENV_PACK' },
       MODEL_PACK: { priceId: PRICES.ADDON_MODEL_PACK, type: 'MODEL_PACK' },
+      SEASONAL_PACK: { priceId: PRICES.ADDON_SEASONAL_PACK, type: 'SEASONAL_PACK' },
     };
 
     const addonConfig = addonMap[addon];
