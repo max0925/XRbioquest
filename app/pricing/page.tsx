@@ -8,6 +8,7 @@ export default function Pricing() {
   const router = useRouter();
   const [isYearly, setIsYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [addonLoading, setAddonLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const plans = [
@@ -17,8 +18,7 @@ export default function Pricing() {
       yearlyPrice: 0,
       description: "Perfect for trying out BioQuest",
       features: [
-        "3 environment generations",
-        "3 3D model generations",
+        "3 game generations",
         "Basic AI features",
         "Standard 3D assets library",
         "Community support",
@@ -29,40 +29,38 @@ export default function Pricing() {
       popular: false,
     },
     {
-      name: "Pro",
+      name: "Individual",
       monthlyPrice: 29,
       yearlyPrice: 290,
       description: "For active educators and creators",
       features: [
-        "30 environment generations/month",
-        "20 3D model generations/month",
+        "15 game generations/month",
         "Advanced AI generation",
         "Premium 3D assets library",
         "Priority support",
         "All headset support",
-        "Custom branding",
         "Analytics dashboard",
         "Export & sharing",
-        "Purchase add-ons when limit reached",
+        "Purchase add-ons when needed",
       ],
-      cta: "Start Pro Trial",
-      href: "/signup?plan=pro",
+      cta: "Get Started",
+      href: "/signup?plan=individual",
       popular: true,
     },
     {
       name: "School",
       monthlyPrice: null,
-      yearlyPrice: 500,
-      description: "For institutions and districts",
+      yearlyPrice: 550,
+      description: "For schools and districts",
       features: [
-        "Unlimited generations",
-        "Everything in Pro",
-        "Unlimited teacher seats",
+        "20 game generations/month",
+        "Everything in Individual",
+        "Training & onboarding",
+        "Dedicated account manager",
         "Student management",
         "LMS integration",
-        "Dedicated support",
-        "Training & onboarding",
-        "SLA guarantee",
+        "Priority support",
+        "Invoice billing",
       ],
       cta: "Contact Sales",
       href: "/contact",
@@ -70,8 +68,25 @@ export default function Pricing() {
     },
   ];
 
+  const addons = [
+    {
+      name: "Model Pack",
+      price: 9.99,
+      description: "+10 3D models",
+      badge: null,
+      key: "MODEL_PACK",
+    },
+    {
+      name: "Seasonal Pack",
+      price: 19.99,
+      description: "+25 game generations",
+      badge: "Best Value",
+      key: "SEASONAL_PACK",
+    },
+  ];
+
   const formatPrice = (plan: typeof plans[number]) => {
-    if (plan.name === "School") return "500";
+    if (plan.name === "School") return "550";
     if (plan.monthlyPrice === 0) return "0";
     if (isYearly) {
       const perMonth = Math.round((plan.yearlyPrice! / 12) * 100) / 100;
@@ -81,7 +96,7 @@ export default function Pricing() {
   };
 
   const getPriceSuffix = (plan: typeof plans[number]) => {
-    if (plan.name === "School") return "/year per teacher";
+    if (plan.name === "School") return "/teacher/year";
     if (plan.monthlyPrice === 0) return "";
     return "/month";
   };
@@ -91,7 +106,7 @@ export default function Pricing() {
     setCheckoutLoading(true);
 
     try {
-      const plan = isYearly ? "PRO_YEARLY" : "PRO_MONTHLY";
+      const plan = isYearly ? "INDIVIDUAL_YEARLY" : "INDIVIDUAL_MONTHLY";
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -119,6 +134,40 @@ export default function Pricing() {
       setCheckoutError(err.message);
     } finally {
       setCheckoutLoading(false);
+    }
+  };
+
+  const handleAddonCheckout = async (addonKey: string) => {
+    setCheckoutError(null);
+    setAddonLoading(addonKey);
+
+    try {
+      const res = await fetch("/api/stripe/addon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addon: addonKey }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 401) {
+        router.push("/login?redirect=/pricing&message=Please log in to purchase add-ons");
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Checkout failed");
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err: any) {
+      setCheckoutError(err.message);
+    } finally {
+      setAddonLoading(null);
     }
   };
 
@@ -186,7 +235,7 @@ export default function Pricing() {
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-20 px-6">
+      <section className="pb-12 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-6">
             {plans.map((plan) => (
@@ -238,8 +287,8 @@ export default function Pricing() {
                         {getPriceSuffix(plan)}
                       </span>
                     </div>
-                    {/* Yearly billing note for Pro */}
-                    {plan.name === "Pro" && isYearly && (
+                    {/* Yearly billing note for Individual */}
+                    {plan.name === "Individual" && isYearly && (
                       <p
                         className="text-xs text-gray-500 mt-1.5"
                         style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
@@ -250,7 +299,7 @@ export default function Pricing() {
                   </div>
 
                   {/* CTA Button */}
-                  {plan.name === "Pro" ? (
+                  {plan.name === "Individual" ? (
                     <button
                       onClick={handleCheckout}
                       disabled={checkoutLoading}
@@ -269,7 +318,11 @@ export default function Pricing() {
                   ) : (
                     <Link
                       href={plan.href}
-                      className="block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700"
+                      className={`block w-full px-6 py-3 rounded-lg font-medium text-center transition-all duration-300 mb-8 ${
+                        plan.name === "School"
+                          ? "bg-gray-900 hover:bg-gray-800 text-white"
+                          : "bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700"
+                      }`}
                       style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
                     >
                       {plan.cta}
@@ -310,41 +363,124 @@ export default function Pricing() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
 
-          {/* Additional Info */}
-          <div className="mt-16 text-center">
+      {/* Add-on Packs Section */}
+      <section className="py-12 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h2
+              className="text-2xl font-semibold text-gray-900 mb-2"
+              style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+            >
+              Add-on Packs
+            </h2>
             <p
-              className="text-sm text-gray-600 mb-6"
+              className="text-gray-600"
               style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
-              All plans include 14-day free trial &middot; No credit card required &middot; Cancel anytime
+              Need more generations? Purchase add-ons anytime.
             </p>
+          </div>
 
-            <div className="flex flex-wrap justify-center gap-6 text-sm">
-              <Link
-                href="/contact"
-                className="text-emerald-600 hover:text-emerald-700 font-medium transition"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {addons.map((addon) => (
+              <div
+                key={addon.name}
+                className="relative rounded-xl border border-gray-200 p-6 hover:border-gray-300 hover:shadow-md transition-all duration-300"
               >
-                Contact Sales
-              </Link>
-              <span className="text-gray-300">&middot;</span>
-              <Link
-                href="/faq"
-                className="text-gray-600 hover:text-gray-900 transition"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-              >
-                Pricing FAQ
-              </Link>
-              <span className="text-gray-300">&middot;</span>
-              <Link
-                href="/enterprise"
-                className="text-gray-600 hover:text-gray-900 transition"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-              >
-                Enterprise Options
-              </Link>
-            </div>
+                {addon.badge && (
+                  <div className="absolute -top-3 right-4">
+                    <span
+                      className="px-3 py-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {addon.badge}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3
+                      className="text-lg font-semibold text-gray-900"
+                      style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                    >
+                      {addon.name}
+                    </h3>
+                    <p
+                      className="text-sm text-gray-500"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {addon.description}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className="text-2xl font-semibold text-gray-900"
+                      style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                    >
+                      ${addon.price}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleAddonCheckout(addon.key)}
+                  disabled={addonLoading === addon.key}
+                  className="w-full px-4 py-2.5 rounded-lg font-medium text-center bg-emerald-600 hover:bg-emerald-700 text-white transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                >
+                  {addonLoading === addon.key ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </span>
+                  ) : (
+                    "Buy Now"
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Additional Info */}
+      <section className="py-8 px-6">
+        <div className="max-w-6xl mx-auto text-center">
+          <p
+            className="text-sm text-gray-600 mb-6"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            All plans include 14-day free trial &middot; No credit card required &middot; Cancel anytime
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-6 text-sm">
+            <Link
+              href="/contact"
+              className="text-emerald-600 hover:text-emerald-700 font-medium transition"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Contact Sales
+            </Link>
+            <span className="text-gray-300">&middot;</span>
+            <Link
+              href="/faq"
+              className="text-gray-600 hover:text-gray-900 transition"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Pricing FAQ
+            </Link>
+            <span className="text-gray-300">&middot;</span>
+            <Link
+              href="/enterprise"
+              className="text-gray-600 hover:text-gray-900 transition"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Enterprise Options
+            </Link>
           </div>
         </div>
       </section>
@@ -371,11 +507,11 @@ export default function Pricing() {
               },
               {
                 q: "Is there a student discount?",
-                a: "Yes! Students and educators with valid .edu emails receive 50% off Pro plans.",
+                a: "Yes! Students and educators with valid .edu emails receive 50% off Individual plans.",
               },
               {
                 q: "What happens when I hit my generation limit?",
-                a: "On the Free plan, you'll be prompted to upgrade. Pro users can purchase add-on packs to get more generations instantly.",
+                a: "On the Free plan, you'll be prompted to upgrade. Paid users can purchase add-on packs to get more generations instantly.",
               },
             ].map((faq, index) => (
               <div key={index} className="border-b border-gray-200 pb-6">

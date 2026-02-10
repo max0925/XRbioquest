@@ -5,6 +5,14 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
+// Credit amounts for each plan
+const PLAN_CREDITS = {
+  INDIVIDUAL: { env: 15, model: 15 },
+  SCHOOL: { env: 20, model: 20 },
+  ADDON_ENV: { env: 15, model: 0 },
+  ADDON_MODEL: { env: 0, model: 15 },
+};
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get('stripe-signature');
@@ -38,8 +46,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  // Log event type for monitoring (keep minimal in production)
-
   // Cast to any to bypass missing generated types for admin client
   const supabase = getSupabaseAdmin() as any;
 
@@ -54,16 +60,19 @@ export async function POST(req: NextRequest) {
           const subscriptionId = session.subscription as string;
           const email = session.customer_details?.email;
           const userId = session.metadata?.supabase_user_id;
+          const plan = session.metadata?.plan || '';
 
           // Fetch subscription details to get price_id and period
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const subscriptionItem = subscription.items.data[0];
           const priceId = subscriptionItem?.price.id;
-          // In latest Stripe SDK, current_period_end moved from Subscription to SubscriptionItem
           const periodEnd = new Date(subscriptionItem.current_period_end * 1000);
 
+          // Determine credits based on plan
+          const isSchool = plan.includes('SCHOOL');
+          const credits = isSchool ? PLAN_CREDITS.SCHOOL : PLAN_CREDITS.INDIVIDUAL;
+
           if (userId) {
-            // User ID from metadata — update by user ID
             const { error } = await supabase
               .from('profiles')
               .update({
@@ -72,8 +81,8 @@ export async function POST(req: NextRequest) {
                 subscription_status: mapStatus(subscription.status),
                 price_id: priceId,
                 current_period_end: periodEnd.toISOString(),
-                env_credits: 30,
-                model_credits: 20,
+                env_credits: credits.env,
+                model_credits: credits.model,
               })
               .eq('id', userId);
 
@@ -97,8 +106,8 @@ export async function POST(req: NextRequest) {
                   subscription_status: mapStatus(subscription.status),
                   price_id: priceId,
                   current_period_end: periodEnd.toISOString(),
-                  env_credits: 30,
-                  model_credits: 20,
+                  env_credits: credits.env,
+                  model_credits: credits.model,
                 })
                 .eq('id', users[0].id);
 
@@ -116,18 +125,18 @@ export async function POST(req: NextRequest) {
         // One-time payment (add-on packs)
         if (session.mode === 'payment') {
           const userId = session.metadata?.supabase_user_id;
-          const addonPriceId = session.metadata?.addon_price_id;
+          const addonType = session.metadata?.addon_type;
 
-          if (userId && addonPriceId) {
-            // Determine credits
-            const envCredits = addonPriceId === process.env.STRIPE_PRICE_ADDON_ENV ? 30 : 0;
-            const modelCredits = addonPriceId === process.env.STRIPE_PRICE_ADDON_MODEL ? 20 : 0;
+          if (userId && addonType) {
+            // Determine credits based on addon type
+            const envCredits = addonType === 'ENV_PACK' ? PLAN_CREDITS.ADDON_ENV.env : 0;
+            const modelCredits = addonType === 'MODEL_PACK' ? PLAN_CREDITS.ADDON_MODEL.model : 0;
 
             // Record purchase
             await supabase.from('credit_purchases').insert({
               user_id: userId,
               stripe_session_id: session.id,
-              price_id: addonPriceId,
+              addon_type: addonType,
               env_credits: envCredits,
               model_credits: modelCredits,
             });
@@ -160,7 +169,6 @@ export async function POST(req: NextRequest) {
         const subscriptionItem = subscription.items.data[0];
         const priceId = subscriptionItem?.price.id;
         const status = mapStatus(subscription.status);
-        // In latest Stripe SDK, current_period_end moved from Subscription to SubscriptionItem
         const periodEnd = new Date(subscriptionItem.current_period_end * 1000);
 
         const { error } = await supabase
@@ -189,8 +197,8 @@ export async function POST(req: NextRequest) {
             subscription_status: 'canceled',
             subscription_id: null,
             price_id: null,
-            env_credits: 3,
-            model_credits: 3,
+            env_credits: 0,
+            model_credits: 0,
           })
           .eq('stripe_customer_id', customerId);
 

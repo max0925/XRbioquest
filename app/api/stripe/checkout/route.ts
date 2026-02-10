@@ -3,15 +3,16 @@ import { getStripe } from '@/lib/stripe/client';
 import { PRICES } from '@/lib/stripe/prices';
 import { createClient } from '@/lib/supabase/server';
 
-// POST /api/stripe/checkout — Create a Stripe Checkout Session for Pro plans
+// POST /api/stripe/checkout — Create a Stripe Checkout Session for subscription plans
 export async function POST(req: NextRequest) {
   try {
     const { plan } = await req.json();
 
     // Map client-safe plan key to actual Stripe price ID
     const priceMap: Record<string, string | undefined> = {
-      PRO_MONTHLY: PRICES.PRO_MONTHLY,
-      PRO_YEARLY: PRICES.PRO_YEARLY,
+      INDIVIDUAL_MONTHLY: PRICES.INDIVIDUAL_MONTHLY,
+      INDIVIDUAL_YEARLY: PRICES.INDIVIDUAL_YEARLY,
+      SCHOOL_YEARLY: PRICES.SCHOOL_YEARLY,
     };
 
     const priceId = priceMap[plan];
@@ -70,9 +71,9 @@ export async function POST(req: NextRequest) {
       success_url: `${req.nextUrl.origin}/environment-design?checkout=success`,
       cancel_url: `${req.nextUrl.origin}/pricing?checkout=cancelled`,
       subscription_data: {
-        metadata: { supabase_user_id: user.id },
+        metadata: { supabase_user_id: user.id, plan },
       },
-      metadata: { supabase_user_id: user.id },
+      metadata: { supabase_user_id: user.id, plan },
       allow_promotion_codes: true,
     });
 
