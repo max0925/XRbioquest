@@ -74,14 +74,14 @@ export default function Pricing() {
       price: 9.99,
       description: "+10 3D models",
       badge: null,
-      key: "MODEL_PACK",
+      key: "ADDON_MODEL_PACK",
     },
     {
-      name: "Seasonal Pack",
+      name: "Environment Pack",
       price: 19.99,
-      description: "+25 game generations",
+      description: "+15 environments",
       badge: "Best Value",
-      key: "SEASONAL_PACK",
+      key: "ADDON_ENV_PACK",
     },
   ];
 

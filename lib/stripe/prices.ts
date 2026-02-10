@@ -7,9 +7,8 @@ export const PRICES = {
   INDIVIDUAL_MONTHLY: process.env.STRIPE_PRICE_INDIVIDUAL_MONTHLY!,   // $29/month
   INDIVIDUAL_YEARLY: process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY!,     // $290/year
   SCHOOL_YEARLY: process.env.STRIPE_PRICE_SCHOOL_YEARLY!,             // $550/teacher/year
-  ADDON_ENV_PACK: process.env.STRIPE_PRICE_ADDON_ENV!,                // $10 one-time (+15 env generations)
-  ADDON_MODEL_PACK: process.env.STRIPE_PRICE_ADDON_MODEL!,            // $15 one-time (+15 3D model generations)
-  ADDON_SEASONAL_PACK: process.env.STRIPE_PRICE_ADDON_SEASONAL!,      // $19.99 one-time (+25 game generations)
+  ADDON_ENV_PACK: process.env.STRIPE_PRICE_ADDON_ENV!,                // $19.99 one-time (+15 env generations)
+  ADDON_MODEL_PACK: process.env.STRIPE_PRICE_ADDON_MODEL!,            // $9.99 one-time (+10 3D models)
 } as const;
 
 // Human-readable metadata attached to Checkout Sessions
@@ -18,6 +17,5 @@ export const PRODUCT_META = {
   [PRICES.INDIVIDUAL_YEARLY]: { name: 'Individual Yearly', type: 'subscription' as const, credits: { env: 15, model: 15 } },
   [PRICES.SCHOOL_YEARLY]: { name: 'School Yearly', type: 'subscription' as const, credits: { env: 20, model: 20 } },
   [PRICES.ADDON_ENV_PACK]: { name: 'Environment Pack', type: 'addon' as const, credits: { env: 15, model: 0 } },
-  [PRICES.ADDON_MODEL_PACK]: { name: '3D Model Pack', type: 'addon' as const, credits: { env: 0, model: 15 } },
-  [PRICES.ADDON_SEASONAL_PACK]: { name: 'Seasonal Pack', type: 'addon' as const, credits: { env: 25, model: 0 } },
+  [PRICES.ADDON_MODEL_PACK]: { name: '3D Model Pack', type: 'addon' as const, credits: { env: 0, model: 10 } },
 } as const;

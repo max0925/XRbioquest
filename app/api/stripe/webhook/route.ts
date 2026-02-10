@@ -10,8 +10,7 @@ const PLAN_CREDITS = {
   INDIVIDUAL: { env: 15, model: 15 },
   SCHOOL: { env: 20, model: 20 },
   ADDON_ENV: { env: 15, model: 0 },
-  ADDON_MODEL: { env: 0, model: 15 },
-  ADDON_SEASONAL: { env: 25, model: 0 },
+  ADDON_MODEL: { env: 0, model: 10 },
 };
 
 export async function POST(req: NextRequest) {
@@ -136,8 +135,6 @@ export async function POST(req: NextRequest) {
               envCredits = PLAN_CREDITS.ADDON_ENV.env;
             } else if (addonType === 'MODEL_PACK') {
               modelCredits = PLAN_CREDITS.ADDON_MODEL.model;
-            } else if (addonType === 'SEASONAL_PACK') {
-              envCredits = PLAN_CREDITS.ADDON_SEASONAL.env;
             }
 
             // Record purchase
