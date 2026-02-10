@@ -4,8 +4,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const PRICES = {
-  PRO_MONTHLY: process.env.STRIPE_PRICE_PRO_MONTHLY!,       // $29/month
-  PRO_YEARLY: process.env.STRIPE_PRICE_PRO_YEARLY!,         // $290/year
+  PRO_MONTHLY: process.env.STRIPE_PRICE_INDIVIDUAL_MONTHLY!,  // $29/month
+  PRO_YEARLY: process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY!,    // $290/year
   SCHOOL_YEARLY: process.env.STRIPE_PRICE_SCHOOL_YEARLY!,   // $550/teacher/year
   ADDON_ENV_PACK: process.env.STRIPE_PRICE_ADDON_ENV!,      // $19.99 one-time (+15 env generations)
   ADDON_MODEL_PACK: process.env.STRIPE_PRICE_ADDON_MODEL!,  // $9.99 one-time (+10 3D models)
