@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 // Credit amounts for each plan
 const PLAN_CREDITS = {
-  INDIVIDUAL: { env: 15, model: 15 },
+  PRO: { env: 15, model: 15 },
   SCHOOL: { env: 20, model: 20 },
   ADDON_ENV: { env: 15, model: 0 },
   ADDON_MODEL: { env: 0, model: 10 },
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
           // Determine credits based on plan
           const isSchool = plan.includes('SCHOOL');
-          const credits = isSchool ? PLAN_CREDITS.SCHOOL : PLAN_CREDITS.INDIVIDUAL;
+          const credits = isSchool ? PLAN_CREDITS.SCHOOL : PLAN_CREDITS.PRO;
 
           if (userId) {
             const { error } = await supabase

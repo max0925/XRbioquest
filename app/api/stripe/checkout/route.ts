@@ -10,8 +10,8 @@ export async function POST(req: NextRequest) {
 
     // Map client-safe plan key to actual Stripe price ID
     const priceMap: Record<string, string | undefined> = {
-      INDIVIDUAL_MONTHLY: PRICES.INDIVIDUAL_MONTHLY,
-      INDIVIDUAL_YEARLY: PRICES.INDIVIDUAL_YEARLY,
+      PRO_MONTHLY: PRICES.PRO_MONTHLY,
+      PRO_YEARLY: PRICES.PRO_YEARLY,
       SCHOOL_YEARLY: PRICES.SCHOOL_YEARLY,
     };
 

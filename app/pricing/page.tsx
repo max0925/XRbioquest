@@ -29,7 +29,7 @@ export default function Pricing() {
       popular: false,
     },
     {
-      name: "Individual",
+      name: "Pro",
       monthlyPrice: 29,
       yearlyPrice: 290,
       description: "For active educators and creators",
@@ -106,7 +106,7 @@ export default function Pricing() {
     setCheckoutLoading(true);
 
     try {
-      const plan = isYearly ? "INDIVIDUAL_YEARLY" : "INDIVIDUAL_MONTHLY";
+      const plan = isYearly ? "PRO_YEARLY" : "PRO_MONTHLY";
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -288,7 +288,7 @@ export default function Pricing() {
                       </span>
                     </div>
                     {/* Yearly billing note for Individual */}
-                    {plan.name === "Individual" && isYearly && (
+                    {plan.name === "Pro" && isYearly && (
                       <p
                         className="text-xs text-gray-500 mt-1.5"
                         style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
@@ -299,7 +299,7 @@ export default function Pricing() {
                   </div>
 
                   {/* CTA Button */}
-                  {plan.name === "Individual" ? (
+                  {plan.name === "Pro" ? (
                     <button
                       onClick={handleCheckout}
                       disabled={checkoutLoading}
