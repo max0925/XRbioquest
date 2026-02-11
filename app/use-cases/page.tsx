@@ -146,27 +146,6 @@ export default function UseCasesPage() {
         <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
       </section>
 
-      {/* Scroll indicator - positioned below hero */}
-      <div className="relative -mt-20 pb-8 flex justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2, duration: 0.6 }}
-        >
-          <motion.div
-            className="w-6 h-10 rounded-full border-2 border-gray-300 flex items-start justify-center p-2 bg-white/80 backdrop-blur-sm"
-            animate={{ y: [0, 5, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <motion.div
-              className="w-1.5 h-1.5 rounded-full bg-emerald-500"
-              animate={{ y: [0, 12, 0], opacity: [1, 0.3, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </motion.div>
-        </motion.div>
-      </div>
-
       {/* Experience Quote Section */}
       <ExperienceQuoteSection />
 
@@ -214,23 +193,22 @@ function ExperienceQuoteSection() {
       {/* ── Top wave: white → emerald-900 ── */}
       <div className="relative z-10 -mb-px">
         <svg
-          viewBox="0 0 1440 88"
+          viewBox="0 0 1440 96"
           preserveAspectRatio="none"
           className="w-full block"
-          style={{ height: '88px' }}
+          style={{ height: '96px' }}
         >
-          {/* emerald-900 background fill */}
-          <rect width="1440" height="88" fill="#064e3b" />
-          {/* white wave shape on top — curves downward from top edge */}
+          <rect width="1440" height="96" fill="#064e3b" />
+          {/* organic double-arc wave */}
           <path
-            d="M0,0 L0,32 C180,72 360,88 540,64 C720,40 900,8 1080,28 C1260,48 1380,72 1440,60 L1440,0 Z"
+            d="M0,0 C120,48 300,96 600,72 C900,48 1140,0 1440,48 L1440,0 Z"
             fill="#ffffff"
           />
         </svg>
       </div>
 
       {/* ── Main content on emerald-900 ── */}
-      <div className="relative bg-emerald-900 px-6 py-20">
+      <div className="relative bg-emerald-900 px-6 py-16">
         {/* Subtle noise texture overlay */}
         <div
           className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -315,16 +293,15 @@ function ExperienceQuoteSection() {
       {/* ── Bottom wave: emerald-900 → white ── */}
       <div className="relative z-10 -mt-px">
         <svg
-          viewBox="0 0 1440 88"
+          viewBox="0 0 1440 96"
           preserveAspectRatio="none"
           className="w-full block"
-          style={{ height: '88px' }}
+          style={{ height: '96px' }}
         >
-          {/* emerald-900 background fill */}
-          <rect width="1440" height="88" fill="#064e3b" />
-          {/* white wave shape on bottom — rises upward from bottom edge */}
+          <rect width="1440" height="96" fill="#064e3b" />
+          {/* organic double-arc wave */}
           <path
-            d="M0,88 L0,56 C120,16 300,0 480,24 C660,48 840,80 1020,60 C1200,40 1320,8 1440,28 L1440,88 Z"
+            d="M0,96 C240,40 480,0 720,32 C960,64 1200,96 1440,48 L1440,96 Z"
             fill="#ffffff"
           />
         </svg>
@@ -443,7 +420,7 @@ function StandardsLibrarySection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 px-6 overflow-hidden bg-white"
+      className="relative py-20 px-6 overflow-hidden bg-white"
     >
       {/* Subtle background pattern */}
       <div className="absolute inset-0 opacity-[0.02]">
@@ -714,9 +691,6 @@ function ForTeachersSection() {
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
-      style={{
-        clipPath: 'polygon(0 72px, 100% 0, 100% calc(100% - 72px), 0 100%)',
-      }}
     >
       {/* Full-bleed background image */}
       <div className="absolute inset-0">
@@ -734,8 +708,22 @@ function ForTeachersSection() {
       {/* Left-side gradient to improve card readability */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/10 to-transparent" />
 
+      {/* Top soft wave: white → photo */}
+      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+        <svg viewBox="0 0 1440 96" preserveAspectRatio="none" className="w-full block" style={{ height: '96px' }}>
+          <path d="M0,0 C300,96 600,64 900,80 C1100,92 1300,40 1440,64 L1440,0 Z" fill="#ffffff" />
+        </svg>
+      </div>
+
+      {/* Bottom soft wave: photo → white */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
+        <svg viewBox="0 0 1440 96" preserveAspectRatio="none" className="w-full block" style={{ height: '96px' }}>
+          <path d="M0,96 C200,0 500,32 800,16 C1060,0 1260,64 1440,32 L1440,96 Z" fill="#ffffff" />
+        </svg>
+      </div>
+
       {/* Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-32 pb-32">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-24">
 
         {/* Title — above the cards */}
         <motion.div
@@ -909,7 +897,7 @@ function FinalCTASection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-32 px-6 overflow-hidden"
+      className="relative py-20 px-6 overflow-hidden"
     >
       {/* Background Image */}
       <div className="absolute inset-0">
@@ -922,6 +910,13 @@ function FinalCTASection() {
 
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/50" />
+
+      {/* Top wave: emerald-50 → photo (softens the transition from quote banner) */}
+      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+        <svg viewBox="0 0 1440 72" preserveAspectRatio="none" className="w-full block" style={{ height: '72px' }}>
+          <path d="M0,0 C240,72 600,40 900,56 C1100,68 1300,20 1440,44 L1440,0 Z" fill="#ecfdf5" />
+        </svg>
+      </div>
 
       {/* Emerald tint */}
       <div className="absolute inset-0 bg-emerald-900/15" />
