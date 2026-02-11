@@ -22,13 +22,13 @@ export default function UseCasesPage() {
           <img
             src="/vrclass.png"
             alt="Students in VR classroom"
-            className="w-full h-full object-cover blur-sm"
+            className="w-full h-full object-cover blur-[2px]"
             style={{ objectPosition: '70% center' }}
           />
         </div>
 
         {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-black/30" />
 
         {/* Bottom gradient for text readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
@@ -131,8 +131,8 @@ export default function UseCasesPage() {
             transition={{ duration: 0.8, delay: 0.7 }}
           >
             {[
-              { number: "500+", label: "Educators" },
-              { number: "50K+", label: "Students Reached" },
+              { number: "10+", label: "Educators" },
+              { number: "60+", label: "Students Reached" },
               { number: "98%", label: "Satisfaction" },
             ].map((stat, i) => (
               <motion.div
@@ -227,114 +227,124 @@ function ExperienceQuoteSection() {
   ];
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative py-28 px-6 overflow-hidden"
-    >
-      {/* Light gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white via-emerald-50/40 to-white" />
-
-      {/* Subtle radial glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] bg-gradient-radial from-emerald-100/30 via-transparent to-transparent rounded-full blur-3xl" />
-
-      {/* Decorative organic shapes */}
-      <motion.div
-        className="absolute top-16 left-[10%] w-32 h-32 rounded-full opacity-[0.04]"
-        style={{
-          background: 'radial-gradient(circle at 30% 30%, #10b981, transparent)',
-        }}
-        animate={{
-          scale: [1, 1.1, 1],
-          rotate: [0, 10, 0],
-        }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute bottom-20 right-[15%] w-24 h-24 rounded-full opacity-[0.05]"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, #14b8a6, transparent)',
-        }}
-        animate={{
-          scale: [1, 1.15, 1],
-          rotate: [0, -15, 0],
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <div className="relative z-10 max-w-4xl mx-auto">
-        {/* Quote */}
-        <motion.blockquote
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 40 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+    <section ref={sectionRef} className="relative overflow-hidden">
+      {/* ── Top wave: white → emerald-900 ── */}
+      <div className="relative z-10 -mb-px">
+        <svg
+          viewBox="0 0 1440 88"
+          preserveAspectRatio="none"
+          className="w-full block"
+          style={{ height: '88px' }}
         >
-          {/* Opening quote mark */}
-          <motion.span
-            className="block text-6xl sm:text-7xl text-emerald-300 leading-none mb-4"
-            style={{ fontFamily: 'Georgia, serif' }}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={isInView ? { opacity: 1, scale: 1 } : {}}
-            transition={{ duration: 0.5, delay: 0.2 }}
+          {/* emerald-900 background fill */}
+          <rect width="1440" height="88" fill="#064e3b" />
+          {/* white wave shape on top — curves downward from top edge */}
+          <path
+            d="M0,0 L0,32 C180,72 360,88 540,64 C720,40 900,8 1080,28 C1260,48 1380,72 1440,60 L1440,0 Z"
+            fill="#ffffff"
+          />
+        </svg>
+      </div>
+
+      {/* ── Main content on emerald-900 ── */}
+      <div className="relative bg-emerald-900 px-6 py-20">
+        {/* Subtle noise texture overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '20px 20px',
+          }}
+        />
+        {/* Inner glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full bg-emerald-700/20 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-4xl mx-auto">
+          {/* Quote */}
+          <motion.blockquote
+            className="text-center mb-14"
+            initial={{ opacity: 0, y: 40 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
-            "
-          </motion.span>
-
-          <p
-            className="text-2xl sm:text-3xl md:text-4xl text-gray-800 leading-relaxed font-medium tracking-tight"
-            style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
-          >
-            Where biology stops being diagrams on a page — and becomes worlds students can{' '}
-            <span
-              className="font-bold"
-              style={{
-                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
+            <motion.span
+              className="block text-6xl sm:text-7xl text-emerald-400/60 leading-none mb-4"
+              style={{ fontFamily: 'Georgia, serif' }}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={isInView ? { opacity: 1, scale: 1 } : {}}
+              transition={{ duration: 0.5, delay: 0.2 }}
             >
-              step inside
-            </span>
-            .
-          </p>
-        </motion.blockquote>
+              "
+            </motion.span>
 
-        {/* Experience bullets */}
-        <motion.div
-          className="grid sm:grid-cols-2 gap-5 max-w-3xl mx-auto"
-          initial={{ opacity: 0 }}
-          animate={isInView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
-          {experienceItems.map((item, index) => (
-            <motion.div
-              key={index}
-              className="group flex items-center gap-4 p-5 bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-100/60 shadow-sm hover:shadow-md hover:border-emerald-200/80 transition-all duration-300"
-              initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-              animate={isInView ? { opacity: 1, x: 0 } : {}}
-              transition={{
-                duration: 0.6,
-                delay: 0.5 + index * 0.12,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              whileHover={{ y: -2 }}
+            <p
+              className="text-2xl sm:text-3xl md:text-4xl text-white/95 leading-relaxed font-medium tracking-tight"
+              style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
             >
-              {/* Icon container */}
-              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/80 flex items-center justify-center group-hover:from-emerald-100 group-hover:to-emerald-200/80 transition-all duration-300">
-                <item.icon className="w-6 h-6 text-emerald-600" />
-              </div>
-
-              {/* Text */}
-              <p
-                className="text-gray-700 font-medium text-[15px] leading-snug"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              Where biology stops being diagrams on a page — and becomes worlds students can{' '}
+              <span
+                className="font-bold text-emerald-400"
               >
-                {item.text}
-              </p>
-            </motion.div>
-          ))}
-        </motion.div>
+                step inside
+              </span>
+              .
+            </p>
+          </motion.blockquote>
+
+          {/* Experience cards */}
+          <motion.div
+            className="grid sm:grid-cols-2 gap-4 max-w-3xl mx-auto"
+            initial={{ opacity: 0 }}
+            animate={isInView ? { opacity: 1 } : {}}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            {experienceItems.map((item, index) => (
+              <motion.div
+                key={index}
+                className="group flex items-center gap-4 p-5 bg-white rounded-2xl shadow-lg shadow-emerald-950/30 hover:shadow-xl hover:shadow-emerald-950/40 border border-white/10 transition-all duration-300"
+                initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+                animate={isInView ? { opacity: 1, x: 0 } : {}}
+                transition={{
+                  duration: 0.6,
+                  delay: 0.5 + index * 0.12,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                whileHover={{ y: -3 }}
+              >
+                {/* Icon container */}
+                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center group-hover:from-emerald-100 group-hover:to-emerald-200 transition-all duration-300">
+                  <item.icon className="w-6 h-6 text-emerald-600" />
+                </div>
+
+                {/* Text */}
+                <p
+                  className="text-gray-800 font-medium text-[15px] leading-snug"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                >
+                  {item.text}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ── Bottom wave: emerald-900 → white ── */}
+      <div className="relative z-10 -mt-px">
+        <svg
+          viewBox="0 0 1440 88"
+          preserveAspectRatio="none"
+          className="w-full block"
+          style={{ height: '88px' }}
+        >
+          {/* emerald-900 background fill */}
+          <rect width="1440" height="88" fill="#064e3b" />
+          {/* white wave shape on bottom — rises upward from bottom edge */}
+          <path
+            d="M0,88 L0,56 C120,16 300,0 480,24 C660,48 840,80 1020,60 C1200,40 1320,8 1440,28 L1440,88 Z"
+            fill="#ffffff"
+          />
+        </svg>
       </div>
     </section>
   );
