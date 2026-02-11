@@ -27,14 +27,17 @@ export default function UseCasesPage() {
           />
         </div>
 
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/30" />
+        {/* Very light global dark overlay — keeps image crisp */}
+        <div className="absolute inset-0 bg-black/15" />
 
-        {/* Bottom gradient for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-        {/* Subtle emerald tint overlay */}
-        <div className="absolute inset-0 bg-emerald-900/10" />
+        {/* Bottom emerald fade — only bottom ~42%, top 58% stays crystal clear */}
+        <div
+          className="absolute bottom-0 left-0 right-0 pointer-events-none"
+          style={{
+            height: '42%',
+            background: 'linear-gradient(to top, #064e3b 0%, rgba(6,78,59,0.78) 28%, rgba(6,78,59,0.28) 65%, transparent 100%)',
+          }}
+        />
 
         {/* Content */}
         <div className="relative z-10 max-w-5xl mx-auto text-center">
@@ -58,7 +61,7 @@ export default function UseCasesPage() {
             className="mt-8 mb-6"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           >
             <span
               className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tight text-white leading-[1.05] drop-shadow-lg"
@@ -86,7 +89,7 @@ export default function UseCasesPage() {
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           >
             Create immersive 3D learning experiences that spark curiosity
             and deepen understanding — <span className="text-white font-semibold">no coding required</span>
@@ -96,7 +99,7 @@ export default function UseCasesPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
           >
             <Link
               href="/contact"
@@ -142,12 +145,6 @@ export default function UseCasesPage() {
           </motion.div>
         </div>
 
-        {/* Bottom wave: photo → emerald-900 (no white gap) */}
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-10">
-          <svg viewBox="0 0 1440 80" preserveAspectRatio="none" className="w-full block" style={{ height: '80px' }}>
-            <path d="M0,80 C360,20 720,60 1080,30 C1260,15 1380,50 1440,40 L1440,80 Z" fill="#064e3b" />
-          </svg>
-        </div>
       </section>
 
       {/* Experience Quote Section */}
@@ -649,6 +646,7 @@ function CubeIcon({ className }: { className?: string }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FOR TEACHERS SECTION - Built for Teachers (full-bleed photo + glass cards)
+// Quote bar integrated at bottom of image
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ForTeachersSection() {
@@ -674,7 +672,6 @@ function ForTeachersSection() {
   ];
 
   return (
-    <>
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
@@ -689,132 +686,136 @@ function ForTeachersSection() {
         />
       </div>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/35" />
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/40" />
 
-      {/* Left gradient for card readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
+      {/* Left-to-right gradient for card readability */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
 
-      {/* Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-20">
+      {/* Content: flex column so quote bar sits at natural bottom */}
+      <div className="relative z-10 flex flex-col">
 
-        {/* Title — above the cards */}
-        <motion.div
-          className="mb-8 max-w-lg"
-          initial={{ opacity: 0, y: 25 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <span
-            className="inline-block px-4 py-1.5 mb-4 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 text-white text-xs font-bold tracking-[0.2em] uppercase"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+        {/* Main content area */}
+        <div className="max-w-6xl mx-auto px-6 py-16 w-full">
+
+          {/* Title */}
+          <motion.div
+            className="mb-8 max-w-lg"
+            initial={{ opacity: 0, y: 25 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           >
-            For Teachers
-          </span>
-          <h2
-            className="text-4xl sm:text-5xl font-semibold text-white tracking-tight drop-shadow-lg leading-tight"
-            style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
-          >
-            Built for{' '}
             <span
-              style={{
-                background: 'linear-gradient(135deg, #34d399 0%, #6ee7b7 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
+              className="inline-block px-4 py-1.5 mb-4 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 text-white text-xs font-bold tracking-[0.2em] uppercase"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
-              Teachers
+              For Teachers
             </span>
-          </h2>
-        </motion.div>
-
-        {/* Feature cards — vertical stack, max-w-md, gap-6 */}
-        <div className="flex flex-col gap-6 max-w-md">
-          {teacherCards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              className="relative bg-white/70 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl shadow-black/15 p-5 hover:bg-white/80 transition-all duration-300"
-              initial={{ opacity: 0, x: -30 }}
-              animate={isInView ? { opacity: 1, x: 0 } : {}}
-              transition={{
-                duration: 0.55,
-                delay: 0.2 + index * 0.13,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              whileHover={{ x: 6 }}
+            <h2
+              className="text-4xl sm:text-5xl font-semibold text-white tracking-tight drop-shadow-lg leading-tight"
+              style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
             >
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shadow-sm">
-                  <card.icon className="w-5 h-5 text-emerald-700" />
+              Built for{' '}
+              <span
+                style={{
+                  background: 'linear-gradient(135deg, #34d399 0%, #6ee7b7 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                Teachers
+              </span>
+            </h2>
+          </motion.div>
+
+          {/* Feature cards — vertical stack, gap-4, compact glassmorphism */}
+          <div className="flex flex-col gap-4 max-w-md">
+            {teacherCards.map((card, index) => (
+              <motion.div
+                key={card.title}
+                className="relative bg-white/80 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl shadow-black/15 p-5 hover:bg-white/90 transition-all duration-300"
+                initial={{ opacity: 0, x: -30 }}
+                animate={isInView ? { opacity: 1, x: 0 } : {}}
+                transition={{
+                  duration: 0.55,
+                  delay: 0.2 + index * 0.13,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                whileHover={{ x: 6 }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shadow-sm">
+                    <card.icon className="w-5 h-5 text-emerald-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3
+                      className="text-sm font-semibold text-gray-900 mb-1 leading-snug"
+                      style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                    >
+                      {card.title}
+                    </h3>
+                    <p
+                      className="text-xs text-gray-600 leading-relaxed"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {card.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h3
-                    className="text-sm font-semibold text-gray-900 mb-1 leading-snug"
-                    style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
-                  >
-                    {card.title}
-                  </h3>
-                  <p
-                    className="text-xs text-gray-600 leading-relaxed"
-                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                  >
-                    {card.description}
-                  </p>
-                </div>
+                <div className="absolute left-0 top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-400/60 to-emerald-600/30 rounded-full" />
+              </motion.div>
+            ))}
+          </div>
+
+        </div>
+
+        {/* Sarah testimonial — centered glassmorphism speech bubble */}
+        <div className="px-6 pb-12 flex justify-center">
+          <motion.div
+            className="bg-white/80 backdrop-blur-md rounded-2xl max-w-3xl w-full p-6 shadow-2xl shadow-black/25 border border-white/60"
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.6, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
+        
+
+            {/* Quote text */}
+            <p
+              className="text-base sm:text-lg text-gray-800 italic leading-relaxed mb-5"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              BioQuest lets me create the lessons I&apos;ve always imagined but never had the tools to build. My students are more engaged than ever.
+            </p>
+
+            {/* Divider + Sarah attribution */}
+            <div className="flex items-center gap-3 pt-4 border-t border-emerald-100/80">
+              <div
+                className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0"
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              >
+                SM
               </div>
-              <div className="absolute left-0 top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-400/60 to-emerald-600/30 rounded-full" />
-            </motion.div>
-          ))}
+              <div>
+                <p
+                  className="text-sm font-semibold text-gray-900 leading-tight"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                >
+                  Sarah M.
+                </p>
+                <p
+                  className="text-xs text-gray-500 mt-0.5"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                >
+                  Biology Teacher, Portland High School
+                </p>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
       </div>
     </section>
-
-    {/* Quote banner — full-width, bg-emerald-50, below the clipped section */}
-    <motion.div
-      className="w-full bg-emerald-50 border-y border-emerald-100 py-5 px-6"
-      initial={{ opacity: 0 }}
-      animate={isInView ? { opacity: 1 } : {}}
-      transition={{ duration: 0.6, delay: 0.6 }}
-    >
-      <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-3 text-center">
-        <span
-          className="text-emerald-400/60 text-xl leading-none"
-          style={{ fontFamily: 'Georgia, serif' }}
-        >
-          "
-        </span>
-        <p
-          className="text-sm text-emerald-900/80 italic"
-          style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-        >
-          BioQuest lets me create the lessons I've always imagined but never had the tools to build. My students are more engaged than ever.
-        </p>
-        <span
-          className="text-emerald-400/60 text-xl leading-none"
-          style={{ fontFamily: 'Georgia, serif' }}
-        >
-          "
-        </span>
-        <span className="w-px h-4 bg-emerald-200 mx-1 hidden sm:block" />
-        <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-[9px] flex-shrink-0"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-          >
-            SM
-          </div>
-          <span
-            className="text-xs text-emerald-800 font-medium"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-          >
-            Sarah M. — Biology Teacher, Portland High School
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  </>
   );
 }
 
@@ -883,13 +884,6 @@ function FinalCTASection() {
 
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/50" />
-
-      {/* Top wave: emerald-50 → photo (softens the transition from quote banner) */}
-      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
-        <svg viewBox="0 0 1440 72" preserveAspectRatio="none" className="w-full block" style={{ height: '72px' }}>
-          <path d="M0,0 C240,72 600,40 900,56 C1100,68 1300,20 1440,44 L1440,0 Z" fill="#ecfdf5" />
-        </svg>
-      </div>
 
       {/* Emerald tint */}
       <div className="absolute inset-0 bg-emerald-900/15" />
