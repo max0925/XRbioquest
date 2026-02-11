@@ -142,8 +142,12 @@ export default function UseCasesPage() {
           </motion.div>
         </div>
 
-        {/* Bottom gradient fade to white */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
+        {/* Bottom wave: photo → emerald-900 (no white gap) */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-10">
+          <svg viewBox="0 0 1440 80" preserveAspectRatio="none" className="w-full block" style={{ height: '80px' }}>
+            <path d="M0,80 C360,20 720,60 1080,30 C1260,15 1380,50 1440,40 L1440,80 Z" fill="#064e3b" />
+          </svg>
+        </div>
       </section>
 
       {/* Experience Quote Section */}
@@ -190,24 +194,7 @@ function ExperienceQuoteSection() {
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden">
-      {/* ── Top wave: white → emerald-900 ── */}
-      <div className="relative z-10 -mb-px">
-        <svg
-          viewBox="0 0 1440 96"
-          preserveAspectRatio="none"
-          className="w-full block"
-          style={{ height: '96px' }}
-        >
-          <rect width="1440" height="96" fill="#064e3b" />
-          {/* organic double-arc wave */}
-          <path
-            d="M0,0 C120,48 300,96 600,72 C900,48 1140,0 1440,48 L1440,0 Z"
-            fill="#ffffff"
-          />
-        </svg>
-      </div>
-
-      {/* ── Main content on emerald-900 ── */}
+      {/* ── Main content on emerald-900 (Hero flows directly in via its bottom wave) ── */}
       <div className="relative bg-emerald-900 px-6 py-16">
         {/* Subtle noise texture overlay */}
         <div
@@ -703,27 +690,13 @@ function ForTeachersSection() {
       </div>
 
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/20" />
+      <div className="absolute inset-0 bg-black/35" />
 
-      {/* Left-side gradient to improve card readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/10 to-transparent" />
-
-      {/* Top soft wave: white → photo */}
-      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
-        <svg viewBox="0 0 1440 96" preserveAspectRatio="none" className="w-full block" style={{ height: '96px' }}>
-          <path d="M0,0 C300,96 600,64 900,80 C1100,92 1300,40 1440,64 L1440,0 Z" fill="#ffffff" />
-        </svg>
-      </div>
-
-      {/* Bottom soft wave: photo → white */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
-        <svg viewBox="0 0 1440 96" preserveAspectRatio="none" className="w-full block" style={{ height: '96px' }}>
-          <path d="M0,96 C200,0 500,32 800,16 C1060,0 1260,64 1440,32 L1440,96 Z" fill="#ffffff" />
-        </svg>
-      </div>
+      {/* Left gradient for card readability */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
 
       {/* Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-24">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-20">
 
         {/* Title — above the cards */}
         <motion.div
