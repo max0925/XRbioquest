@@ -7,125 +7,8 @@ import Navigation from "../../components/Navigation";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USE CASES PAGE - "Living Science" Aesthetic
-// Organic biology meets clean modern tech design
+// Photo-driven hero with immersive VR classroom imagery
 // ═══════════════════════════════════════════════════════════════════════════
-
-// Floating cell-like decorative element
-function FloatingCell({
-  size,
-  color,
-  blur,
-  top,
-  left,
-  right,
-  bottom,
-  delay,
-  duration
-}: {
-  size: number;
-  color: string;
-  blur?: number;
-  top?: string;
-  left?: string;
-  right?: string;
-  bottom?: string;
-  delay: number;
-  duration: number;
-}) {
-  return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        width: size,
-        height: size,
-        background: color,
-        filter: blur ? `blur(${blur}px)` : undefined,
-        top,
-        left,
-        right,
-        bottom,
-      }}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        y: [0, -15, 0, 10, 0],
-        x: [0, 8, 0, -5, 0],
-      }}
-      transition={{
-        opacity: { duration: 0.8, delay },
-        scale: { duration: 0.8, delay },
-        y: { duration: duration, repeat: Infinity, ease: "easeInOut", delay },
-        x: { duration: duration * 1.3, repeat: Infinity, ease: "easeInOut", delay },
-      }}
-    />
-  );
-}
-
-// DNA helix strand element
-function DNAStrand({ side }: { side: 'left' | 'right' }) {
-  const isLeft = side === 'left';
-
-  return (
-    <motion.div
-      className="absolute pointer-events-none"
-      style={{
-        [isLeft ? 'left' : 'right']: '-60px',
-        top: '15%',
-        height: '70%',
-        width: '120px',
-        opacity: 0.06,
-      }}
-      initial={{ opacity: 0, x: isLeft ? -30 : 30 }}
-      animate={{ opacity: 0.06, x: 0 }}
-      transition={{ duration: 1.2, delay: 0.5 }}
-    >
-      <svg viewBox="0 0 100 400" className="w-full h-full" fill="none">
-        {[...Array(12)].map((_, i) => (
-          <g key={i}>
-            <motion.ellipse
-              cx={isLeft ? 30 + Math.sin(i * 0.5) * 20 : 70 - Math.sin(i * 0.5) * 20}
-              cy={20 + i * 32}
-              rx="18"
-              ry="6"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="text-emerald-900"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 0.5, delay: 0.8 + i * 0.08 }}
-            />
-            <motion.line
-              x1={isLeft ? 30 : 70}
-              y1={20 + i * 32}
-              x2={isLeft ? 70 : 30}
-              y2={20 + i * 32 + 16}
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="text-emerald-800"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 0.3, delay: 1 + i * 0.08 }}
-            />
-          </g>
-        ))}
-      </svg>
-    </motion.div>
-  );
-}
-
-// Microscopic texture overlay
-function MicroscopicTexture() {
-  return (
-    <div
-      className="absolute inset-0 pointer-events-none opacity-[0.015]"
-      style={{
-        backgroundImage: `radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)`,
-        backgroundSize: '24px 24px',
-      }}
-    />
-  );
-}
 
 export default function UseCasesPage() {
   return (
@@ -134,98 +17,24 @@ export default function UseCasesPage() {
 
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center justify-center pt-20 pb-24 px-6 overflow-hidden">
-        {/* Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-emerald-50/80 via-white to-white" />
-
-        {/* Radial glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[800px] bg-gradient-radial from-emerald-100/60 via-emerald-50/20 to-transparent rounded-full blur-3xl" />
-
-        {/* DNA Strands */}
-        <DNAStrand side="left" />
-        <DNAStrand side="right" />
-
-        {/* Microscopic texture */}
-        <MicroscopicTexture />
-
-        {/* Floating cells */}
-        <FloatingCell
-          size={280}
-          color="radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.12), rgba(6, 95, 70, 0.06))"
-          blur={0}
-          top="8%"
-          right="5%"
-          delay={0.2}
-          duration={8}
-        />
-        <FloatingCell
-          size={180}
-          color="radial-gradient(circle at 40% 40%, rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.05))"
-          blur={0}
-          top="55%"
-          left="3%"
-          delay={0.4}
-          duration={10}
-        />
-        <FloatingCell
-          size={120}
-          color="radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.1), rgba(20, 184, 166, 0.04))"
-          blur={0}
-          bottom="15%"
-          right="12%"
-          delay={0.6}
-          duration={7}
-        />
-        <FloatingCell
-          size={90}
-          color="radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.18), transparent)"
-          blur={20}
-          top="20%"
-          left="15%"
-          delay={0.3}
-          duration={9}
-        />
-        <FloatingCell
-          size={60}
-          color="radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.2), transparent)"
-          blur={10}
-          bottom="25%"
-          left="20%"
-          delay={0.8}
-          duration={6}
-        />
-
-        {/* Small nucleus dots */}
-        {[
-          { top: '12%', left: '25%', size: 8, delay: 1.0 },
-          { top: '35%', right: '18%', size: 6, delay: 1.2 },
-          { bottom: '30%', right: '25%', size: 10, delay: 1.1 },
-          { top: '60%', left: '10%', size: 7, delay: 1.3 },
-          { bottom: '40%', left: '30%', size: 5, delay: 1.4 },
-        ].map((dot, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-emerald-500/30"
-            style={{
-              width: dot.size,
-              height: dot.size,
-              top: dot.top,
-              left: dot.left,
-              right: dot.right,
-              bottom: dot.bottom,
-            }}
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{
-              opacity: [0.3, 0.6, 0.3],
-              scale: [1, 1.2, 1],
-            }}
-            transition={{
-              duration: 3,
-              delay: dot.delay,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <img
+            src="/vrclass.png"
+            alt="Students in VR classroom"
+            className="w-full h-full object-cover blur-sm"
+            style={{ objectPosition: '70% center' }}
           />
-        ))}
+        </div>
+
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/40" />
+
+        {/* Bottom gradient for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+        {/* Subtle emerald tint overlay */}
+        <div className="absolute inset-0 bg-emerald-900/10" />
 
         {/* Content */}
         <div className="relative z-10 max-w-5xl mx-auto text-center">
@@ -236,10 +45,10 @@ export default function UseCasesPage() {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <span
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-100/80 border border-emerald-200/60 text-emerald-700 text-xs font-bold tracking-[0.2em] uppercase"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 text-white text-xs font-bold tracking-[0.2em] uppercase"
               style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               For Educators
             </span>
           </motion.div>
@@ -252,16 +61,16 @@ export default function UseCasesPage() {
             transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
           >
             <span
-              className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tight text-gray-900 leading-[1.05]"
+              className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tight text-white leading-[1.05] drop-shadow-lg"
               style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
             >
               Where Biology
             </span>
             <span
-              className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tight leading-[1.05] mt-1"
+              className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tight leading-[1.05] mt-1 drop-shadow-lg"
               style={{
                 fontFamily: '"Syne", system-ui, sans-serif',
-                background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #14b8a6 100%)',
+                background: 'linear-gradient(135deg, #34d399 0%, #6ee7b7 50%, #5eead4 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -273,14 +82,14 @@ export default function UseCasesPage() {
 
           {/* Subtitle */}
           <motion.p
-            className="max-w-2xl mx-auto text-lg sm:text-xl text-gray-600 leading-relaxed mb-10"
+            className="max-w-2xl mx-auto text-lg sm:text-xl text-white/90 leading-relaxed mb-10 drop-shadow-md"
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
           >
             Create immersive 3D learning experiences that spark curiosity
-            and deepen understanding — <span className="text-gray-900 font-medium">no coding required</span>
+            and deepen understanding — <span className="text-white font-semibold">no coding required</span>
           </motion.p>
 
           {/* CTA Button */}
@@ -291,11 +100,11 @@ export default function UseCasesPage() {
           >
             <Link
               href="/contact"
-              className="group relative inline-flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-base transition-all duration-300 shadow-lg shadow-emerald-600/25 hover:shadow-xl hover:shadow-emerald-600/30 hover:scale-[1.02]"
+              className="group relative inline-flex items-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-semibold text-base transition-all duration-300 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-400/40 hover:scale-[1.02]"
               style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
               {/* Button glow effect */}
-              <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-400/20 to-teal-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-300/20 to-teal-300/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               <span className="relative">Schedule a Demo</span>
 
@@ -334,13 +143,13 @@ export default function UseCasesPage() {
                 transition={{ duration: 0.5, delay: 0.8 + i * 0.1 }}
               >
                 <div
-                  className="text-2xl sm:text-3xl font-bold text-emerald-600"
+                  className="text-2xl sm:text-3xl font-bold text-emerald-400 drop-shadow-md"
                   style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
                 >
                   {stat.number}
                 </div>
                 <div
-                  className="text-sm text-gray-500 mt-1"
+                  className="text-sm text-white/70 mt-1"
                   style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
                 >
                   {stat.label}
@@ -350,29 +159,30 @@ export default function UseCasesPage() {
           </motion.div>
         </div>
 
-        {/* Bottom gradient fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        {/* Bottom gradient fade to white */}
+        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
       </section>
 
-      {/* Scroll indicator */}
-      <motion.div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.2, duration: 0.6 }}
-      >
+      {/* Scroll indicator - positioned below hero */}
+      <div className="relative -mt-20 pb-8 flex justify-center">
         <motion.div
-          className="w-6 h-10 rounded-full border-2 border-gray-300 flex items-start justify-center p-2"
-          animate={{ y: [0, 5, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, duration: 0.6 }}
         >
           <motion.div
-            className="w-1.5 h-1.5 rounded-full bg-emerald-500"
-            animate={{ y: [0, 12, 0], opacity: [1, 0.3, 1] }}
+            className="w-6 h-10 rounded-full border-2 border-gray-300 flex items-start justify-center p-2 bg-white/80 backdrop-blur-sm"
+            animate={{ y: [0, 5, 0] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          />
+          >
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full bg-emerald-500"
+              animate={{ y: [0, 12, 0], opacity: [1, 0.3, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
 
       {/* Experience Quote Section */}
       <ExperienceQuoteSection />
@@ -881,7 +691,7 @@ function CubeIcon({ className }: { className?: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FOR TEACHERS SECTION - Built for Biology Teachers
+// FOR TEACHERS SECTION - Built for Teachers
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ForTeachersSection() {
@@ -909,146 +719,148 @@ function ForTeachersSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 px-6 overflow-hidden"
+      className="relative py-24 px-6 overflow-hidden bg-white"
     >
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white via-emerald-50/30 to-white" />
+      <div className="relative z-10 max-w-6xl mx-auto">
+        {/* Two-column layout: content left, image right */}
+        <div className="grid lg:grid-cols-2 gap-14 items-center">
 
-      {/* Decorative elements */}
-      <motion.div
-        className="absolute top-20 right-[8%] w-40 h-40 rounded-full opacity-[0.03]"
-        style={{
-          background: 'radial-gradient(circle at 40% 40%, #10b981, transparent)',
-        }}
-        animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute bottom-24 left-[5%] w-28 h-28 rounded-full opacity-[0.04]"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, #059669, transparent)',
-        }}
-        animate={{ scale: [1, 1.15, 1] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <div className="relative z-10 max-w-5xl mx-auto">
-        {/* Section Header */}
-        <motion.div
-          className="text-center mb-14"
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <span
-            className="inline-block px-4 py-1.5 mb-5 rounded-full bg-emerald-100/80 border border-emerald-200/60 text-emerald-700 text-xs font-bold tracking-[0.2em] uppercase"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          {/* Left Column - Content */}
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            animate={isInView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           >
-            For Teachers
-          </span>
-          <h2
-            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-gray-900 tracking-tight"
-            style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
-          >
-            Built for{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              Biology Teachers
-            </span>
-          </h2>
-        </motion.div>
-
-        {/* Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-16">
-          {teacherCards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              className="group relative p-7 bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-xl hover:border-emerald-300/60 transition-all duration-400"
-              initial={{ opacity: 0, y: 30 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6, delay: 0.2 + index * 0.12, ease: [0.22, 1, 0.36, 1] }}
-              whileHover={{ y: -6 }}
-            >
-              {/* Icon */}
-              <div className="w-14 h-14 mb-5 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center group-hover:from-emerald-100 group-hover:to-emerald-200 transition-all duration-300">
-                <card.icon className="w-7 h-7 text-emerald-600" />
-              </div>
-
-              {/* Title */}
-              <h3
-                className="text-xl font-semibold text-gray-900 mb-3"
+            {/* Section Header */}
+            <div className="mb-10">
+              <span
+                className="inline-block px-4 py-1.5 mb-5 rounded-full bg-emerald-100/80 border border-emerald-200/60 text-emerald-700 text-xs font-bold tracking-[0.2em] uppercase"
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              >
+                For Teachers
+              </span>
+              <h2
+                className="text-3xl sm:text-4xl md:text-5xl font-semibold text-gray-900 tracking-tight"
                 style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
               >
-                {card.title}
-              </h3>
-
-              {/* Description */}
-              <p
-                className="text-gray-600 text-[15px] leading-relaxed"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-              >
-                {card.description}
-              </p>
-
-              {/* Hover accent line */}
-              <div className="absolute bottom-0 left-6 right-6 h-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-400 origin-left" />
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Testimonial Quote */}
-        <motion.div
-          className="relative max-w-3xl mx-auto"
-          initial={{ opacity: 0, y: 25 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, delay: 0.6 }}
-        >
-          <div className="relative p-8 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 rounded-2xl border border-emerald-100">
-            {/* Quote mark */}
-            <span
-              className="absolute -top-4 left-8 text-5xl text-emerald-300/80 leading-none"
-              style={{ fontFamily: 'Georgia, serif' }}
-            >
-              "
-            </span>
-
-            <blockquote
-              className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-4 pl-4"
-              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-            >
-              BioQuest lets me create the lessons I've always imagined but never had the tools to build. My students are more engaged than ever.
-            </blockquote>
-
-            <div className="flex items-center gap-3 pl-4">
-              {/* Avatar placeholder */}
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-sm"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-              >
-                SM
-              </div>
-              <div>
-                <div
-                  className="font-semibold text-gray-900 text-sm"
-                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                Built for{' '}
+                <span
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
                 >
-                  Sarah M.
-                </div>
-                <div
-                  className="text-xs text-gray-500"
-                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                >
-                  Biology Teacher, Portland High School
-                </div>
-              </div>
+                  Teachers
+                </span>
+              </h2>
             </div>
-          </div>
-        </motion.div>
+
+            {/* Cards */}
+            <div className="space-y-4 mb-10">
+              {teacherCards.map((card, index) => (
+                <motion.div
+                  key={card.title}
+                  className="group relative flex gap-5 p-5 bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md hover:border-emerald-300/60 transition-all duration-300"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={isInView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ duration: 0.5, delay: 0.2 + index * 0.12, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ x: 4 }}
+                >
+                  {/* Icon */}
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center group-hover:from-emerald-100 group-hover:to-emerald-200 transition-all duration-300">
+                    <card.icon className="w-6 h-6 text-emerald-600" />
+                  </div>
+
+                  <div>
+                    {/* Title */}
+                    <h3
+                      className="text-[17px] font-semibold text-gray-900 mb-1"
+                      style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+                    >
+                      {card.title}
+                    </h3>
+
+                    {/* Description */}
+                    <p
+                      className="text-gray-500 text-sm leading-relaxed"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      {card.description}
+                    </p>
+                  </div>
+
+                  {/* Hover accent line */}
+                  <div className="absolute bottom-0 left-5 right-5 h-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Testimonial Quote */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              <div className="relative p-6 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 rounded-2xl border border-emerald-100">
+                <span
+                  className="absolute -top-3 left-6 text-4xl text-emerald-300/80 leading-none"
+                  style={{ fontFamily: 'Georgia, serif' }}
+                >
+                  "
+                </span>
+
+                <blockquote
+                  className="text-base text-gray-700 leading-relaxed mb-4 pt-1"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                >
+                  BioQuest lets me create the lessons I've always imagined but never had the tools to build. My students are more engaged than ever.
+                </blockquote>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-xs"
+                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                  >
+                    SM
+                  </div>
+                  <div>
+                    <div
+                      className="font-semibold text-gray-900 text-sm"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      Sarah M.
+                    </div>
+                    <div
+                      className="text-xs text-gray-500"
+                      style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    >
+                      Biology Teacher, Portland High School
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Right Column - Image */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={isInView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="relative"
+          >
+            <img
+              src="/bioteacher.png"
+              alt="Biology teacher using BioQuest in the classroom"
+              className="w-full h-full object-cover rounded-xl shadow-lg"
+              style={{ maxHeight: '620px' }}
+            />
+            {/* Subtle emerald gradient overlay at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-emerald-900/10 to-transparent rounded-b-xl" />
+          </motion.div>
+
+        </div>
       </div>
     </section>
   );
@@ -1106,23 +918,34 @@ function FinalCTASection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 px-6 bg-gray-50"
+      className="relative py-32 px-6 overflow-hidden"
     >
-      {/* Subtle pattern */}
-      <div className="absolute inset-0 opacity-[0.03]">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
-            backgroundSize: '40px 40px',
-          }}
+      {/* Background Image */}
+      <div className="absolute inset-0">
+        <img
+          src="/vrscene.png"
+          alt="Immersive VR biology scene"
+          className="w-full h-full object-cover"
         />
       </div>
+
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/50" />
+
+      {/* Emerald tint */}
+      <div className="absolute inset-0 bg-emerald-900/15" />
+
+      {/* Vignette */}
+      <div className="absolute inset-0"
+        style={{
+          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%)',
+        }}
+      />
 
       <div className="relative z-10 max-w-3xl mx-auto text-center">
         {/* Title */}
         <motion.h2
-          className="text-3xl sm:text-4xl md:text-5xl font-semibold text-gray-900 tracking-tight mb-6"
+          className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-white tracking-tight mb-6 drop-shadow-lg"
           style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
           initial={{ opacity: 0, y: 25 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -1131,20 +954,20 @@ function FinalCTASection() {
           Ready to Transform Your{' '}
           <span
             style={{
-              background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+              background: 'linear-gradient(135deg, #34d399 0%, #6ee7b7 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}
           >
-            Biology Classroom
+            Classroom
           </span>
           ?
         </motion.h2>
 
         {/* Subtitle */}
         <motion.p
-          className="text-lg text-gray-600 mb-10 max-w-xl mx-auto"
+          className="text-lg sm:text-xl text-white/85 mb-12 max-w-xl mx-auto drop-shadow-md"
           style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -1161,15 +984,13 @@ function FinalCTASection() {
         >
           <Link
             href="/contact"
-            className="group relative inline-flex items-center gap-3 px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-lg transition-all duration-300 shadow-lg shadow-emerald-600/25 hover:shadow-xl hover:shadow-emerald-600/35 hover:scale-[1.02]"
+            className="group relative inline-flex items-center gap-3 px-10 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-semibold text-lg transition-all duration-300 shadow-xl shadow-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-400/40 hover:scale-[1.03]"
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
           >
-            {/* Button glow effect */}
-            <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-400/20 to-teal-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-300/20 to-teal-300/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
             <span className="relative">Schedule a Demo</span>
 
-            {/* Arrow */}
             <motion.svg
               className="relative w-5 h-5"
               fill="none"
@@ -1185,7 +1006,7 @@ function FinalCTASection() {
 
         {/* Trust note */}
         <motion.p
-          className="mt-6 text-sm text-gray-500"
+          className="mt-6 text-sm text-white/60"
           style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
           initial={{ opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
