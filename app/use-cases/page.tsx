@@ -123,39 +123,22 @@ export default function UseCasesPage() {
             </Link>
           </motion.div>
 
-          {/* Trust indicators */}
+          {/* Trust badge */}
           <motion.div
-            className="mt-14 flex flex-wrap items-center justify-center gap-8"
+            className="mt-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.7 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
           >
-            {[
-              { number: "10+", label: "Educators" },
-              { number: "60+", label: "Students Reached" },
-              { number: "98%", label: "Satisfaction" },
-            ].map((stat, i) => (
-              <motion.div
-                key={i}
-                className="text-center"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.8 + i * 0.1 }}
-              >
-                <div
-                  className="text-2xl sm:text-3xl font-bold text-emerald-400 drop-shadow-md"
-                  style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
-                >
-                  {stat.number}
-                </div>
-                <div
-                  className="text-sm text-white/70 mt-1"
-                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                >
-                  {stat.label}
-                </div>
-              </motion.div>
-            ))}
+            <span
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-sm"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              Trusted by educators nationwide
+            </span>
           </motion.div>
         </div>
 
@@ -727,6 +710,7 @@ function ForTeachersSection() {
   ];
 
   return (
+    <>
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
@@ -751,11 +735,11 @@ function ForTeachersSection() {
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/10 to-transparent" />
 
       {/* Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-44 pb-44">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-32 pb-32">
 
         {/* Title — above the cards */}
         <motion.div
-          className="mb-10 max-w-lg"
+          className="mb-8 max-w-lg"
           initial={{ opacity: 0, y: 25 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
@@ -767,7 +751,7 @@ function ForTeachersSection() {
             For Teachers
           </span>
           <h2
-            className="text-4xl sm:text-5xl md:text-6xl font-semibold text-white tracking-tight drop-shadow-lg leading-tight"
+            className="text-4xl sm:text-5xl font-semibold text-white tracking-tight drop-shadow-lg leading-tight"
             style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
           >
             Built for{' '}
@@ -784,31 +768,25 @@ function ForTeachersSection() {
           </h2>
         </motion.div>
 
-        {/* Stacked glassmorphism cards — left column */}
-        <div className="relative max-w-sm">
+        {/* Feature cards — vertical stack, max-w-md, gap-6 */}
+        <div className="flex flex-col gap-6 max-w-md">
           {teacherCards.map((card, index) => (
             <motion.div
               key={card.title}
-              className="relative bg-white/70 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl shadow-black/15 p-5 max-w-sm hover:bg-white/80 transition-all duration-300"
-              style={{
-                marginTop: index === 0 ? 0 : '-16px',
-                zIndex: 30 - index * 8,
-              }}
-              initial={{ opacity: 0, x: -30, y: 10 }}
-              animate={isInView ? { opacity: 1, x: 0, y: 0 } : {}}
+              className="relative bg-white/70 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl shadow-black/15 p-5 hover:bg-white/80 transition-all duration-300"
+              initial={{ opacity: 0, x: -30 }}
+              animate={isInView ? { opacity: 1, x: 0 } : {}}
               transition={{
                 duration: 0.55,
                 delay: 0.2 + index * 0.13,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              whileHover={{ x: 6, zIndex: 50 }}
+              whileHover={{ x: 6 }}
             >
               <div className="flex items-start gap-4">
-                {/* Icon */}
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shadow-sm">
                   <card.icon className="w-5 h-5 text-emerald-700" />
                 </div>
-
                 <div className="min-w-0">
                   <h3
                     className="text-sm font-semibold text-gray-900 mb-1 leading-snug"
@@ -824,59 +802,58 @@ function ForTeachersSection() {
                   </p>
                 </div>
               </div>
-
-              {/* Subtle emerald left accent */}
               <div className="absolute left-0 top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-400/60 to-emerald-600/30 rounded-full" />
             </motion.div>
           ))}
-
-          {/* Testimonial quote — fourth stacked card */}
-          <motion.div
-            className="relative bg-white/70 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl shadow-black/15 p-5 max-w-sm"
-            style={{ marginTop: '-16px', zIndex: 2 }}
-            initial={{ opacity: 0, x: -30, y: 10 }}
-            animate={isInView ? { opacity: 1, x: 0, y: 0 } : {}}
-            transition={{ duration: 0.55, delay: 0.59, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <span
-              className="block text-2xl text-emerald-500/70 leading-none mb-1"
-              style={{ fontFamily: 'Georgia, serif' }}
-            >
-              "
-            </span>
-            <p
-              className="text-xs text-gray-700 leading-relaxed mb-3 italic"
-              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-            >
-              BioQuest lets me create the lessons I've always imagined but never had the tools to build. My students are more engaged than ever.
-            </p>
-            <div className="flex items-center gap-2.5">
-              <div
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-[10px] flex-shrink-0"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-              >
-                SM
-              </div>
-              <div>
-                <div
-                  className="text-xs font-semibold text-gray-900 leading-none"
-                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                >
-                  Sarah M.
-                </div>
-                <div
-                  className="text-[11px] text-gray-500 mt-0.5"
-                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
-                >
-                  Biology Teacher, Portland High School
-                </div>
-              </div>
-            </div>
-          </motion.div>
         </div>
 
       </div>
     </section>
+
+    {/* Quote banner — full-width, bg-emerald-50, below the clipped section */}
+    <motion.div
+      className="w-full bg-emerald-50 border-y border-emerald-100 py-5 px-6"
+      initial={{ opacity: 0 }}
+      animate={isInView ? { opacity: 1 } : {}}
+      transition={{ duration: 0.6, delay: 0.6 }}
+    >
+      <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-3 text-center">
+        <span
+          className="text-emerald-400/60 text-xl leading-none"
+          style={{ fontFamily: 'Georgia, serif' }}
+        >
+          "
+        </span>
+        <p
+          className="text-sm text-emerald-900/80 italic"
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+        >
+          BioQuest lets me create the lessons I've always imagined but never had the tools to build. My students are more engaged than ever.
+        </p>
+        <span
+          className="text-emerald-400/60 text-xl leading-none"
+          style={{ fontFamily: 'Georgia, serif' }}
+        >
+          "
+        </span>
+        <span className="w-px h-4 bg-emerald-200 mx-1 hidden sm:block" />
+        <div className="flex items-center gap-2">
+          <div
+            className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-[9px] flex-shrink-0"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            SM
+          </div>
+          <span
+            className="text-xs text-emerald-800 font-medium"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            Sarah M. — Biology Teacher, Portland High School
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  </>
   );
 }
 
