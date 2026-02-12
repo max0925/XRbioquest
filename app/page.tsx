@@ -99,7 +99,7 @@ export default function Home() {
           style={{ filter: "blur(3px) brightness(0.35)", zIndex: 0 }}
           autoPlay muted loop playsInline
         >
-          <source src="/0211.mp4" type="video/mp4" />
+          <source src="/0211-small.mp4" type="video/mp4" />
         </video>
 
         {/* Vignette */}
