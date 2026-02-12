@@ -298,11 +298,14 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-500 stagger-content">
-            <video className="aspect-video w-full" controls preload="metadata">
-              <source src="/demo.mp4" type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
+          <div className="relative rounded-xl overflow-hidden shadow-lg aspect-video w-full max-w-4xl mx-auto stagger-content">
+            <iframe
+              src="https://www.youtube.com/embed/5l33aAtTS6g"
+              style={{ border: 'none' }}
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              className="absolute inset-0 w-full h-full"
+            />
           </div>
         </div>
       </section>
