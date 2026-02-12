@@ -150,11 +150,11 @@ export default function UseCasesPage() {
       {/* Experience Quote Section */}
       <ExperienceQuoteSection />
 
-      {/* Standards & Library Section */}
-      <StandardsLibrarySection />
-
       {/* For Teachers Section */}
       <ForTeachersSection />
+
+      {/* Standards & Library Section */}
+      <StandardsLibrarySection />
 
       {/* Final CTA Section */}
       <FinalCTASection />
@@ -274,22 +274,6 @@ function ExperienceQuoteSection() {
         </div>
       </div>
 
-      {/* ── Bottom wave: emerald-900 → white ── */}
-      <div className="relative z-10 -mt-px">
-        <svg
-          viewBox="0 0 1440 96"
-          preserveAspectRatio="none"
-          className="w-full block"
-          style={{ height: '96px' }}
-        >
-          <rect width="1440" height="96" fill="#064e3b" />
-          {/* organic double-arc wave */}
-          <path
-            d="M0,96 C240,40 480,0 720,32 C960,64 1200,96 1440,48 L1440,96 Z"
-            fill="#ffffff"
-          />
-        </svg>
-      </div>
     </section>
   );
 }
@@ -689,6 +673,12 @@ function ForTeachersSection() {
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
+      {/* Top fade: emerald-900 → transparent, ties into the section above */}
+      <div
+        className="absolute top-0 left-0 right-0 pointer-events-none"
+        style={{ height: '180px', background: 'linear-gradient(to bottom, #064e3b 0%, rgba(6,78,59,0.55) 45%, transparent 100%)' }}
+      />
+
       {/* Left-to-right gradient for card readability */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
 
@@ -814,6 +804,22 @@ function ForTeachersSection() {
           </motion.div>
         </div>
 
+      </div>
+
+      {/* Bottom wave: Teachers (dark photo) → Standards (white) */}
+      <div className="relative z-10 -mt-px">
+        <svg
+          viewBox="0 0 1440 96"
+          preserveAspectRatio="none"
+          className="w-full block"
+          style={{ height: '96px' }}
+        >
+          <rect width="1440" height="96" fill="rgba(0,0,0,0)" />
+          <path
+            d="M0,96 C240,40 480,0 720,32 C960,64 1200,96 1440,48 L1440,96 Z"
+            fill="#ffffff"
+          />
+        </svg>
       </div>
     </section>
   );
