@@ -18,6 +18,7 @@ export default function Navigation() {
     { name: "AI XR Creator", href: "/environment-design" },
     { name: "Use Cases", href: "/use-cases" },
     { name: "Pricing", href: "/pricing" },
+    { name: "About Us", href: "/about" },
   ];
 
   // Check auth state on mount and listen for changes

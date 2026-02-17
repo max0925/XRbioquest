@@ -75,6 +75,7 @@ export default function Home() {
   const demoRef      = useRef<HTMLElement>(null);
   const featuresRef  = useRef<HTMLElement>(null);
   const socialRef    = useRef<HTMLElement>(null);
+  const aboutRef     = useRef<HTMLElement>(null);
   const ctaRef       = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function Home() {
       (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("animate-in"); }),
       { threshold: 0.07, rootMargin: "0px 0px -40px 0px" }
     );
-    [sectorsRef, demoRef, featuresRef, socialRef, ctaRef].forEach((r) => { if (r.current) observer.observe(r.current); });
+    [sectorsRef, demoRef, featuresRef, socialRef, aboutRef, ctaRef].forEach((r) => { if (r.current) observer.observe(r.current); });
     return () => observer.disconnect();
   }, []);
 
@@ -414,6 +415,83 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ABOUT — white, two-column: story left, founders right
+      ══════════════════════════════════════════════════════════════════════ */}
+      <section id="our-story" ref={aboutRef} className="relative py-20 px-6 bg-white scroll-fade overflow-hidden">
+        {/* Decorative emerald circles */}
+        <div className="absolute -left-24 top-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-emerald-700 opacity-[0.07] pointer-events-none" />
+        <div className="absolute -right-24 top-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-emerald-700 opacity-[0.07] pointer-events-none" />
+
+        <div className="relative z-10 max-w-5xl mx-auto">
+
+          {/* Header */}
+          <div className="mb-12 stagger-title">
+            <p className="text-xs font-semibold text-emerald-600 mb-2 tracking-wider uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+              Our Story
+            </p>
+            <h2 className="text-3xl md:text-4xl font-semibold text-gray-900" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>
+              Why We Built BioQuest
+            </h2>
+          </div>
+
+          {/* Two-column */}
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+
+            {/* Left — story */}
+            <div className="stagger-content">
+              <p className="text-base text-gray-600 leading-relaxed mb-8" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                Growing up in Asia, we both struggled with abstract STEM concepts taught through traditional textbooks. At Penn, studying Learning Science &amp; Technology, we found a better way. BioQuest is our answer: making science tangible, visual, and explorable for every student.
+              </p>
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-emerald-600 text-emerald-700 font-semibold text-sm hover:bg-emerald-600 hover:text-white transition-all duration-300"
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+              >
+                Learn More
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+            </div>
+
+            {/* Right — founder profile cards */}
+            <div className="flex gap-6 justify-center stagger-content">
+              {[
+                { photo: "/avatar.png",  name: "Zheng Bian",      role: "Co-founder, CEO & CTO", school: "Penn GSE '25" },
+                { photo: "/meerim.jpg",  name: "Meerim Kanatova", role: "Co-founder, CFO & COO", school: "Penn GSE '25" },
+              ].map((founder) => (
+                <div key={founder.name} className="flex flex-col items-center">
+                  {/* Photo card with overlay */}
+                  <div className="relative w-48 h-64 rounded-2xl overflow-hidden flex-shrink-0">
+                    <img
+                      src={founder.photo}
+                      alt={founder.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Stronger dark gradient for text readability */}
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 40%, transparent 70%)' }} />
+                    {/* Name + role + school overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <p className="text-[14px] font-bold text-white leading-tight" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>
+                        {founder.name}
+                      </p>
+                      <p className="text-[11px] text-white/80 mt-1" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                        {founder.role}
+                      </p>
+                      <p className="text-[10px] text-white/55 mt-0.5" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                        {founder.school}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
         </div>
       </section>
