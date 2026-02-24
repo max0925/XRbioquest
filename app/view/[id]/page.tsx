@@ -143,6 +143,59 @@ export default function ViewScenePage() {
         });
       }
 
+      // Register auto-scale component for consistent Sketchfab model scaling with vertical centering
+      if (window.AFRAME && !window.AFRAME.components['auto-scale']) {
+        window.AFRAME.registerComponent('auto-scale', {
+          schema: {
+            target: { type: 'number', default: 0.6 }
+          },
+          init: function() {
+            this.onModelLoaded = this.onModelLoaded.bind(this);
+            this.el.addEventListener('model-loaded', this.onModelLoaded);
+          },
+          onModelLoaded: function(evt) {
+            // Find the gltf-model child element
+            const modelEl = this.el.querySelector('a-gltf-model');
+            if (!modelEl || !modelEl.object3D) return;
+
+            // Calculate bounding box from the model's object3D
+            const box = new window.THREE.Box3().setFromObject(modelEl.object3D);
+            const size = box.getSize(new window.THREE.Vector3());
+
+            // Get max dimension (width, height, or depth)
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            if (maxDim > 0) {
+              // Calculate normalized scale
+              const normalizedScale = this.data.target / maxDim;
+
+              // Get current scale from scene data and multiply
+              const currentScale = this.el.getAttribute('scale');
+              const baseScale = currentScale ? parseFloat(currentScale.x || 1) : 1;
+              const finalScale = baseScale * normalizedScale;
+
+              this.el.setAttribute('scale', `${finalScale} ${finalScale} ${finalScale}`);
+
+              // Center the model vertically so bottom sits at y=0
+              const bottomY = box.min.y;
+              const yOffset = -bottomY * normalizedScale;
+
+              const currentPos = this.el.getAttribute('position');
+              this.el.setAttribute('position', {
+                x: currentPos.x,
+                y: currentPos.y + yOffset,
+                z: currentPos.z
+              });
+
+              console.log(`[AUTO-SCALE] Model scaled: maxDim=${maxDim.toFixed(3)}, normalizedScale=${normalizedScale.toFixed(3)}, finalScale=${finalScale.toFixed(3)}, yOffset=${yOffset.toFixed(3)}`);
+            }
+          },
+          remove: function() {
+            this.el.removeEventListener('model-loaded', this.onModelLoaded);
+          }
+        });
+      }
+
       const timer = setTimeout(() => setReady(true), 150);
       return () => clearTimeout(timer);
     }
@@ -234,6 +287,7 @@ export default function ViewScenePage() {
               geometry="primitive: box; width: 0.5; height: 0.6; depth: 0.5"
               material="visible: false"
               class="clickable grabbable"
+              auto-scale="target: 0.6"
               {...(model.interactionFX?.grabbable && { grabbable: '' })}
               {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}

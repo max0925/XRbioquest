@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import Navigation from "../../components/Navigation";
+import { ExperienceLibrarySection } from '@/components/ExperienceLibrarySection';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USE CASES PAGE - "Living Science" Aesthetic
@@ -146,6 +147,9 @@ export default function UseCasesPage() {
         </div>
 
       </section>
+
+      {/* Experience Library Section */}
+      <ExperienceLibrarySection />
 
       {/* Experience Quote Section */}
       <ExperienceQuoteSection />

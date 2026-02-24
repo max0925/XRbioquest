@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
+import { ExperienceLibrarySection } from '@/components/ExperienceLibrarySection';
 
 // ─── Typewriter: types text letter by letter on load ─────────────────────────
 function TypewriterText({ text, startDelay = 500 }: { text: string; startDelay?: number }) {
@@ -285,6 +286,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Experience Library Section */}
+      <ExperienceLibrarySection />
 
       {/* ══════════════════════════════════════════════════════════════════════
           PRODUCT DEMO — white

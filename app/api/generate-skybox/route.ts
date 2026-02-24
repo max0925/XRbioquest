@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       headers: { 'x-api-key': API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: body.prompt,
-        skybox_style_id: 3, 
+        skybox_style_id: 2, // Style 2 = Realistic
       }),
     });
 
