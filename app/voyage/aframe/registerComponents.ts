@@ -146,8 +146,10 @@ export function registerVoyageComponents() {
 
                     isDragging = true;
                     dragStarted = true;
-                    var pos = self.el.getAttribute('position');
-                    originalPosition = { x: parseFloat(pos.x) || 0, y: parseFloat(pos.y) || 0, z: parseFloat(pos.z) || 0 };
+                    // Get world position (not local) to avoid position jump on drag start
+                    var worldPos = new window.THREE.Vector3();
+                    self.el.object3D.getWorldPosition(worldPos);
+                    originalPosition = { x: worldPos.x, y: worldPos.y, z: worldPos.z };
 
                     // Prevent camera movement while dragging
                     var scene = self.el.sceneEl;
