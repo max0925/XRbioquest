@@ -74,9 +74,9 @@ export function CameraRig({ phaseTitle, phaseInstruction }: CameraRigProps) {
                 id="rightHand"
                 hand-controls="hand: right"
                 laser-controls="hand: right"
-                raycaster="objects: .clickable, .grabbable; far: 5"
+                raycaster="objects: .clickable, .grabbable, .teleport-floor; far: 20"
                 simple-grab
-                teleport-controls="cameraRig: #camera-rig; teleportOrigin: #head; button: trigger; curveShootingSpeed: 10; landingMaxAngle: 60; collisionEntities: .teleport-floor; type: parabolic"
+                simple-teleport
             ></a-entity>
         </a-entity>
     );

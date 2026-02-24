@@ -581,4 +581,24 @@ export function registerVoyageComponents() {
             }
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 9. SIMPLE-TELEPORT — Custom teleport via raycaster click
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['simple-teleport']) {
+        window.AFRAME.registerComponent('simple-teleport', {
+            init: function() {
+                var self = this;
+                this.el.addEventListener('triggerdown', function() {
+                    var raycaster = self.el.components.raycaster;
+                    if (!raycaster) return;
+                    var intersection = raycaster.getIntersection('.teleport-floor');
+                    if (!intersection) return;
+                    var point = intersection.point;
+                    var rig = document.getElementById('camera-rig');
+                    if (rig) rig.setAttribute('position', { x: point.x, y: 0, z: point.z });
+                });
+            }
+        });
+    }
 }

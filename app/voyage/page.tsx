@@ -121,13 +121,6 @@ export default function VoyagePage() {
         document.head.appendChild(script);
       }
 
-      if (!document.querySelector('script[src*="aframe-teleport-controls"]')) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/aframe-teleport-controls@0.3.1/dist/aframe-teleport-controls.min.js';
-        script.async = false;
-        document.head.appendChild(script);
-      }
-
       registerVoyageComponents();
 
       const timer = setTimeout(() => {
