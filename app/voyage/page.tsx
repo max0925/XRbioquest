@@ -217,6 +217,19 @@ export default function VoyagePage() {
   }, [currentPhase]);
 
   // ═══════════════════════════════════════════════════════════════════════
+  // EVENT: voyage-continue (VR Continue button clicked)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    const handler = () => {
+      console.log('[VOYAGE] voyage-continue received, calling handleContinue');
+      handleContinue();
+    };
+    window.addEventListener('voyage-continue', handler);
+    return () => window.removeEventListener('voyage-continue', handler);
+  }, [handleContinue]);
+
+  // ═══════════════════════════════════════════════════════════════════════
   // EVENT: phase-advance (Phase 1 click success)
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -415,6 +428,50 @@ export default function VoyagePage() {
           phaseTitle={phase.title}
           phaseInstruction={phase.instruction}
         />
+
+        {/* VR Continue Button - Phase 0 only */}
+        {currentPhase === 0 && (
+          <a-entity
+            id="vr-continue-btn"
+            position="0 1.2 -2"
+            phase-button
+            className="clickable"
+          >
+            {/* Button background */}
+            <a-plane
+              width="1.2"
+              height="0.3"
+              color="#10b981"
+              opacity="0.95"
+            ></a-plane>
+            {/* Border glow */}
+            <a-plane
+              width="1.24"
+              height="0.34"
+              color="#10b981"
+              opacity="0.3"
+              position="0 0 -0.01"
+            ></a-plane>
+            {/* Text */}
+            <a-text
+              value="BEGIN VOYAGE"
+              align="center"
+              color="#ffffff"
+              width="2.5"
+              position="0 0 0.01"
+              font="kelsonsans"
+            ></a-text>
+            {/* Pulsing animation */}
+            <a-animation
+              attribute="scale"
+              from="1 1 1"
+              to="1.05 1.05 1.05"
+              direction="alternate"
+              dur="1000"
+              repeat="indefinite"
+            ></a-animation>
+          </a-entity>
+        )}
 
         {/* Teleport Floor - invisible plane for teleport-controls */}
         <a-plane

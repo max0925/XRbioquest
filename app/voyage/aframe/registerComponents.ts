@@ -577,7 +577,24 @@ export function registerVoyageComponents() {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 11. SIMPLE-TELEPORT — Custom teleport via raycaster click
+    // 11. PHASE-BUTTON — VR Continue button for phase advancement
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['phase-button']) {
+        window.AFRAME.registerComponent('phase-button', {
+            init: function() {
+                var self = this;
+                this.el.addEventListener('click', function() {
+                    // Dispatch continue event for React to handle
+                    window.dispatchEvent(new CustomEvent('voyage-continue'));
+                    // Hide button
+                    self.el.setAttribute('visible', false);
+                });
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 12. SIMPLE-TELEPORT — Custom teleport via raycaster click
     // ═══════════════════════════════════════════════════════════════
     if (!window.AFRAME.components['simple-teleport']) {
         window.AFRAME.registerComponent('simple-teleport', {
@@ -597,7 +614,7 @@ export function registerVoyageComponents() {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 12. SMART-CONTROLLER — Show beam only when pointing at clickable
+    // 13. SMART-CONTROLLER — Show beam only when pointing at clickable
     // ═══════════════════════════════════════════════════════════════
     if (!window.AFRAME.components['smart-controller']) {
         window.AFRAME.registerComponent('smart-controller', {
