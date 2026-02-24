@@ -219,8 +219,8 @@ export function registerVoyageComponents() {
                     var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
                     console.log('[DRAG] Local distance to', targetInfo.name + ':', dist.toFixed(2));
 
-                    // Phase-dependent snap distance: 3.0 for phase 2, 2.0 for others
-                    var snapDist = phase === 2 ? 3.0 : self.data.snapDistance;
+                    // Phase-dependent snap distance: 3.0 for phase 2, 4.0 for phase 3, 2.0 for others
+                    var snapDist = phase === 2 ? 3.0 : phase === 3 ? 4.0 : self.data.snapDistance;
                     if (dist < snapDist) {
                         // ── SUCCESS ──
                         console.log('[DRAG] ✓ Snap success!');
