@@ -333,4 +333,252 @@ export function registerVoyageComponents() {
             }
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5. VR-HUD-SYNC — Syncs phase/score to VR HUD text elements
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['vr-hud-sync']) {
+        window.AFRAME.registerComponent('vr-hud-sync', {
+            init: function() {
+                var self = this;
+
+                // Hidden by default (desktop mode)
+                this.el.setAttribute('visible', false);
+
+                // Toggle visibility on VR enter/exit
+                var scene = document.querySelector('a-scene');
+                scene.addEventListener('enter-vr', function() {
+                    self.el.setAttribute('visible', true);
+                });
+                scene.addEventListener('exit-vr', function() {
+                    self.el.setAttribute('visible', false);
+                });
+
+                // Listen for phase changes via window event
+                this.onPhaseChange = function(evt) {
+                    var phase = evt.detail.phase;
+                    var score = evt.detail.score;
+
+                    // Update phase text
+                    var phaseEl = document.getElementById('vr-hud-phase');
+                    if (phaseEl) phaseEl.setAttribute('value', 'Phase ' + phase + '/5');
+
+                    // Update instruction text
+                    var instrEl = document.getElementById('vr-hud-instruction');
+                    var instructions = {
+                        1: 'Click the Mitochondria',
+                        2: 'Drag Glucose → Mitochondria',
+                        3: 'Drag damaged proteins → Lysosome',
+                        4: 'Guide polypeptide through ER → Golgi',
+                        5: 'Answer the knowledge questions'
+                    };
+                    if (instrEl) instrEl.setAttribute('value', instructions[phase] || '');
+
+                    // Update score
+                    var scoreEl = document.getElementById('vr-hud-score');
+                    if (scoreEl) scoreEl.setAttribute('value', '⭐ ' + (score || 0));
+                };
+
+                window.addEventListener('phase-changed-vr', this.onPhaseChange);
+            },
+            remove: function() {
+                window.removeEventListener('phase-changed-vr', this.onPhaseChange);
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 6. LEFT-THUMBSTICK-LISTENER — Thumbstick locomotion for VR
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['left-thumbstick-listener']) {
+        window.AFRAME.registerComponent('left-thumbstick-listener', {
+            init: function() {
+                var self = this;
+                this.moveVector = new window.THREE.Vector3();
+
+                this.el.addEventListener('axismove', function(evt) {
+                    // Left thumbstick: axes[2]=X, axes[3]=Y (Quest 2/3)
+                    var x = evt.detail.axis[2] || evt.detail.axis[0] || 0;
+                    var y = evt.detail.axis[3] || evt.detail.axis[1] || 0;
+                    self.moveVector.set(x, 0, y);
+                });
+
+                this.el.addEventListener('thumbstickup', function() {
+                    self.moveVector.set(0, 0, 0);
+                });
+            },
+
+            tick: function(time, delta) {
+                if (this.moveVector.length() < 0.1) return;
+
+                var rig = document.getElementById('camera-rig');
+                var head = document.getElementById('head');
+                if (!rig || !head) return;
+
+                var speed = 0.004 * delta;
+                var rigPos = rig.getAttribute('position');
+
+                // Move relative to head yaw direction
+                var headRot = head.object3D.rotation;
+                var angle = headRot.y;
+
+                var dx = (this.moveVector.x * Math.cos(angle) + this.moveVector.z * Math.sin(angle)) * speed;
+                var dz = (-this.moveVector.x * Math.sin(angle) + this.moveVector.z * Math.cos(angle)) * speed;
+
+                rig.setAttribute('position', {
+                    x: rigPos.x + dx,
+                    y: rigPos.y,
+                    z: rigPos.z + dz
+                });
+            },
+
+            remove: function() {
+                this.moveVector.set(0, 0, 0);
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 7. WRIST-DASHBOARD — Shows dashboard when wrist faces up
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['wrist-dashboard']) {
+        window.AFRAME.registerComponent('wrist-dashboard', {
+            init: function() {
+                this.dashboardEl = null;
+                this.isVisible = false;
+                this.camera = null;
+                this.checkInterval = null;
+                this.hand = this.el;
+            },
+
+            play: function() {
+                this.checkInterval = setInterval(() => {
+                    this.checkWristAngle();
+                }, 150);
+            },
+
+            pause: function() {
+                if (this.checkInterval) clearInterval(this.checkInterval);
+            },
+
+            checkWristAngle: function() {
+                if (!this.camera) this.camera = document.querySelector('[camera]');
+                if (!this.dashboardEl) this.dashboardEl = document.getElementById('voyage-wrist-dashboard');
+                if (!this.camera || !this.dashboardEl) return;
+
+                var headPos = new window.THREE.Vector3();
+                var handPos = new window.THREE.Vector3();
+                this.camera.object3D.getWorldPosition(headPos);
+                this.hand.object3D.getWorldPosition(handPos);
+
+                var toHead = new window.THREE.Vector3().subVectors(headPos, handPos).normalize();
+                var handUp = new window.THREE.Vector3(0, 1, 0);
+                this.hand.object3D.localToWorld(handUp);
+                handUp.sub(handPos).normalize();
+
+                var angle = Math.acos(Math.max(-1, Math.min(1, toHead.dot(handUp)))) * (180 / Math.PI);
+                var shouldShow = angle < 40;
+
+                if (shouldShow && !this.isVisible) {
+                    this.showDashboard();
+                } else if (!shouldShow && this.isVisible) {
+                    this.hideDashboard();
+                }
+
+                if (this.isVisible) this.updatePosition();
+            },
+
+            showDashboard: function() {
+                if (!this.dashboardEl) return;
+                this.dashboardEl.setAttribute('visible', true);
+                this.isVisible = true;
+                // Refresh content when showing
+                window.dispatchEvent(new Event('vr-dashboard-refresh'));
+            },
+
+            hideDashboard: function() {
+                if (!this.dashboardEl) return;
+                this.dashboardEl.setAttribute('visible', false);
+                this.isVisible = false;
+            },
+
+            updatePosition: function() {
+                if (!this.dashboardEl || !this.camera) return;
+                var handPos = new window.THREE.Vector3();
+                this.hand.object3D.getWorldPosition(handPos);
+                this.dashboardEl.object3D.position.set(handPos.x, handPos.y + 0.2, handPos.z);
+                var camPos = new window.THREE.Vector3();
+                this.camera.object3D.getWorldPosition(camPos);
+                this.dashboardEl.object3D.lookAt(camPos);
+            },
+
+            remove: function() {
+                if (this.checkInterval) clearInterval(this.checkInterval);
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 8. DASHBOARD-CONTENT-SYNC — Updates dashboard text on phase change
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['dashboard-content-sync']) {
+        window.AFRAME.registerComponent('dashboard-content-sync', {
+            init: function() {
+                var self = this;
+
+                this.onRefresh = function() {
+                    var phase = window.currentPhase || 1;
+                    var score = window.currentScore || 0;
+
+                    var tasks = {
+                        1: ['🔬 Find and click the Mitochondria', '💡 Learn: powerhouse of the cell'],
+                        2: ['⚡ Drag glucose molecule to mitochondria', '💡 Learn: cellular respiration'],
+                        3: ['🧹 Drag 3 damaged proteins to lysosome', '💡 Learn: autophagy & recycling'],
+                        4: ['🔗 Guide polypeptide: ER → Golgi → membrane', '💡 Learn: protein secretory pathway'],
+                        5: ['❓ Answer 3 knowledge check questions', '🏆 Final score calculation']
+                    };
+
+                    var currentTasks = tasks[phase] || [];
+
+                    // Update task list
+                    var task1El = document.getElementById('vr-dash-task1');
+                    var task2El = document.getElementById('vr-dash-task2');
+                    if (task1El) task1El.setAttribute('value', currentTasks[0] || '');
+                    if (task2El) task2El.setAttribute('value', currentTasks[1] || '');
+
+                    // Update phase/score header
+                    var headerEl = document.getElementById('vr-dash-header');
+                    if (headerEl) headerEl.setAttribute('value', 'Phase ' + phase + ' | Score: ' + score);
+
+                    // Update progress bar (simple text representation)
+                    var progressEl = document.getElementById('vr-dash-progress');
+                    var filled = '█'.repeat(phase) + '░'.repeat(5 - phase);
+                    if (progressEl) progressEl.setAttribute('value', filled);
+
+                    // Update notes
+                    var notes = {
+                        1: 'Mitochondria: powerhouse\nconverts glucose → ATP',
+                        2: 'ATP = Adenosine\nTriphosphate = cell energy',
+                        3: 'Lysosome: recycling center\nbreaks down damaged proteins',
+                        4: 'ER → Golgi → Vesicle:\nprotein secretory pathway',
+                        5: 'Review: all organelles\nwork together for life!'
+                    };
+
+                    var notesEl = document.getElementById('vr-dash-notes');
+                    if (notesEl) notesEl.setAttribute('value', notes[phase] || '');
+                };
+
+                window.addEventListener('vr-dashboard-refresh', this.onRefresh);
+                window.addEventListener('phase-changed-vr', this.onRefresh);
+
+                // Init on load
+                setTimeout(this.onRefresh, 500);
+            },
+
+            remove: function() {
+                window.removeEventListener('vr-dashboard-refresh', this.onRefresh);
+                window.removeEventListener('phase-changed-vr', this.onRefresh);
+            }
+        });
+    }
 }

@@ -121,6 +121,13 @@ export default function VoyagePage() {
         document.head.appendChild(script);
       }
 
+      if (!document.querySelector('script[src*="aframe-teleport-controls"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/aframe-teleport-controls@0.3.1/dist/aframe-teleport-controls.min.js';
+        script.async = false;
+        document.head.appendChild(script);
+      }
+
       registerVoyageComponents();
 
       const timer = setTimeout(() => {
@@ -154,29 +161,6 @@ export default function VoyagePage() {
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
-
-  // Update VR HUD text
-  useEffect(() => {
-    if (typeof window !== 'undefined' && ready) {
-      document.querySelector('#vr-phase-text')?.setAttribute('value', phase.title);
-      document.querySelector('#vr-instruction-text')?.setAttribute('value', phase.instruction);
-    }
-  }, [currentPhase, ready]);
-
-  // VR HUD visibility
-  useEffect(() => {
-    if (!ready) return;
-    const scene = document.querySelector('a-scene');
-    if (!scene) return;
-    const show = () => document.querySelector('#vr-hud')?.setAttribute('visible', 'true');
-    const hide = () => document.querySelector('#vr-hud')?.setAttribute('visible', 'false');
-    scene.addEventListener('enter-vr', show);
-    scene.addEventListener('exit-vr', hide);
-    return () => {
-      scene.removeEventListener('enter-vr', show);
-      scene.removeEventListener('exit-vr', hide);
-    };
-  }, [ready]);
 
   // ═══════════════════════════════════════════════════════════════════════
   // PHASE START — record timer, init multi-step progress
@@ -228,6 +212,7 @@ export default function VoyagePage() {
       setCurrentPhase(0);
       setScore(0);
       setPrevScore(0);
+      window.currentScore = 0; // Sync to window
       setCompletedPhases(new Set());
       setPhaseProgress(null);
       setShowContinue(false);
@@ -251,15 +236,26 @@ export default function VoyagePage() {
         const next = prev + 1;
         window.currentPhase = next;
         console.log('[VOYAGE] Phase advanced:', prev, '→', next);
+
+        // Dispatch phase-changed-vr for VR systems
+        const newScore = score + (PHASES[1].points || 100);
+        window.dispatchEvent(new CustomEvent('phase-changed-vr', {
+          detail: { phase: next, score: newScore }
+        }));
+
         return next;
       });
-      setScore(prev => prev + (PHASES[1].points || 100));
+      setScore(prev => {
+        const newScore = prev + (PHASES[1].points || 100);
+        window.currentScore = newScore; // Sync to window
+        return newScore;
+      });
       // Reset guard after 1s
       setTimeout(() => { phaseAdvancedRef.current = false; }, 1000);
     };
     window.addEventListener('phase-advance', handler);
     return () => window.removeEventListener('phase-advance', handler);
-  }, []);
+  }, [score]);
 
   // ═══════════════════════════════════════════════════════════════════════
   // EVENT: show-knowledge (display knowledge card)
@@ -291,7 +287,11 @@ export default function VoyagePage() {
       if (dragPhase === 2) {
         const elapsed = (Date.now() - phaseStartTime.current) / 1000;
         const bonus = elapsed < 10 ? 50 : 0;
-        setScore(prev => prev + (PHASES[2].points || 150) + bonus);
+        setScore(prev => {
+          const newScore = prev + (PHASES[2].points || 150) + bonus;
+          window.currentScore = newScore; // Sync to window
+          return newScore;
+        });
         if (bonus > 0) console.log('[VOYAGE] ⚡ Speed bonus! +50');
         setKnowledgeCardData(KNOWLEDGE_CARDS[2]);
         setShowKnowledgeCard(true);
@@ -305,7 +305,11 @@ export default function VoyagePage() {
           }
           return next;
         });
-        setScore(prev => prev + (PHASES[3].points || 100));
+        setScore(prev => {
+          const newScore = prev + (PHASES[3].points || 100);
+          window.currentScore = newScore; // Sync to window
+          return newScore;
+        });
       } else if (dragPhase === 4) {
         setPhaseProgress(prev => {
           if (!prev || prev.step === undefined) return prev;
@@ -316,7 +320,11 @@ export default function VoyagePage() {
           }
           return { ...prev, step: nextStep, count: nextStep };
         });
-        setScore(prev => prev + (PHASES[4].points || 100));
+        setScore(prev => {
+          const newScore = prev + (PHASES[4].points || 100);
+          window.currentScore = newScore; // Sync to window
+          return newScore;
+        });
       }
     };
     window.addEventListener('drag-success', handler);
@@ -414,6 +422,46 @@ export default function VoyagePage() {
           phaseTitle={phase.title}
           phaseInstruction={phase.instruction}
         />
+
+        {/* Wrist Dashboard - controlled by wrist-dashboard component on leftHand */}
+        <a-entity
+          id="voyage-wrist-dashboard"
+          visible="false"
+          dashboard-content-sync
+          geometry="primitive: plane; width: 0.4; height: 0.3"
+          material="color: #000; opacity: 0.75; transparent: true"
+        >
+          <a-entity
+            id="vr-dash-header"
+            position="0 0.12 0.01"
+            text="value: Cell Voyage Progress; align: center; width: 0.35; color: #00e5ff; font: kelsonsans"
+          ></a-entity>
+          <a-entity
+            id="vr-dash-task1"
+            position="-0.18 0.05 0.01"
+            text="value: ✓ Welcome; align: left; width: 0.35; color: #FFF; font: kelsonsans"
+          ></a-entity>
+          <a-entity
+            id="vr-dash-task2"
+            position="-0.18 -0.02 0.01"
+            text="value: 🔬 Find Mitochondria; align: left; width: 0.35; color: #FFF; font: kelsonsans"
+          ></a-entity>
+          <a-entity
+            id="vr-dash-score"
+            position="0 -0.1 0.01"
+            text="value: Score: 0; align: center; width: 0.35; color: #FFD700; font: kelsonsans"
+          ></a-entity>
+        </a-entity>
+
+        {/* Teleport Floor - invisible plane for teleport-controls */}
+        <a-plane
+          class="teleport-floor"
+          position="0 -1 0"
+          rotation="-90 0 0"
+          width="20"
+          height="20"
+          material="color: #10b981; opacity: 0.1; transparent: true; visible: false"
+        ></a-plane>
       </a-scene>
 
       {/* CSS Animations */}
