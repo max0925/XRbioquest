@@ -439,151 +439,145 @@ export function registerVoyageComponents() {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 7. WRIST-DASHBOARD — Shows dashboard when wrist faces up
+    // 7. TOGGLE-MENU — Toggle wrist menu panel visibility
     // ═══════════════════════════════════════════════════════════════
-    if (!window.AFRAME.components['wrist-dashboard']) {
-        window.AFRAME.registerComponent('wrist-dashboard', {
+    if (!window.AFRAME.components['toggle-menu']) {
+        window.AFRAME.registerComponent('toggle-menu', {
             init: function() {
-                this.dashboardEl = null;
-                this.isVisible = false;
-                this.camera = null;
-                this.checkInterval = null;
-                this.hand = this.el;
-            },
-
-            play: function() {
-                this.checkInterval = setInterval(() => {
-                    this.checkWristAngle();
-                }, 150);
-            },
-
-            pause: function() {
-                if (this.checkInterval) clearInterval(this.checkInterval);
-            },
-
-            checkWristAngle: function() {
-                if (!this.camera) this.camera = document.querySelector('[camera]');
-                if (!this.dashboardEl) this.dashboardEl = document.getElementById('voyage-wrist-dashboard');
-                if (!this.camera || !this.dashboardEl) return;
-
-                var headPos = new window.THREE.Vector3();
-                var handPos = new window.THREE.Vector3();
-                this.camera.object3D.getWorldPosition(headPos);
-                this.hand.object3D.getWorldPosition(handPos);
-
-                var toHead = new window.THREE.Vector3().subVectors(headPos, handPos).normalize();
-                var handUp = new window.THREE.Vector3(0, 1, 0);
-                this.hand.object3D.localToWorld(handUp);
-                handUp.sub(handPos).normalize();
-
-                var angle = Math.acos(Math.max(-1, Math.min(1, toHead.dot(handUp)))) * (180 / Math.PI);
-                var shouldShow = angle < 40;
-
-                if (shouldShow && !this.isVisible) {
-                    this.showDashboard();
-                } else if (!shouldShow && this.isVisible) {
-                    this.hideDashboard();
-                }
-
-                if (this.isVisible) this.updatePosition();
-            },
-
-            showDashboard: function() {
-                if (!this.dashboardEl) return;
-                this.dashboardEl.setAttribute('visible', true);
-                this.isVisible = true;
-                // Refresh content when showing
-                window.dispatchEvent(new Event('vr-dashboard-refresh'));
-            },
-
-            hideDashboard: function() {
-                if (!this.dashboardEl) return;
-                this.dashboardEl.setAttribute('visible', false);
-                this.isVisible = false;
-            },
-
-            updatePosition: function() {
-                if (!this.dashboardEl || !this.camera) return;
-                var handPos = new window.THREE.Vector3();
-                this.hand.object3D.getWorldPosition(handPos);
-                this.dashboardEl.object3D.position.set(handPos.x, handPos.y + 0.2, handPos.z);
-                var camPos = new window.THREE.Vector3();
-                this.camera.object3D.getWorldPosition(camPos);
-                this.dashboardEl.object3D.lookAt(camPos);
-            },
-
-            remove: function() {
-                if (this.checkInterval) clearInterval(this.checkInterval);
+                this.el.addEventListener('click', function() {
+                    var panel = document.getElementById('menu-panel');
+                    if (panel) {
+                        var visible = panel.getAttribute('visible') === true || panel.getAttribute('visible') === 'true';
+                        panel.setAttribute('visible', !visible);
+                    }
+                });
             }
         });
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 8. DASHBOARD-CONTENT-SYNC — Updates dashboard text on phase change
+    // 8. CLOSE-MENU — Close wrist menu panel and all sub-panels
     // ═══════════════════════════════════════════════════════════════
-    if (!window.AFRAME.components['dashboard-content-sync']) {
-        window.AFRAME.registerComponent('dashboard-content-sync', {
+    if (!window.AFRAME.components['close-menu']) {
+        window.AFRAME.registerComponent('close-menu', {
+            init: function() {
+                this.el.addEventListener('click', function() {
+                    var panel = document.getElementById('menu-panel');
+                    var tasksPanel = document.getElementById('tasks-panel');
+                    var notesPanel = document.getElementById('notes-panel');
+
+                    if (panel) panel.setAttribute('visible', false);
+                    if (tasksPanel) tasksPanel.setAttribute('visible', false);
+                    if (notesPanel) notesPanel.setAttribute('visible', false);
+                });
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 9. BACK-TO-MENU — Go back from sub-panel to main menu
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['back-to-menu']) {
+        window.AFRAME.registerComponent('back-to-menu', {
+            init: function() {
+                this.el.addEventListener('click', function() {
+                    var menuPanel = document.getElementById('menu-panel');
+                    var tasksPanel = document.getElementById('tasks-panel');
+                    var notesPanel = document.getElementById('notes-panel');
+
+                    if (tasksPanel) tasksPanel.setAttribute('visible', false);
+                    if (notesPanel) notesPanel.setAttribute('visible', false);
+                    if (menuPanel) menuPanel.setAttribute('visible', true);
+                });
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 10. VOYAGE-MENU-NAV — Handle Tasks/Notes button clicks & content
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['voyage-menu-nav']) {
+        window.AFRAME.registerComponent('voyage-menu-nav', {
+            schema: {
+                target: { default: 'tasks' }
+            },
             init: function() {
                 var self = this;
+                this.el.addEventListener('click', function() {
+                    var target = self.data.target;
 
-                this.onRefresh = function() {
-                    var phase = window.currentPhase || 1;
-                    var score = window.currentScore || 0;
+                    // Hide menu panel, show sub-panel
+                    var menuPanel = document.getElementById('menu-panel');
+                    var tasksPanel = document.getElementById('tasks-panel');
+                    var notesPanel = document.getElementById('notes-panel');
 
-                    var tasks = {
-                        1: ['🔬 Find and click the Mitochondria', '💡 Learn: powerhouse of the cell'],
-                        2: ['⚡ Drag glucose molecule to mitochondria', '💡 Learn: cellular respiration'],
-                        3: ['🧹 Drag 3 damaged proteins to lysosome', '💡 Learn: autophagy & recycling'],
-                        4: ['🔗 Guide polypeptide: ER → Golgi → membrane', '💡 Learn: protein secretory pathway'],
-                        5: ['❓ Answer 3 knowledge check questions', '🏆 Final score calculation']
-                    };
+                    if (menuPanel) menuPanel.setAttribute('visible', false);
 
-                    var currentTasks = tasks[phase] || [];
-
-                    // Update task list
-                    var task1El = document.getElementById('vr-dash-task1');
-                    var task2El = document.getElementById('vr-dash-task2');
-                    if (task1El) task1El.setAttribute('value', currentTasks[0] || '');
-                    if (task2El) task2El.setAttribute('value', currentTasks[1] || '');
-
-                    // Update phase/score header
-                    var headerEl = document.getElementById('vr-dash-header');
-                    if (headerEl) headerEl.setAttribute('value', 'Phase ' + phase + ' | Score: ' + score);
-
-                    // Update progress bar (simple text representation)
-                    var progressEl = document.getElementById('vr-dash-progress');
-                    var filled = '█'.repeat(phase) + '░'.repeat(5 - phase);
-                    if (progressEl) progressEl.setAttribute('value', filled);
-
-                    // Update notes
-                    var notes = {
-                        1: 'Mitochondria: powerhouse\nconverts glucose → ATP',
-                        2: 'ATP = Adenosine\nTriphosphate = cell energy',
-                        3: 'Lysosome: recycling center\nbreaks down damaged proteins',
-                        4: 'ER → Golgi → Vesicle:\nprotein secretory pathway',
-                        5: 'Review: all organelles\nwork together for life!'
-                    };
-
-                    var notesEl = document.getElementById('vr-dash-notes');
-                    if (notesEl) notesEl.setAttribute('value', notes[phase] || '');
-                };
-
-                window.addEventListener('vr-dashboard-refresh', this.onRefresh);
-                window.addEventListener('phase-changed-vr', this.onRefresh);
-
-                // Init on load
-                setTimeout(this.onRefresh, 500);
+                    if (target === 'tasks' && tasksPanel) {
+                        tasksPanel.setAttribute('visible', true);
+                        self.updateTasksContent();
+                    } else if (target === 'notes' && notesPanel) {
+                        notesPanel.setAttribute('visible', true);
+                        self.updateNotesContent();
+                    }
+                });
             },
 
-            remove: function() {
-                window.removeEventListener('vr-dashboard-refresh', this.onRefresh);
-                window.removeEventListener('phase-changed-vr', this.onRefresh);
+            updateTasksContent: function() {
+                var phase = window.currentPhase || 0;
+                var score = window.currentScore || 0;
+
+                var phaseTitles = {
+                    0: 'Welcome to the Cell',
+                    1: 'Find the Mitochondria',
+                    2: 'Power Up with Glucose',
+                    3: 'Clean Up Proteins',
+                    4: 'Ship the Package',
+                    5: 'Mission Complete!'
+                };
+
+                var tasks = {
+                    0: ['Click Continue to begin', 'Explore the cell environment'],
+                    1: ['🔬 Find and click the Mitochondria', '💡 Learn about cellular energy'],
+                    2: ['⚡ Drag glucose to mitochondria', '⏱️ Do it in <10s for bonus!'],
+                    3: ['🧹 Drag 3 damaged proteins to lysosome', '💡 Learn about autophagy'],
+                    4: ['🔗 Guide polypeptide chain:', 'ER → Golgi → Membrane'],
+                    5: ['🎉 Review your learning', '🏆 Check your final score']
+                };
+
+                var currentTasks = tasks[phase] || ['No tasks', ''];
+
+                var titleEl = document.getElementById('tasks-title');
+                var task1El = document.getElementById('task-1');
+                var task2El = document.getElementById('task-2');
+                var scoreEl = document.getElementById('tasks-score');
+
+                if (titleEl) titleEl.setAttribute('value', 'Phase ' + phase + ': ' + (phaseTitles[phase] || ''));
+                if (task1El) task1El.setAttribute('value', currentTasks[0] || '');
+                if (task2El) task2El.setAttribute('value', currentTasks[1] || '');
+                if (scoreEl) scoreEl.setAttribute('value', 'Score: ' + score);
+            },
+
+            updateNotesContent: function() {
+                var phase = window.currentPhase || 0;
+
+                var notes = {
+                    0: 'Welcome! You are about to journey inside a living cell. Each organelle has a special job.',
+                    1: 'Mitochondria is the powerhouse of the cell. It converts glucose into ATP energy through cellular respiration.',
+                    2: 'ATP (Adenosine Triphosphate) is the energy currency of cells. Glucose + O2 → ATP + CO2 + H2O',
+                    3: 'Lysosomes are the recycling centers. They break down damaged proteins and cellular waste using enzymes.',
+                    4: 'The secretory pathway: Proteins made in ER → modified in Golgi → packaged into vesicles → sent to membrane.',
+                    5: 'All organelles work together! The cell is a complex system where each part supports the whole organism.'
+                };
+
+                var noteEl = document.getElementById('notes-content');
+                if (noteEl) noteEl.setAttribute('value', notes[phase] || 'No notes available.');
             }
         });
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 9. SIMPLE-TELEPORT — Custom teleport via raycaster click
+    // 11. SIMPLE-TELEPORT — Custom teleport via raycaster click
     // ═══════════════════════════════════════════════════════════════
     if (!window.AFRAME.components['simple-teleport']) {
         window.AFRAME.registerComponent('simple-teleport', {
@@ -597,6 +591,36 @@ export function registerVoyageComponents() {
                     var point = intersection.point;
                     var rig = document.getElementById('camera-rig');
                     if (rig) rig.setAttribute('position', { x: point.x, y: 0, z: point.z });
+                });
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 12. SMART-CONTROLLER — Show beam only when pointing at clickable
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['smart-controller']) {
+        window.AFRAME.registerComponent('smart-controller', {
+            schema: {
+                hand: { default: 'right' }
+            },
+            init: function() {
+                var self = this;
+                this.beam = null;
+                this.isPointing = false;
+
+                // Create visible beam only when needed
+                this.beam = document.createElement('a-entity');
+                this.beam.setAttribute('line', 'start: 0 0 0; end: 0 0 -3; color: #10b981; opacity: 0.6');
+                this.beam.setAttribute('visible', false);
+                this.el.appendChild(this.beam);
+
+                // Show beam only when raycaster hits something clickable
+                this.el.addEventListener('raycaster-intersection', function() {
+                    self.beam.setAttribute('visible', true);
+                });
+                this.el.addEventListener('raycaster-intersection-cleared', function() {
+                    self.beam.setAttribute('visible', false);
                 });
             }
         });

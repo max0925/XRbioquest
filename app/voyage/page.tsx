@@ -416,36 +416,6 @@ export default function VoyagePage() {
           phaseInstruction={phase.instruction}
         />
 
-        {/* Wrist Dashboard - controlled by wrist-dashboard component on leftHand */}
-        <a-entity
-          id="voyage-wrist-dashboard"
-          visible="false"
-          dashboard-content-sync
-          geometry="primitive: plane; width: 0.4; height: 0.3"
-          material="color: #000; opacity: 0.75; transparent: true"
-        >
-          <a-entity
-            id="vr-dash-header"
-            position="0 0.12 0.01"
-            text="value: Cell Voyage Progress; align: center; width: 0.35; color: #00e5ff; font: kelsonsans"
-          ></a-entity>
-          <a-entity
-            id="vr-dash-task1"
-            position="-0.18 0.05 0.01"
-            text="value: ✓ Welcome; align: left; width: 0.35; color: #FFF; font: kelsonsans"
-          ></a-entity>
-          <a-entity
-            id="vr-dash-task2"
-            position="-0.18 -0.02 0.01"
-            text="value: 🔬 Find Mitochondria; align: left; width: 0.35; color: #FFF; font: kelsonsans"
-          ></a-entity>
-          <a-entity
-            id="vr-dash-score"
-            position="0 -0.1 0.01"
-            text="value: Score: 0; align: center; width: 0.35; color: #FFD700; font: kelsonsans"
-          ></a-entity>
-        </a-entity>
-
         {/* Teleport Floor - invisible plane for teleport-controls */}
         <a-plane
           class="teleport-floor"
