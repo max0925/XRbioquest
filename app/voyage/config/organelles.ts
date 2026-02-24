@@ -38,7 +38,7 @@ export const ORGANELLES = [
         uid: '10659ca1502c4ade88abba6284bb50f2',
         name: 'Glucose Molecule',
         modelPath: `${SUPABASE}/glucose_molecule.glb`,
-        position: { x: 2.5, y: 0, z: -2.5 },
+        position: { x: 1.5, y: 1, z: -3 },
         description: 'Energy source - fuel for cellular respiration',
         function: 'fuel'
     },

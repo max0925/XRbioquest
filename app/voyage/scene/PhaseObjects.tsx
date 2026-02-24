@@ -147,16 +147,16 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
                     <a-entity
                         key={`damaged-protein-${i}`}
                         position={`${pos.x} ${pos.y} ${pos.z}`}
-                        class="clickable grabbable"
-                        data-name="Damaged Protein"
-                        data-index={String(i)}
-                        game-draggable={`name: Damaged Protein; snapDistance: 0.8`}
                     >
                         <a-sphere
                             radius="0.15"
                             color="#94A3B8"
                             opacity="0.8"
                             material="transparent: true"
+                            class="clickable grabbable"
+                            data-name="Damaged Protein"
+                            data-index={String(i)}
+                            game-draggable={`name: Damaged Protein; snapDistance: 0.8`}
                         ></a-sphere>
                         {/* Pulsing glow to indicate interactivity */}
                         <a-sphere
@@ -177,16 +177,14 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
           PHASE 4, Step 0: Polypeptide chain (draggable → ER)
       ═══════════════════════════════════════════════════════════════ */}
             {currentPhase === 4 && chainStep === 0 && (
-                <a-entity
-                    position="-0.5 2 -3"
-                    class="clickable grabbable"
-                    data-name="Polypeptide"
-                    game-draggable="name: Polypeptide; snapDistance: 0.8"
-                >
+                <a-entity position="-0.5 2 -3">
                     <a-gltf-model
                         src={`${SUPABASE}/keratine_chains__vlakna_keratinu.glb`}
                         scale="0.3 0.3 0.3"
                         crossorigin="anonymous"
+                        class="clickable grabbable"
+                        data-name="Polypeptide"
+                        game-draggable="name: Polypeptide; snapDistance: 0.8"
                     ></a-gltf-model>
                     {/* Glowing ring indicator */}
                     <a-entity
@@ -207,16 +205,14 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
           Appears after polypeptide reaches ER
       ═══════════════════════════════════════════════════════════════ */}
             {currentPhase === 4 && chainStep === 1 && (
-                <a-entity
-                    position="0 1 -4.5"
-                    class="clickable grabbable"
-                    data-name="Processed Protein"
-                    game-draggable="name: Processed Protein; snapDistance: 0.8"
-                >
+                <a-entity position="0 1 -4.5">
                     <a-sphere
                         radius="0.2"
                         color="#F59E0B"
                         material="emissive: #F59E0B; emissiveIntensity: 0.3"
+                        class="clickable grabbable"
+                        data-name="Processed Protein"
+                        game-draggable="name: Processed Protein; snapDistance: 0.8"
                     ></a-sphere>
                     <a-sphere
                         radius="0.28"

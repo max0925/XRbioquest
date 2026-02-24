@@ -93,33 +93,32 @@ export function registerVoyageComponents() {
         window.AFRAME.registerComponent('game-draggable', {
             schema: {
                 name: { type: 'string' },
-                snapDistance: { type: 'number', default: 1.5 }
+                snapDistance: { type: 'number', default: 2.0 }
             },
             init: function () {
                 var self = this;
                 var isDragging = false;
                 var dragStarted = false;
-                var mouseStartX = 0;
-                var mouseStartY = 0;
                 var originalPosition = null;
+
+                // Hardcoded snap target positions (from organelles.ts config)
+                var SNAP_POSITIONS = {
+                    'Mitochondria': { x: -1.5, y: 0, z: -3 },
+                    'Lysosome': { x: 1.5, y: 0, z: -3 },
+                    'Endoplasmic Reticulum': { x: 0, y: 0, z: -4.5 },
+                    'Golgi Apparatus': { x: -3, y: 0, z: -4 },
+                };
+
+                function getSnapPosition(targetName) {
+                    return SNAP_POSITIONS[targetName] || null;
+                }
 
                 // Store original position on load
                 self.el.addEventListener('loaded', function () {
                     var pos = self.el.getAttribute('position');
-                    originalPosition = { x: pos.x, y: pos.y, z: pos.z };
+                    originalPosition = { x: parseFloat(pos.x) || 0, y: parseFloat(pos.y) || 0, z: parseFloat(pos.z) || 0 };
                     console.log('[DRAG] Loaded entity:', self.el.getAttribute('data-name'), 'at', originalPosition);
                 });
-
-                // ── Helper: find snap target element by data-name ──
-                function findTargetEl(targetName) {
-                    var el = document.querySelector('[data-name="' + targetName + '"]');
-                    if (el) {
-                        var pos = el.getAttribute('position');
-                        console.log('[DRAG]', targetName, 'actual position:', pos);
-                        return { x: pos.x, y: pos.y, z: pos.z };
-                    }
-                    return null;
-                }
 
                 // ── Helper: get snap target for current phase ──
                 function getSnapTarget(phase) {
@@ -146,10 +145,9 @@ export function registerVoyageComponents() {
                     if (phase !== 2 && phase !== 3 && phase !== 4) return;
 
                     isDragging = true;
-                    dragStarted = false; // don't move until threshold reached
-                    mouseStartX = evt.clientX || 0;
-                    mouseStartY = evt.clientY || 0;
-                    originalPosition = Object.assign({}, self.el.getAttribute('position'));
+                    dragStarted = true;
+                    var pos = self.el.getAttribute('position');
+                    originalPosition = { x: parseFloat(pos.x) || 0, y: parseFloat(pos.y) || 0, z: parseFloat(pos.z) || 0 };
 
                     // Prevent camera movement while dragging
                     var scene = self.el.sceneEl;
@@ -162,34 +160,19 @@ export function registerVoyageComponents() {
 
                 // ── MOUSEMOVE: move entity in 3D ──
                 window.addEventListener('mousemove', function (evt) {
-                    if (!isDragging) return;
-
-                    // Check 5px threshold before starting actual movement
-                    if (!dragStarted) {
-                        var mdx = Math.abs(evt.clientX - mouseStartX);
-                        var mdy = Math.abs(evt.clientY - mouseStartY);
-                        if (mdx < 5 && mdy < 5) return; // haven't moved enough yet
-                        dragStarted = true;
-                        console.log('[DRAG] Drag threshold reached, moving entity');
-                    }
-
+                    if (!isDragging || !dragStarted) return;
                     var scene = self.el.sceneEl;
                     if (!scene || !scene.canvas || !scene.camera) return;
-
                     var rect = scene.canvas.getBoundingClientRect();
-                    var x = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
-                    var y = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
-
-                    // Unproject screen position to world at entity's Z plane
-                    var camera = scene.camera;
-                    var vector = new window.THREE.Vector3(x, y, 0.5);
-                    vector.unproject(camera);
-                    var dir = vector.sub(camera.position).normalize();
-                    var targetZ = originalPosition ? originalPosition.z : -3;
-                    var distance = (targetZ - camera.position.z) / dir.z;
-                    var pos = camera.position.clone().add(dir.multiplyScalar(distance));
-
-                    self.el.setAttribute('position', { x: pos.x, y: pos.y, z: targetZ });
+                    var mx = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
+                    var my = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
+                    var rc = new window.THREE.Raycaster();
+                    rc.setFromCamera(new window.THREE.Vector2(mx, my), scene.camera);
+                    var planeZ = originalPosition ? originalPosition.z : -3;
+                    var pl = new window.THREE.Plane(new window.THREE.Vector3(0,0,1), -planeZ);
+                    var pt = new window.THREE.Vector3();
+                    rc.ray.intersectPlane(pl, pt);
+                    if (pt) self.el.setAttribute('position', {x: pt.x, y: pt.y, z: planeZ});
                 });
 
                 // ── MOUSEUP: check snap target ──
@@ -203,7 +186,6 @@ export function registerVoyageComponents() {
                         scene.camera.el.setAttribute('look-controls', 'enabled', true);
                     }
 
-                    // Was just a click, not a real drag — do nothing
                     if (!dragStarted) {
                         console.log('[DRAG] Was a click, not a drag — ignoring');
                         return;
@@ -213,32 +195,34 @@ export function registerVoyageComponents() {
                     var phase = window.currentPhase;
                     console.log('[DRAG] mouseup — dropped', name, 'in phase', phase);
 
-                    // Get snap target info for this phase
                     var targetInfo = getSnapTarget(phase);
                     if (!targetInfo) {
                         if (originalPosition) self.el.setAttribute('position', originalPosition);
                         return;
                     }
 
-                    // Read LIVE position of the target organelle from the DOM
-                    var targetPos = findTargetEl(targetInfo.name);
+                    // Use hardcoded snap position (not affected by camera rig offset)
+                    var targetPos = getSnapPosition(targetInfo.name);
                     if (!targetPos) {
-                        console.log('[DRAG] Target element not found:', targetInfo.name);
+                        console.log('[DRAG] No snap position for:', targetInfo.name);
                         if (originalPosition) self.el.setAttribute('position', originalPosition);
                         return;
                     }
 
+                    // Read local position from DOM attribute
                     var currentPos = self.el.getAttribute('position');
                     var dx = currentPos.x - targetPos.x;
                     var dy = currentPos.y - targetPos.y;
                     var dz = currentPos.z - targetPos.z;
                     var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    console.log('[DRAG] Distance to', targetInfo.name + ':', dist.toFixed(2));
+                    console.log('[DRAG] Local distance to', targetInfo.name + ':', dist.toFixed(2));
 
-                    if (dist < self.data.snapDistance) {
+                    // Phase-dependent snap distance: 3.0 for phase 2, 2.0 for others
+                    var snapDist = phase === 2 ? 3.0 : self.data.snapDistance;
+                    if (dist < snapDist) {
                         // ── SUCCESS ──
                         console.log('[DRAG] ✓ Snap success!');
-                        self.el.setAttribute('position', targetPos);
+                        // Entity stays where dropped — React will unmount it on phase advance
 
                         // Green particle burst
                         var sceneEl = self.el.sceneEl;
@@ -264,15 +248,10 @@ export function registerVoyageComponents() {
                             detail: { phase: phase, item: name }
                         }));
                     } else {
-                        // ── FAIL — return to original ──
+                        // ── FAIL — instant return to original ──
                         console.log('[DRAG] ✗ Too far, returning to', originalPosition);
                         if (originalPosition) {
-                            self.el.setAttribute('animation__spring', {
-                                property: 'position',
-                                to: originalPosition.x + ' ' + originalPosition.y + ' ' + originalPosition.z,
-                                dur: 500,
-                                easing: 'easeOutElastic'
-                            });
+                            self.el.setAttribute('position', originalPosition);
                         }
                     }
                 });
