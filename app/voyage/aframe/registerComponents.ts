@@ -759,98 +759,34 @@ export function registerVoyageComponents() {
         window.AFRAME.registerComponent('pull-to-hand', {
             init: function() {
                 var self = this;
-                this.pullingTarget = null;
-                this.pullProgress = 0;
-                this.startPos = null;
-                this.wasPulling = false;
+                this.target = null;
 
                 this.el.addEventListener('triggerdown', function() {
-                    var raycaster = self.el.components.raycaster;
-                    if (!raycaster || !raycaster.intersections.length) return;
-
-                    var intersection = raycaster.intersections[0];
-                    var target = intersection.object.el;
-
-                    // Walk up to find grabbable or clickable parent
-                    while (target && !target.classList.contains('grabbable') && !target.classList.contains('clickable')) {
-                        target = target.parentElement;
-                    }
-                    if (!target) return;
-
-                    var dist = intersection.distance;
-                    console.log('[PULL-TO-HAND] Trigger on target at distance:', dist.toFixed(2));
-
-                    if (dist > 1.5) {
-                        // Far object — pull toward hand
-                        console.log('[PULL-TO-HAND] Starting pull for:', target.getAttribute('data-name'));
-                        self.pullingTarget = target;
-                        self.pullProgress = 0;
-                        self.wasPulling = true;
-                        var pos = new window.THREE.Vector3();
-                        target.object3D.getWorldPosition(pos);
-                        self.startPos = { x: pos.x, y: pos.y, z: pos.z };
-                    }
-                    // Close objects handled by existing simple-grab
+                    var rc = self.el.components.raycaster;
+                    if (!rc || !rc.intersections.length) return;
+                    var hit = rc.intersections[0];
+                    if (hit.distance < 1.5) return; // close enough, let simple-grab handle it
+                    var el = hit.object.el;
+                    while (el && !el.classList.contains('grabbable')) el = el.parentElement;
+                    if (el) self.target = el;
                 });
 
                 this.el.addEventListener('triggerup', function() {
-                    if (self.pullingTarget && self.wasPulling) {
-                        console.log('[PULL-TO-HAND] Trigger up, detaching object');
-
-                        // Detach from hand and place in scene
-                        var worldPos = new window.THREE.Vector3();
-                        self.pullingTarget.object3D.getWorldPosition(worldPos);
-
-                        // Remove from hand parent if attached
-                        var scene = self.el.sceneEl;
-                        if (self.pullingTarget.object3D.parent !== scene.object3D) {
-                            scene.object3D.attach(self.pullingTarget.object3D);
-                        }
-
-                        // Update position attribute for snap logic
-                        self.pullingTarget.setAttribute('position', {
-                            x: worldPos.x,
-                            y: worldPos.y,
-                            z: worldPos.z
-                        });
-
-                        // Trigger snap check
-                        console.log('[PULL-TO-HAND] Dispatching pull-release event');
-                        window.dispatchEvent(new CustomEvent('pull-release', {
-                            detail: { target: self.pullingTarget }
-                        }));
-                    }
-
-                    self.pullingTarget = null;
-                    self.pullProgress = 0;
-                    self.wasPulling = false;
+                    self.target = null;
                 });
             },
 
             tick: function(time, delta) {
-                if (!this.pullingTarget || !this.startPos) return;
-
-                this.pullProgress += delta * 0.002; // ~0.5s to arrive
-                if (this.pullProgress >= 1) {
-                    this.pullProgress = 1;
-                }
-
-                // Get current hand position
+                if (!this.target) return;
                 var handPos = new window.THREE.Vector3();
                 this.el.object3D.getWorldPosition(handPos);
-
-                // Lerp object toward hand in world space
-                var newX = this.startPos.x + (handPos.x - this.startPos.x) * this.pullProgress;
-                var newY = this.startPos.y + (handPos.y - this.startPos.y) * this.pullProgress;
-                var newZ = this.startPos.z + (handPos.z - this.startPos.z) * this.pullProgress;
-
-                this.pullingTarget.object3D.position.set(newX, newY, newZ);
-
-                // When fully arrived, attach to hand for tracking
-                if (this.pullProgress >= 1) {
-                    console.log('[PULL-TO-HAND] Object arrived at hand, attaching');
-                    this.el.object3D.attach(this.pullingTarget.object3D);
-                }
+                var objPos = this.target.getAttribute('position');
+                var speed = Math.min(1, delta * 0.005);
+                this.target.setAttribute('position', {
+                    x: objPos.x + (handPos.x - objPos.x) * speed,
+                    y: objPos.y + (handPos.y - objPos.y) * speed,
+                    z: objPos.z + (handPos.z - objPos.z) * speed
+                });
             }
         });
     }
