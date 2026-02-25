@@ -583,6 +583,20 @@ export function registerVoyageComponents() {
         window.AFRAME.registerComponent('phase-button', {
             init: function() {
                 var self = this;
+
+                // Hidden by default (desktop mode)
+                this.el.setAttribute('visible', false);
+
+                // Toggle visibility on VR enter/exit
+                var scene = document.querySelector('a-scene');
+                scene.addEventListener('enter-vr', function() {
+                    self.el.setAttribute('visible', true);
+                });
+                scene.addEventListener('exit-vr', function() {
+                    self.el.setAttribute('visible', false);
+                });
+
+                // Handle click
                 this.el.addEventListener('click', function() {
                     // Dispatch continue event for React to handle
                     window.dispatchEvent(new CustomEvent('voyage-continue'));
