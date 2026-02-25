@@ -435,10 +435,10 @@ export default function VoyagePage() {
             id="vr-continue-btn"
             position="0 1.2 -2"
             phase-button
-            className="clickable"
           >
-            {/* Button background */}
+            {/* Button background - clickable surface */}
             <a-plane
+              class="clickable"
               width="1.2"
               height="0.3"
               color="#10b981"

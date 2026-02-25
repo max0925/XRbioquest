@@ -31,7 +31,7 @@ export function registerVoyageComponents() {
                 var self = this;
 
                 // Click handler — reads data-name from the element
-                self.el.addEventListener('click', function () {
+                var handleClick = function () {
                     var name = self.el.getAttribute('data-name');
                     var phase = window.currentPhase;
                     console.log('[CLICK] name:', name, 'phase:', phase);
@@ -48,7 +48,11 @@ export function registerVoyageComponents() {
                     }
                     // Phase 3/4: drag-only — clicking does nothing
                     // Phase 0, 2, 5: no click targets
-                });
+                };
+
+                // Listen for both desktop click and VR triggerdown
+                self.el.addEventListener('click', handleClick);
+                self.el.addEventListener('triggerdown', handleClick); // VR support
 
                 // Hover effects
                 self.el.addEventListener('mouseenter', function () {
@@ -97,9 +101,9 @@ export function registerVoyageComponents() {
             },
             init: function () {
                 var self = this;
-                var isDragging = false;
-                var dragStarted = false;
-                var originalPosition = null;
+                self.isDragging = false;
+                self.dragStarted = false;
+                self.originalPosition = null;
 
                 // Hardcoded snap target positions (from organelles.ts config)
                 var SNAP_POSITIONS = {
@@ -116,8 +120,8 @@ export function registerVoyageComponents() {
                 // Store original position on load
                 self.el.addEventListener('loaded', function () {
                     var pos = self.el.getAttribute('position');
-                    originalPosition = { x: parseFloat(pos.x) || 0, y: parseFloat(pos.y) || 0, z: parseFloat(pos.z) || 0 };
-                    console.log('[DRAG] Loaded entity:', self.el.getAttribute('data-name'), 'at', originalPosition);
+                    self.originalPosition = { x: parseFloat(pos.x) || 0, y: parseFloat(pos.y) || 0, z: parseFloat(pos.z) || 0 };
+                    console.log('[DRAG] Loaded entity:', self.el.getAttribute('data-name'), 'at', self.originalPosition);
                 });
 
                 // ── Helper: get snap target for current phase ──
@@ -132,11 +136,11 @@ export function registerVoyageComponents() {
                     return null;
                 }
 
-                // ── MOUSEDOWN: start drag ──
-                self.el.addEventListener('mousedown', function (evt) {
+                // ── Start Drag Handler (shared by mouse and VR) ──
+                var startDrag = function (evt) {
                     var name = self.el.getAttribute('data-name');
                     var phase = window.currentPhase;
-                    console.log('[DRAG] mousedown on', name, 'phase:', phase);
+                    console.log('[DRAG] Start drag on', name, 'phase:', phase);
 
                     // Only allow drag in appropriate phases
                     if (phase === 2 && name !== 'Glucose Molecule') return;
@@ -144,12 +148,12 @@ export function registerVoyageComponents() {
                     if (phase === 4 && name !== 'Polypeptide' && name !== 'Processed Protein') return;
                     if (phase !== 2 && phase !== 3 && phase !== 4) return;
 
-                    isDragging = true;
-                    dragStarted = true;
+                    self.isDragging = true;
+                    self.dragStarted = true;
                     // Get world position (not local) to avoid position jump on drag start
                     var worldPos = new window.THREE.Vector3();
                     self.el.object3D.getWorldPosition(worldPos);
-                    originalPosition = { x: worldPos.x, y: worldPos.y, z: worldPos.z };
+                    self.originalPosition = { x: worldPos.x, y: worldPos.y, z: worldPos.z };
 
                     // Prevent camera movement while dragging
                     var scene = self.el.sceneEl;
@@ -157,12 +161,16 @@ export function registerVoyageComponents() {
                         scene.camera.el.setAttribute('look-controls', 'enabled', false);
                     }
 
-                    console.log('[DRAG] Ready to drag', name, 'from', originalPosition);
-                });
+                    console.log('[DRAG] Ready to drag', name, 'from', self.originalPosition);
+                };
+
+                // ── MOUSEDOWN / TRIGGERDOWN: start drag ──
+                self.el.addEventListener('mousedown', startDrag);
+                self.el.addEventListener('triggerdown', startDrag); // VR support
 
                 // ── MOUSEMOVE: move entity in 3D ──
                 window.addEventListener('mousemove', function (evt) {
-                    if (!isDragging || !dragStarted) return;
+                    if (!self.isDragging || !self.dragStarted) return;
                     var scene = self.el.sceneEl;
                     if (!scene || !scene.canvas || !scene.camera) return;
                     var rect = scene.canvas.getBoundingClientRect();
@@ -170,17 +178,17 @@ export function registerVoyageComponents() {
                     var my = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
                     var rc = new window.THREE.Raycaster();
                     rc.setFromCamera(new window.THREE.Vector2(mx, my), scene.camera);
-                    var planeZ = originalPosition ? originalPosition.z : -3;
+                    var planeZ = self.originalPosition ? self.originalPosition.z : -3;
                     var pl = new window.THREE.Plane(new window.THREE.Vector3(0,0,1), -planeZ);
                     var pt = new window.THREE.Vector3();
                     rc.ray.intersectPlane(pl, pt);
                     if (pt) self.el.setAttribute('position', {x: pt.x, y: pt.y, z: planeZ});
                 });
 
-                // ── MOUSEUP: check snap target ──
-                window.addEventListener('mouseup', function () {
-                    if (!isDragging) return;
-                    isDragging = false;
+                // ── End Drag Handler (shared by mouse and VR) ──
+                var endDrag = function () {
+                    if (!self.isDragging) return;
+                    self.isDragging = false;
 
                     // Re-enable camera controls
                     var scene = self.el.sceneEl;
@@ -188,18 +196,18 @@ export function registerVoyageComponents() {
                         scene.camera.el.setAttribute('look-controls', 'enabled', true);
                     }
 
-                    if (!dragStarted) {
+                    if (!self.dragStarted) {
                         console.log('[DRAG] Was a click, not a drag — ignoring');
                         return;
                     }
 
                     var name = self.el.getAttribute('data-name');
                     var phase = window.currentPhase;
-                    console.log('[DRAG] mouseup — dropped', name, 'in phase', phase);
+                    console.log('[DRAG] End drag — dropped', name, 'in phase', phase);
 
                     var targetInfo = getSnapTarget(phase);
                     if (!targetInfo) {
-                        if (originalPosition) self.el.setAttribute('position', originalPosition);
+                        if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
                         return;
                     }
 
@@ -207,7 +215,7 @@ export function registerVoyageComponents() {
                     var targetPos = getSnapPosition(targetInfo.name);
                     if (!targetPos) {
                         console.log('[DRAG] No snap position for:', targetInfo.name);
-                        if (originalPosition) self.el.setAttribute('position', originalPosition);
+                        if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
                         return;
                     }
 
@@ -251,12 +259,137 @@ export function registerVoyageComponents() {
                         }));
                     } else {
                         // ── FAIL — instant return to original ──
-                        console.log('[DRAG] ✗ Too far, returning to', originalPosition);
-                        if (originalPosition) {
-                            self.el.setAttribute('position', originalPosition);
+                        console.log('[DRAG] ✗ Too far, returning to', self.originalPosition);
+                        if (self.originalPosition) {
+                            self.el.setAttribute('position', self.originalPosition);
                         }
                     }
+
+                    // Reset drag state
+                    self.dragStarted = false;
+                };
+
+                // ── MOUSEUP / TRIGGERUP: check snap target ──
+                window.addEventListener('mouseup', endDrag);
+                window.addEventListener('triggerup', endDrag); // VR support
+
+                // ── PULL-RELEASE: check snap after VR pull-to-hand ──
+                window.addEventListener('pull-release', function(evt) {
+                    if (evt.detail && evt.detail.target === self.el) {
+                        console.log('[DRAG] Pull-release detected, checking snap');
+                        // Simulate drag end for snap checking
+                        self.isDragging = false;
+                        self.dragStarted = true; // Mark as dragged so snap check runs
+
+                        var name = self.el.getAttribute('data-name');
+                        var phase = window.currentPhase;
+                        console.log('[DRAG] Checking snap for pulled object:', name, 'in phase', phase);
+
+                        var targetInfo = getSnapTarget(phase);
+                        if (!targetInfo) {
+                            if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
+                            self.dragStarted = false;
+                            return;
+                        }
+
+                        var targetPos = getSnapPosition(targetInfo.name);
+                        if (!targetPos) {
+                            console.log('[DRAG] No snap position for:', targetInfo.name);
+                            if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
+                            self.dragStarted = false;
+                            return;
+                        }
+
+                        // Check distance
+                        var currentPos = self.el.getAttribute('position');
+                        var dx = currentPos.x - targetPos.x;
+                        var dy = currentPos.y - targetPos.y;
+                        var dz = currentPos.z - targetPos.z;
+                        var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        console.log('[DRAG] Pull-release distance to', targetInfo.name + ':', dist.toFixed(2));
+
+                        var snapDist = phase === 2 ? 3.0 : phase === 3 ? 4.0 : self.data.snapDistance;
+                        if (dist < snapDist) {
+                            console.log('[DRAG] ✓ Pull snap success!');
+
+                            // Green particle burst
+                            var sceneEl = self.el.sceneEl;
+                            for (var i = 0; i < 8; i++) {
+                                var angle = (i / 8) * Math.PI * 2;
+                                var r = 0.5;
+                                var particle = document.createElement('a-entity');
+                                particle.setAttribute('geometry', { primitive: 'sphere', radius: 0.05 });
+                                particle.setAttribute('material', { color: '#22c55e', emissive: '#22c55e', emissiveIntensity: 0.8 });
+                                particle.setAttribute('position', targetPos.x + ' ' + targetPos.y + ' ' + targetPos.z);
+                                particle.setAttribute('animation', {
+                                    property: 'position',
+                                    to: (targetPos.x + Math.cos(angle) * r) + ' ' + (targetPos.y + 0.3) + ' ' + (targetPos.z + Math.sin(angle) * r),
+                                    dur: 800,
+                                    easing: 'easeOutQuad'
+                                });
+                                particle.setAttribute('animation__fade', { property: 'material.opacity', from: 1, to: 0, dur: 800 });
+                                sceneEl.appendChild(particle);
+                                setTimeout(function (p) { try { sceneEl.removeChild(p); } catch (e) { } }, 1000, particle);
+                            }
+
+                            window.dispatchEvent(new CustomEvent('drag-success', {
+                                detail: { phase: phase, item: name }
+                            }));
+                        } else {
+                            console.log('[DRAG] ✗ Pull too far, returning to', self.originalPosition);
+                            if (self.originalPosition) {
+                                self.el.setAttribute('position', self.originalPosition);
+                            }
+                        }
+
+                        self.dragStarted = false;
+                    }
                 });
+            },
+
+            // ── TICK: Handle VR drag movement ──
+            tick: function () {
+                if (!this.isDragging || !this.dragStarted) return;
+
+                // Check if we're in VR mode by looking for active controllers
+                var leftHand = document.getElementById('leftHand');
+                var rightHand = document.getElementById('rightHand');
+
+                if (!leftHand || !rightHand) return;
+
+                // Get raycaster from either controller that's intersecting
+                var activeController = null;
+                var intersection = null;
+
+                // Check left hand
+                if (leftHand.components.raycaster) {
+                    var leftIntersection = leftHand.components.raycaster.getIntersection(this.el);
+                    if (leftIntersection) {
+                        activeController = leftHand;
+                        intersection = leftIntersection;
+                    }
+                }
+
+                // Check right hand if no left intersection
+                if (!intersection && rightHand.components.raycaster) {
+                    var rightIntersection = rightHand.components.raycaster.getIntersection(this.el);
+                    if (rightIntersection) {
+                        activeController = rightHand;
+                        intersection = rightIntersection;
+                    }
+                }
+
+                // If we have a VR controller intersection, use its raycaster for position
+                if (activeController && activeController.components.raycaster) {
+                    var rc = activeController.components.raycaster.raycaster;
+                    var planeZ = this.originalPosition ? this.originalPosition.z : -3;
+                    var pl = new window.THREE.Plane(new window.THREE.Vector3(0, 0, 1), -planeZ);
+                    var pt = new window.THREE.Vector3();
+                    var intersected = rc.ray.intersectPlane(pl, pt);
+                    if (intersected && pt) {
+                        this.el.setAttribute('position', { x: pt.x, y: pt.y, z: planeZ });
+                    }
+                }
             }
         });
     }
@@ -596,19 +729,132 @@ export function registerVoyageComponents() {
                     self.el.setAttribute('visible', false);
                 });
 
-                // Handle click
-                this.el.addEventListener('click', function() {
+                // Handle click on button or its children
+                var handleClick = function() {
+                    console.log('[VOYAGE] VR Continue button clicked');
                     // Dispatch continue event for React to handle
                     window.dispatchEvent(new CustomEvent('voyage-continue'));
                     // Hide button
                     self.el.setAttribute('visible', false);
-                });
+                };
+
+                // Listen for clicks on the element itself
+                this.el.addEventListener('click', handleClick);
+
+                // Also listen for clicks on child elements
+                var children = this.el.querySelectorAll('.clickable');
+                for (var i = 0; i < children.length; i++) {
+                    children[i].addEventListener('click', handleClick);
+                }
             }
         });
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 12. SIMPLE-TELEPORT — Custom teleport via raycaster click
+    // 12. PULL-TO-HAND — Far object pull interaction for VR
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['pull-to-hand']) {
+        window.AFRAME.registerComponent('pull-to-hand', {
+            init: function() {
+                var self = this;
+                this.pullingTarget = null;
+                this.pullProgress = 0;
+                this.startPos = null;
+                this.wasPulling = false;
+
+                this.el.addEventListener('triggerdown', function() {
+                    var raycaster = self.el.components.raycaster;
+                    if (!raycaster || !raycaster.intersections.length) return;
+
+                    var intersection = raycaster.intersections[0];
+                    var target = intersection.object.el;
+
+                    // Walk up to find grabbable or clickable parent
+                    while (target && !target.classList.contains('grabbable') && !target.classList.contains('clickable')) {
+                        target = target.parentElement;
+                    }
+                    if (!target) return;
+
+                    var dist = intersection.distance;
+                    console.log('[PULL-TO-HAND] Trigger on target at distance:', dist.toFixed(2));
+
+                    if (dist > 1.5) {
+                        // Far object — pull toward hand
+                        console.log('[PULL-TO-HAND] Starting pull for:', target.getAttribute('data-name'));
+                        self.pullingTarget = target;
+                        self.pullProgress = 0;
+                        self.wasPulling = true;
+                        var pos = new window.THREE.Vector3();
+                        target.object3D.getWorldPosition(pos);
+                        self.startPos = { x: pos.x, y: pos.y, z: pos.z };
+                    }
+                    // Close objects handled by existing simple-grab
+                });
+
+                this.el.addEventListener('triggerup', function() {
+                    if (self.pullingTarget && self.wasPulling) {
+                        console.log('[PULL-TO-HAND] Trigger up, detaching object');
+
+                        // Detach from hand and place in scene
+                        var worldPos = new window.THREE.Vector3();
+                        self.pullingTarget.object3D.getWorldPosition(worldPos);
+
+                        // Remove from hand parent if attached
+                        var scene = self.el.sceneEl;
+                        if (self.pullingTarget.object3D.parent !== scene.object3D) {
+                            scene.object3D.attach(self.pullingTarget.object3D);
+                        }
+
+                        // Update position attribute for snap logic
+                        self.pullingTarget.setAttribute('position', {
+                            x: worldPos.x,
+                            y: worldPos.y,
+                            z: worldPos.z
+                        });
+
+                        // Trigger snap check
+                        console.log('[PULL-TO-HAND] Dispatching pull-release event');
+                        window.dispatchEvent(new CustomEvent('pull-release', {
+                            detail: { target: self.pullingTarget }
+                        }));
+                    }
+
+                    self.pullingTarget = null;
+                    self.pullProgress = 0;
+                    self.wasPulling = false;
+                });
+            },
+
+            tick: function(time, delta) {
+                if (!this.pullingTarget || !this.startPos) return;
+
+                this.pullProgress += delta * 0.002; // ~0.5s to arrive
+                if (this.pullProgress >= 1) {
+                    this.pullProgress = 1;
+                }
+
+                // Get current hand position
+                var handPos = new window.THREE.Vector3();
+                this.el.object3D.getWorldPosition(handPos);
+
+                // Lerp object toward hand in world space
+                var newX = this.startPos.x + (handPos.x - this.startPos.x) * this.pullProgress;
+                var newY = this.startPos.y + (handPos.y - this.startPos.y) * this.pullProgress;
+                var newZ = this.startPos.z + (handPos.z - this.startPos.z) * this.pullProgress;
+
+                this.pullingTarget.object3D.position.set(newX, newY, newZ);
+
+                // When fully arrived, attach to hand for tracking
+                if (this.pullProgress >= 1) {
+                    console.log('[PULL-TO-HAND] Object arrived at hand, attaching');
+                    this.el.object3D.attach(this.pullingTarget.object3D);
+                }
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 13. SIMPLE-TELEPORT — Custom teleport via raycaster click
     // ═══════════════════════════════════════════════════════════════
     if (!window.AFRAME.components['simple-teleport']) {
         window.AFRAME.registerComponent('simple-teleport', {
@@ -628,7 +874,7 @@ export function registerVoyageComponents() {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 13. SMART-CONTROLLER — Show beam only when pointing at clickable
+    // 14. SMART-CONTROLLER — Show beam only when pointing at clickable
     // ═══════════════════════════════════════════════════════════════
     if (!window.AFRAME.components['smart-controller']) {
         window.AFRAME.registerComponent('smart-controller', {

@@ -63,9 +63,10 @@ export function CameraRig({ phaseTitle, phaseInstruction }: CameraRigProps) {
                 id="leftHand"
                 hand-controls="hand: left"
                 smart-controller="hand: left"
-                raycaster="objects: .clickable; far: 10"
+                raycaster="objects: .clickable, .grabbable; far: 10"
                 cursor="fuse: false; rayOrigin: entity"
                 simple-grab
+                pull-to-hand
                 left-thumbstick-listener
             >
                 {/* Wrist Button - Hamburger icon (back of wrist, facing up) */}
@@ -159,9 +160,10 @@ export function CameraRig({ phaseTitle, phaseInstruction }: CameraRigProps) {
                 id="rightHand"
                 hand-controls="hand: right"
                 smart-controller="hand: right"
-                raycaster="objects: .clickable, .teleport-floor; far: 10"
+                raycaster="objects: .clickable, .grabbable, .teleport-floor; far: 10"
                 cursor="fuse: false; rayOrigin: entity"
                 simple-grab
+                pull-to-hand
                 simple-teleport
             ></a-entity>
         </a-entity>
