@@ -729,22 +729,24 @@ export function registerVoyageComponents() {
                     self.el.setAttribute('visible', false);
                 });
 
-                // Handle click on button or its children
-                var handleClick = function() {
-                    console.log('[VOYAGE] VR Continue button clicked');
+                // Handle click/trigger on button or its children
+                var handleAdvance = function() {
+                    console.log('[VOYAGE] VR Continue button clicked/triggered');
                     // Dispatch continue event for React to handle
                     window.dispatchEvent(new CustomEvent('voyage-continue'));
                     // Hide button
                     self.el.setAttribute('visible', false);
                 };
 
-                // Listen for clicks on the element itself
-                this.el.addEventListener('click', handleClick);
+                // Listen for both click (desktop/VR) and triggerdown (VR)
+                this.el.addEventListener('click', handleAdvance);
+                this.el.addEventListener('triggerdown', handleAdvance);
 
-                // Also listen for clicks on child elements
+                // Also listen on child elements
                 var children = this.el.querySelectorAll('.clickable');
                 for (var i = 0; i < children.length; i++) {
-                    children[i].addEventListener('click', handleClick);
+                    children[i].addEventListener('click', handleAdvance);
+                    children[i].addEventListener('triggerdown', handleAdvance);
                 }
             }
         });
