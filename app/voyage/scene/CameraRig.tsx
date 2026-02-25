@@ -56,6 +56,31 @@ export function CameraRig({ phaseTitle, phaseInstruction }: CameraRigProps) {
                         text="value: Score: 0; align: center; width: 0.7; color: #FFD700; font: kelsonsans"
                     ></a-entity>
                 </a-entity>
+
+                {/* VR Info Panel - Floating organelle knowledge panel */}
+                <a-entity id="vr-info-panel" position="0 0 -1.5" visible="false">
+                    {/* Glow background */}
+                    <a-plane width="1.1" height="0.8" color="#10b981" opacity="0.1" position="0 0 -0.002"></a-plane>
+                    {/* Main panel */}
+                    <a-plane width="1.0" height="0.75" color="#0a0a12" opacity="0.95"></a-plane>
+                    {/* Top accent line */}
+                    <a-plane width="0.9" height="0.005" color="#10b981" position="0 0.35 0.001"></a-plane>
+
+                    {/* Title */}
+                    <a-text id="info-panel-title" value="Organelle Name" align="center" color="#10b981" width="1.8" position="0 0.28 0.002"></a-text>
+
+                    {/* Description */}
+                    <a-text id="info-panel-desc" value="Description of organelle..." align="left" color="#ffffff" width="0.8" position="-0.42 0.12 0.002" wrap-count="35"></a-text>
+
+                    {/* Function */}
+                    <a-text id="info-panel-function" value="Function: ..." align="left" color="#00e5ff" width="0.8" position="-0.42 -0.08 0.002" wrap-count="35"></a-text>
+
+                    {/* Close button */}
+                    <a-entity position="0 -0.28 0.002">
+                        <a-plane className="clickable" width="0.25" height="0.06" color="#ef4444" info-panel-close></a-plane>
+                        <a-text value="Close" align="center" color="#ffffff" width="0.5" position="0 0 0.001"></a-text>
+                    </a-entity>
+                </a-entity>
             </a-camera>
 
             {/* Left Hand Controller with Wrist Menu */}

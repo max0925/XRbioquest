@@ -48,6 +48,9 @@ export function registerVoyageComponents() {
                     }
                     // Phase 3/4: drag-only — clicking does nothing
                     // Phase 0, 2, 5: no click targets
+
+                    // Show info panel for organelle
+                    window.dispatchEvent(new CustomEvent('show-info-panel', { detail: { name: name } }));
                 };
 
                 // Listen for both desktop click and VR triggerdown
@@ -781,11 +784,16 @@ export function registerVoyageComponents() {
                 var handPos = new window.THREE.Vector3();
                 this.el.object3D.getWorldPosition(handPos);
                 var objPos = this.target.getAttribute('position');
+                var dx = handPos.x - objPos.x;
+                var dy = handPos.y - objPos.y;
+                var dz = handPos.z - objPos.z;
+                var dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < 0.3) { this.target = null; return; } // arrived, stop pulling
                 var speed = Math.min(1, delta * 0.005);
                 this.target.setAttribute('position', {
-                    x: objPos.x + (handPos.x - objPos.x) * speed,
-                    y: objPos.y + (handPos.y - objPos.y) * speed,
-                    z: objPos.z + (handPos.z - objPos.z) * speed
+                    x: objPos.x + dx * speed,
+                    y: objPos.y + dy * speed,
+                    z: objPos.z + dz * speed
                 });
             }
         });
@@ -836,6 +844,24 @@ export function registerVoyageComponents() {
                 });
                 this.el.addEventListener('raycaster-intersection-cleared', function() {
                     self.beam.setAttribute('visible', false);
+                });
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 15. INFO-PANEL-CLOSE — Close info panel on click/trigger
+    // ═══════════════════════════════════════════════════════════════
+    if (!window.AFRAME.components['info-panel-close']) {
+        window.AFRAME.registerComponent('info-panel-close', {
+            init: function() {
+                this.el.addEventListener('click', function() {
+                    var p = document.getElementById('vr-info-panel');
+                    if (p) p.setAttribute('visible', false);
+                });
+                this.el.addEventListener('triggerdown', function() {
+                    var p = document.getElementById('vr-info-panel');
+                    if (p) p.setAttribute('visible', false);
                 });
             }
         });

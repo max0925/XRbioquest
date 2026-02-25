@@ -293,11 +293,24 @@ export default function VoyagePage() {
       if (dragPhase === 2) {
         const elapsed = (Date.now() - phaseStartTime.current) / 1000;
         const bonus = elapsed < 10 ? 50 : 0;
+        const totalPoints = (PHASES[2].points || 150) + bonus;
+
         setScore(prev => {
-          const newScore = prev + (PHASES[2].points || 150) + bonus;
+          const newScore = prev + totalPoints;
           window.currentScore = newScore; // Sync to window
+
+          // Advance to phase 3
+          setCurrentPhase(3);
+          window.currentPhase = 3;
+
+          // Dispatch phase-changed-vr for VR systems
+          window.dispatchEvent(new CustomEvent('phase-changed-vr', {
+            detail: { phase: 3, score: newScore }
+          }));
+
           return newScore;
         });
+
         if (bonus > 0) console.log('[VOYAGE] ⚡ Speed bonus! +50');
         setKnowledgeCardData(KNOWLEDGE_CARDS[2]);
         setShowKnowledgeCard(true);
@@ -308,13 +321,31 @@ export default function VoyagePage() {
           if (next.count >= next.total) {
             setKnowledgeCardData(KNOWLEDGE_CARDS[3]);
             setShowKnowledgeCard(true);
+
+            // Advance to phase 4 after completing all 3 proteins
+            setScore(s => {
+              const newScore = s + (PHASES[3].points || 100);
+              window.currentScore = newScore;
+
+              setCurrentPhase(4);
+              window.currentPhase = 4;
+
+              // Dispatch phase-changed-vr for VR systems
+              window.dispatchEvent(new CustomEvent('phase-changed-vr', {
+                detail: { phase: 4, score: newScore }
+              }));
+
+              return newScore;
+            });
+          } else {
+            // Not done yet, just update score
+            setScore(s => {
+              const newScore = s + (PHASES[3].points || 100);
+              window.currentScore = newScore;
+              return newScore;
+            });
           }
           return next;
-        });
-        setScore(prev => {
-          const newScore = prev + (PHASES[3].points || 100);
-          window.currentScore = newScore; // Sync to window
-          return newScore;
         });
       } else if (dragPhase === 4) {
         setPhaseProgress(prev => {
@@ -323,13 +354,31 @@ export default function VoyagePage() {
           if (nextStep >= prev.total) {
             setKnowledgeCardData(KNOWLEDGE_CARDS[4]);
             setShowKnowledgeCard(true);
+
+            // Advance to phase 5 after completing the chain
+            setScore(s => {
+              const newScore = s + (PHASES[4].points || 100);
+              window.currentScore = newScore;
+
+              setCurrentPhase(5);
+              window.currentPhase = 5;
+
+              // Dispatch phase-changed-vr for VR systems
+              window.dispatchEvent(new CustomEvent('phase-changed-vr', {
+                detail: { phase: 5, score: newScore }
+              }));
+
+              return newScore;
+            });
+          } else {
+            // Not done yet, just update score
+            setScore(s => {
+              const newScore = s + (PHASES[4].points || 100);
+              window.currentScore = newScore;
+              return newScore;
+            });
           }
           return { ...prev, step: nextStep, count: nextStep };
-        });
-        setScore(prev => {
-          const newScore = prev + (PHASES[4].points || 100);
-          window.currentScore = newScore; // Sync to window
-          return newScore;
         });
       }
     };
@@ -352,6 +401,36 @@ export default function VoyagePage() {
     };
     window.addEventListener('wrong-click', handler);
     return () => window.removeEventListener('wrong-click', handler);
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // EVENT: show-info-panel (display organelle knowledge panel in VR)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const name = e.detail?.name;
+      if (!name) return;
+
+      // Find organelle data
+      const organelle = ORGANELLES.find(org => org.name === name);
+      if (!organelle) return;
+
+      // Update panel content
+      const titleEl = document.getElementById('info-panel-title');
+      const descEl = document.getElementById('info-panel-desc');
+      const funcEl = document.getElementById('info-panel-function');
+      const panelEl = document.getElementById('vr-info-panel');
+
+      if (titleEl) titleEl.setAttribute('value', organelle.name);
+      if (descEl) descEl.setAttribute('value', organelle.description || 'No description available');
+      if (funcEl) funcEl.setAttribute('value', `Function: ${organelle.function || 'N/A'}`);
+      if (panelEl) panelEl.setAttribute('visible', 'true');
+
+      console.log('[INFO-PANEL] Showing panel for:', organelle.name);
+    };
+    window.addEventListener('show-info-panel', handler);
+    return () => window.removeEventListener('show-info-panel', handler);
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════
