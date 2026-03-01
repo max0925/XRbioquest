@@ -425,9 +425,13 @@ export default function VoyagePage() {
       if (titleEl) titleEl.setAttribute('value', organelle.name);
       if (descEl) descEl.setAttribute('value', organelle.description || 'No description available');
       if (funcEl) funcEl.setAttribute('value', `Function: ${organelle.function || 'N/A'}`);
-      if (panelEl) panelEl.setAttribute('visible', 'true');
 
-      console.log('[INFO-PANEL] Showing panel for:', organelle.name);
+      // Only show panel in VR mode
+      var scene = document.querySelector('a-scene');
+      if (panelEl && scene && scene.is('vr-mode')) {
+        panelEl.setAttribute('visible', 'true');
+        console.log('[INFO-PANEL] Showing panel for:', organelle.name);
+      }
     };
     window.addEventListener('show-info-panel', handler);
     return () => window.removeEventListener('show-info-panel', handler);
