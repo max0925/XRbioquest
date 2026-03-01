@@ -401,23 +401,6 @@ export default function VoyagePage() {
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════
-  // EVENT: wrong-click (flash hint text)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    const handler = (e: any) => {
-      const name = e.detail?.name || 'that organelle';
-      setWrongClickHint(`That's the ${name} — try clicking the Mitochondria!`);
-      if (wrongClickTimer.current) clearTimeout(wrongClickTimer.current);
-      wrongClickTimer.current = setTimeout(() => {
-        setWrongClickHint(null);
-      }, 2500);
-    };
-    window.addEventListener('wrong-click', handler);
-    return () => window.removeEventListener('wrong-click', handler);
-  }, []);
-
-  // ═══════════════════════════════════════════════════════════════════════
   // EVENT: show-info-panel (display organelle knowledge panel in VR)
   // ═══════════════════════════════════════════════════════════════════════
 

@@ -42,8 +42,6 @@ export function registerVoyageComponents() {
                         if (name === 'Mitochondria') {
                             window.dispatchEvent(new CustomEvent('phase-advance'));
                             window.dispatchEvent(new CustomEvent('show-knowledge', { detail: { phase: 1 } }));
-                        } else {
-                            window.dispatchEvent(new CustomEvent('wrong-click', { detail: { name: name } }));
                         }
                     }
                     // Phase 3/4: drag-only — clicking does nothing
