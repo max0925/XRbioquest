@@ -48,9 +48,6 @@ export function registerVoyageComponents() {
                     }
                     // Phase 3/4: drag-only — clicking does nothing
                     // Phase 0, 2, 5: no click targets
-
-                    // Show info panel for organelle
-                    window.dispatchEvent(new CustomEvent('show-info-panel', { detail: { name: name } }));
                 };
 
                 // Listen for both desktop click and VR triggerdown
