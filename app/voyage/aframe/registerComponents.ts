@@ -222,13 +222,15 @@ export function registerVoyageComponents() {
                         return;
                     }
 
-                    // Read local position from DOM attribute
-                    var currentPos = self.el.getAttribute('position');
+                    // Read world position (not local) to handle nested entities correctly
+                    var worldPos = new window.THREE.Vector3();
+                    self.el.object3D.getWorldPosition(worldPos);
+                    var currentPos = { x: worldPos.x, y: worldPos.y, z: worldPos.z };
                     var dx = currentPos.x - targetPos.x;
                     var dy = currentPos.y - targetPos.y;
                     var dz = currentPos.z - targetPos.z;
                     var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    console.log('[DRAG] Local distance to', targetInfo.name + ':', dist.toFixed(2));
+                    console.log('[DRAG] World distance to', targetInfo.name + ':', dist.toFixed(2));
 
                     // Phase-dependent snap distance: 3.0 for phase 2, 4.0 for phase 3, 2.0 for others
                     var snapDist = phase === 2 ? 3.0 : phase === 3 ? 4.0 : self.data.snapDistance;
@@ -303,13 +305,15 @@ export function registerVoyageComponents() {
                             return;
                         }
 
-                        // Check distance
-                        var currentPos = self.el.getAttribute('position');
+                        // Check distance using world position (not local) to handle nested entities correctly
+                        var worldPos = new window.THREE.Vector3();
+                        self.el.object3D.getWorldPosition(worldPos);
+                        var currentPos = { x: worldPos.x, y: worldPos.y, z: worldPos.z };
                         var dx = currentPos.x - targetPos.x;
                         var dy = currentPos.y - targetPos.y;
                         var dz = currentPos.z - targetPos.z;
                         var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                        console.log('[DRAG] Pull-release distance to', targetInfo.name + ':', dist.toFixed(2));
+                        console.log('[DRAG] Pull-release world distance to', targetInfo.name + ':', dist.toFixed(2));
 
                         var snapDist = phase === 2 ? 3.0 : phase === 3 ? 4.0 : self.data.snapDistance;
                         if (dist < snapDist) {
