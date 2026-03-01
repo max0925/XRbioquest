@@ -123,11 +123,25 @@ export default function VoyagePage() {
 
       registerVoyageComponents();
 
+      // Q/E vertical movement handler
+      const handleQE = (evt) => {
+        const key = evt.key.toLowerCase();
+        const rig = document.getElementById('camera-rig');
+        if (!rig) return;
+        const pos = rig.getAttribute('position');
+        if (key === 'q') rig.setAttribute('position', {x: pos.x, y: pos.y - 0.5, z: pos.z});
+        if (key === 'e') rig.setAttribute('position', {x: pos.x, y: pos.y + 0.5, z: pos.z});
+      };
+      window.addEventListener('keydown', handleQE);
+
       const timer = setTimeout(() => {
         setReady(true);
         console.log('[VOYAGE] ✓ A-Frame initialized and ready!');
       }, 150);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('keydown', handleQE);
+      };
     }
   }, [sceneLoaded]);
 

@@ -178,20 +178,12 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
                 <a-entity position="-0.5 2 -3">
                     <a-gltf-model
                         src={`${SUPABASE}/keratine_chains__vlakna_keratinu.glb`}
-                        scale="1 1 1"
-                        auto-scale="target: 0.3"
+                        scale="0.005 0.005 0.005"
                         crossorigin="anonymous"
                         class="clickable grabbable"
                         data-name="Polypeptide"
-                        game-draggable="name: Polypeptide; snapDistance: 0.8"
+                        game-draggable="name: Polypeptide; snapDistance: 3.0"
                     ></a-gltf-model>
-                    {/* Glowing ring indicator */}
-                    <a-entity
-                        geometry="primitive: torus; radius: 0.4; radiusTubular: 0.015"
-                        material="color: #F59E0B; emissive: #F59E0B; emissiveIntensity: 0.6; transparent: true; opacity: 0.7"
-                        rotation="-90 0 0"
-                        animation="property: rotation; to: -90 360 0; loop: true; dur: 4000; easing: linear"
-                    ></a-entity>
                     <a-entity
                         position="0 -0.5 0"
                         text="value: Polypeptide; align: center; width: 2.5; color: #F59E0B; font: kelsonsans"
@@ -211,7 +203,7 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
                         material="emissive: #F59E0B; emissiveIntensity: 0.3"
                         class="clickable grabbable"
                         data-name="Processed Protein"
-                        game-draggable="name: Processed Protein; snapDistance: 0.8"
+                        game-draggable="name: Processed Protein; snapDistance: 3.0"
                     ></a-sphere>
                     <a-sphere
                         radius="0.28"
