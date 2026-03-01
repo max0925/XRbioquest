@@ -765,6 +765,9 @@ export function registerVoyageComponents() {
                 this.target = null;
 
                 this.el.addEventListener('triggerdown', function() {
+                    var scene = document.querySelector('a-scene');
+                    if (!scene || !scene.is('vr-mode')) return;
+
                     var rc = self.el.components.raycaster;
                     if (!rc || !rc.intersections.length) return;
                     var hit = rc.intersections[0];
@@ -780,6 +783,9 @@ export function registerVoyageComponents() {
             },
 
             tick: function(time, delta) {
+                var scene = document.querySelector('a-scene');
+                if (!scene || !scene.is('vr-mode')) return;
+
                 if (!this.target) return;
                 var handPos = new window.THREE.Vector3();
                 this.el.object3D.getWorldPosition(handPos);
