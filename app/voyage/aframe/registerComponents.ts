@@ -213,7 +213,7 @@ export function registerVoyageComponents() {
 
                     var targetInfo = getSnapTarget(phase);
                     if (!targetInfo) {
-                        if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
+                        if (phase !== 3 && self.originalPosition) self.el.setAttribute('position', self.originalPosition);
                         return;
                     }
 
@@ -221,7 +221,7 @@ export function registerVoyageComponents() {
                     var targetPos = getSnapPosition(targetInfo.name);
                     if (!targetPos) {
                         console.log('[DRAG] No snap position for:', targetInfo.name);
-                        if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
+                        if (phase !== 3 && self.originalPosition) self.el.setAttribute('position', self.originalPosition);
                         return;
                     }
 
@@ -267,10 +267,13 @@ export function registerVoyageComponents() {
                         }));
                         snapped = true;
                     } else {
-                        // ── FAIL — instant return to original ──
-                        console.log('[DRAG] ✗ Too far, returning to', self.originalPosition);
-                        if (self.originalPosition) {
+                        // ── FAIL — return to original (except phase 3, leave where dropped) ──
+                        console.log('[DRAG] ✗ Too far from target');
+                        if (window.currentPhase !== 3 && self.originalPosition) {
+                            console.log('[DRAG] Returning to', self.originalPosition);
                             self.el.setAttribute('position', self.originalPosition);
+                        } else if (window.currentPhase === 3) {
+                            console.log('[DRAG] Phase 3: leaving where dropped');
                         }
                     }
 
@@ -296,7 +299,7 @@ export function registerVoyageComponents() {
 
                         var targetInfo = getSnapTarget(phase);
                         if (!targetInfo) {
-                            if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
+                            if (phase !== 3 && self.originalPosition) self.el.setAttribute('position', self.originalPosition);
                             self.dragStarted = false;
                             return;
                         }
@@ -304,7 +307,7 @@ export function registerVoyageComponents() {
                         var targetPos = getSnapPosition(targetInfo.name);
                         if (!targetPos) {
                             console.log('[DRAG] No snap position for:', targetInfo.name);
-                            if (self.originalPosition) self.el.setAttribute('position', self.originalPosition);
+                            if (phase !== 3 && self.originalPosition) self.el.setAttribute('position', self.originalPosition);
                             self.dragStarted = false;
                             return;
                         }
@@ -348,9 +351,12 @@ export function registerVoyageComponents() {
                             }));
                             snapped = true;
                         } else {
-                            console.log('[DRAG] ✗ Pull too far, returning to', self.originalPosition);
-                            if (self.originalPosition) {
+                            console.log('[DRAG] ✗ Pull too far from target');
+                            if (phase !== 3 && self.originalPosition) {
+                                console.log('[DRAG] Returning to', self.originalPosition);
                                 self.el.setAttribute('position', self.originalPosition);
+                            } else if (phase === 3) {
+                                console.log('[DRAG] Phase 3: leaving where dropped');
                             }
                         }
 
