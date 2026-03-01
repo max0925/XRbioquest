@@ -178,7 +178,8 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
                 <a-entity position="-0.5 2 -3">
                     <a-gltf-model
                         src={`${SUPABASE}/keratine_chains__vlakna_keratinu.glb`}
-                        scale="0.3 0.3 0.3"
+                        scale="1 1 1"
+                        auto-scale="target: 0.3"
                         crossorigin="anonymous"
                         class="clickable grabbable"
                         data-name="Polypeptide"
