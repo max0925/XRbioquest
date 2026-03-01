@@ -144,20 +144,18 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
                 // Hide proteins that have already been delivered
                 if (i < deliveredCount) return null;
                 return (
-                    <a-entity
+                    <a-sphere
                         key={`damaged-protein-${i}`}
+                        radius="0.15"
+                        color="#94A3B8"
+                        opacity="0.8"
+                        material="transparent: true"
+                        class="clickable grabbable"
+                        data-name="Damaged Protein"
+                        data-index={String(i)}
                         position={`${pos.x} ${pos.y} ${pos.z}`}
+                        game-draggable="name: Damaged Protein; snapDistance: 4.0"
                     >
-                        <a-sphere
-                            radius="0.15"
-                            color="#94A3B8"
-                            opacity="0.8"
-                            material="transparent: true"
-                            class="clickable grabbable"
-                            data-name="Damaged Protein"
-                            data-index={String(i)}
-                            game-draggable={`name: Damaged Protein; snapDistance: 0.8`}
-                        ></a-sphere>
                         {/* Pulsing glow to indicate interactivity */}
                         <a-sphere
                             radius="0.2"
@@ -169,7 +167,7 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
                             position="0 -0.3 0"
                             text={`value: Protein ${i + 1}; align: center; width: 2; color: #94A3B8; font: kelsonsans`}
                         ></a-entity>
-                    </a-entity>
+                    </a-sphere>
                 );
             })}
 
