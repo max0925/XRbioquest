@@ -107,6 +107,7 @@ export function registerVoyageComponents() {
                 self.isDragging = false;
                 self.dragStarted = false;
                 self.originalPosition = null;
+                var snapped = false;
 
                 // Hardcoded snap target positions (from organelles.ts config)
                 var SNAP_POSITIONS = {
@@ -141,6 +142,8 @@ export function registerVoyageComponents() {
 
                 // ── Start Drag Handler (shared by mouse and VR) ──
                 var startDrag = function (evt) {
+                    if (snapped) return;
+
                     var name = self.el.getAttribute('data-name');
                     var phase = window.currentPhase;
                     console.log('[DRAG] Start drag on', name, 'phase:', phase);
@@ -262,6 +265,7 @@ export function registerVoyageComponents() {
                         window.dispatchEvent(new CustomEvent('drag-success', {
                             detail: { phase: phase, item: name }
                         }));
+                        snapped = true;
                     } else {
                         // ── FAIL — instant return to original ──
                         console.log('[DRAG] ✗ Too far, returning to', self.originalPosition);
@@ -342,6 +346,7 @@ export function registerVoyageComponents() {
                             window.dispatchEvent(new CustomEvent('drag-success', {
                                 detail: { phase: phase, item: name }
                             }));
+                            snapped = true;
                         } else {
                             console.log('[DRAG] ✗ Pull too far, returning to', self.originalPosition);
                             if (self.originalPosition) {
