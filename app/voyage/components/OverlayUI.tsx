@@ -179,7 +179,7 @@ export function OverlayUI({
 
             {/* ─── PHASE 5 CELEBRATION ─── */}
             {currentPhase === 5 && (
-                <div className="absolute inset-0 pointer-events-none">
+                <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 99999 }}>
                     {/* Confetti */}
                     {Array.from({ length: 50 }).map((_, i) => (
                         <div
