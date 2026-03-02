@@ -140,36 +140,24 @@ export function PhaseObjects({ currentPhase, phaseProgress }: PhaseObjectsProps)
             {/* ═══════════════════════════════════════════════════════════════
           PHASE 3: 3 damaged protein spheres
       ═══════════════════════════════════════════════════════════════ */}
-            {currentPhase === 3 && DAMAGED_PROTEIN_POSITIONS.map((pos, i) => {
-                // Hide proteins that have already been delivered
-                if (i < deliveredCount) return null;
-                return (
-                    <a-sphere
-                        key={`damaged-protein-${i}`}
-                        radius="0.15"
-                        color="#94A3B8"
-                        opacity="0.8"
-                        material="transparent: true"
-                        class="clickable grabbable"
-                        data-name="Damaged Protein"
-                        data-index={String(i)}
-                        position={`${pos.x} ${pos.y} ${pos.z}`}
-                        game-draggable="name: Damaged Protein; snapDistance: 4.0"
-                    >
-                        {/* Pulsing glow to indicate interactivity */}
-                        <a-sphere
-                            radius="0.2"
-                            material="color: #94A3B8; emissive: #94A3B8; emissiveIntensity: 0.4; transparent: true; opacity: 0.3"
-                            animation="property: scale; to: 1.3 1.3 1.3; dir: alternate; loop: true; dur: 800; easing: easeInOutSine"
-                        ></a-sphere>
-                        {/* Label */}
-                        <a-entity
-                            position="0 -0.3 0"
-                            text={`value: Protein ${i + 1}; align: center; width: 2; color: #94A3B8; font: kelsonsans`}
-                        ></a-entity>
-                    </a-sphere>
-                );
-            })}
+            {currentPhase === 3 && DAMAGED_PROTEIN_POSITIONS.map((pos, i) => (
+                <a-sphere
+                    key={`damaged-protein-${i}`}
+                    radius="0.15"
+                    color="#94A3B8"
+                    material="color: #94A3B8; transparent: false"
+                    class="clickable grabbable"
+                    data-name="Damaged Protein"
+                    data-index={String(i)}
+                    position={`${pos.x} ${pos.y} ${pos.z}`}
+                    game-draggable="name: Damaged Protein; snapDistance: 4.0"
+                >
+                    <a-entity
+                        position="0 -0.3 0"
+                        text={`value: Protein ${i + 1}; align: center; width: 2; color: #94A3B8; font: kelsonsans`}
+                    ></a-entity>
+                </a-sphere>
+            ))}
 
             {/* ═══════════════════════════════════════════════════════════════
           PHASE 4, Step 0: Polypeptide chain (draggable → ER)
