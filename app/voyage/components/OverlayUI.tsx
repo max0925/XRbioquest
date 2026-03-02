@@ -137,6 +137,59 @@ export function OverlayUI({
                 </div>
             </div>
 
+            {/* ─── CONTROLS HINT — left side ─── */}
+            {currentPhase >= 1 && currentPhase <= 4 && (
+                <div
+                    className="absolute left-5 pointer-events-none"
+                    style={{
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: '200px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.82)',
+                        border: '1px solid rgba(0, 229, 255, 0.15)',
+                        backdropFilter: 'blur(12px)',
+                        borderRadius: '16px',
+                        padding: '16px',
+                        fontFamily: 'system-ui',
+                    }}
+                >
+                    <div style={{ color: '#00e5ff', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>
+                        Controls
+                    </div>
+                    {[
+                        { key: 'W A S D', desc: 'Move around' },
+                        { key: 'E', desc: 'Move up' },
+                        { key: 'Q', desc: 'Move down' },
+                        { key: 'Mouse drag', desc: 'Look around' },
+                        { key: 'Click + drag', desc: 'Grab objects' },
+                    ].map(({ key, desc }) => (
+                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '7px' }}>
+                            <span style={{
+                                backgroundColor: 'rgba(0,229,255,0.1)',
+                                color: '#00e5ff',
+                                borderRadius: '6px',
+                                padding: '2px 7px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                fontFamily: 'monospace',
+                                border: '1px solid rgba(0,229,255,0.2)',
+                            }}>{key}</span>
+                            <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '10px', marginLeft: '8px', textAlign: 'right', flex: 1 }}>{desc}</span>
+                        </div>
+                    ))}
+                    <div style={{
+                        marginTop: '10px',
+                        paddingTop: '10px',
+                        borderTop: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(251,191,36,0.9)',
+                        fontSize: '10px',
+                        lineHeight: '1.5',
+                    }}>
+                        💡 Tip: If grabbing feels unresponsive, try approaching objects from different angles
+                    </div>
+                </div>
+            )}
+
             {/* ─── KNOWLEDGE CARD — slide in from bottom-right ─── */}
             {showKnowledgeCard && knowledgeCardData && (
                 <div
