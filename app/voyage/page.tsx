@@ -12,6 +12,7 @@ import { OrganelleEntities } from './scene/OrganelleEntities';
 import { PhaseObjects } from './scene/PhaseObjects';
 import { CameraRig } from './scene/CameraRig';
 import { Lighting } from './scene/Lighting';
+import WebGLCheck from './components/WebGLCheck';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VOYAGE INSIDE THE CELL — 6-Phase VR Biology Game
@@ -464,61 +465,63 @@ export default function VoyagePage() {
 
   return (
     <div className="h-screen w-screen bg-transparent">
-      <a-scene
-        embedded
-        vr-mode-ui="enabled: false"
-        renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-        cursor="rayOrigin: mouse; fuse: false"
-        raycaster="objects: [game-clickable], [game-draggable], [data-draggable]; far: 100"
-      >
-        {/* AI Skybox */}
-        {skyboxUrl ? (
-          <a-sky src={skyboxUrl} rotation="0 -130 0"></a-sky>
-        ) : (
-          <a-sky color="#0f172a" rotation="0 -130 0"></a-sky>
-        )}
+      <WebGLCheck>
+        <a-scene
+          embedded
+          vr-mode-ui="enabled: false"
+          renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: [game-clickable], [game-draggable], [data-draggable]; far: 100"
+        >
+          {/* AI Skybox */}
+          {skyboxUrl ? (
+            <a-sky src={skyboxUrl} rotation="0 -130 0"></a-sky>
+          ) : (
+            <a-sky color="#0f172a" rotation="0 -130 0"></a-sky>
+          )}
 
-        {/* Cursor Reticle */}
-        <a-entity
-          cursor="fuse: false"
-          raycaster="objects: .clickable; far: 100"
-          position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
-          material="color: #00e5ff; shader: flat"
-        ></a-entity>
+          {/* Cursor Reticle */}
+          <a-entity
+            cursor="fuse: false"
+            raycaster="objects: .clickable; far: 100"
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
+            material="color: #00e5ff; shader: flat"
+          ></a-entity>
 
-        {/* Organelle Models */}
-        <OrganelleEntities
-          phaseInfo={phaseInfo}
-          currentPhase={currentPhase}
-          completedPhases={completedPhases}
-        />
+          {/* Organelle Models */}
+          <OrganelleEntities
+            phaseInfo={phaseInfo}
+            currentPhase={currentPhase}
+            completedPhases={completedPhases}
+          />
 
-        {/* Phase-specific objects (draggable proteins, polypeptide, ATP burst, etc.) */}
-        <PhaseObjects
-          currentPhase={currentPhase}
-          phaseProgress={phaseProgress}
-        />
+          {/* Phase-specific objects (draggable proteins, polypeptide, ATP burst, etc.) */}
+          <PhaseObjects
+            currentPhase={currentPhase}
+            phaseProgress={phaseProgress}
+          />
 
-        {/* PBR Lighting */}
-        <Lighting />
+          {/* PBR Lighting */}
+          <Lighting />
 
-        {/* VR Camera Rig */}
-        <CameraRig
-          phaseTitle={phase.title}
-          phaseInstruction={phase.instruction}
-        />
+          {/* VR Camera Rig */}
+          <CameraRig
+            phaseTitle={phase.title}
+            phaseInstruction={phase.instruction}
+          />
 
-        {/* Teleport Floor - invisible plane for teleport-controls */}
-        <a-plane
-          class="teleport-floor"
-          position="0 -1 0"
-          rotation="-90 0 0"
-          width="20"
-          height="20"
-          material="color: #10b981; opacity: 0.1; transparent: true; visible: false"
-        ></a-plane>
-      </a-scene>
+          {/* Teleport Floor - invisible plane for teleport-controls */}
+          <a-plane
+            class="teleport-floor"
+            position="0 -1 0"
+            rotation="-90 0 0"
+            width="20"
+            height="20"
+            material="color: #10b981; opacity: 0.1; transparent: true; visible: false"
+          ></a-plane>
+        </a-scene>
+      </WebGLCheck>
 
       {/* CSS Animations */}
       <style jsx>{`

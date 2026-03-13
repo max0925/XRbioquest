@@ -32,8 +32,8 @@ export function OrganelleEntities({ phaseInfo, currentPhase, completedPhases }: 
                         position={`${organelle.position.x} ${organelle.position.y} ${organelle.position.z}`}
                         rotation="0 0 0"
                         scale="1 1 1"
-                        geometry={isGlucose ? "primitive: box; width: 0.4; height: 0.4; depth: 0.4" : "primitive: box; width: 0.5; height: 0.6; depth: 0.5"}
-                        material="visible: false"
+                        geometry={isGlucose ? "primitive: sphere; radius: 0.4" : "primitive: box; width: 0.5; height: 0.6; depth: 0.5"}
+                        material={isGlucose ? "color: #F97316; opacity: 0.15; transparent: true" : "visible: false"}
                         class="clickable grabbable cursor-listener"
                         data-name={organelle.name}
                         game-clickable={`name: ${organelle.name}; targetPhase: ${targetPhase}`}
