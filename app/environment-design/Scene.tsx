@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { isWebGLAvailable } from "./utils/webgl";
 
 interface AIState {
   skybox_style?: string;
@@ -31,6 +32,11 @@ export default function Scene({
   const sceneRef = useRef(null);
   const [loadingModels, setLoadingModels] = useState<Map<string, number>>(new Map());
 
+  // Error handling state
+  const [webglSupported, setWebglSupported] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const initTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Notify parent of loading state changes
   useEffect(() => {
     if (onLoadingStateChange) {
@@ -40,25 +46,69 @@ export default function Scene({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (!window.AFRAME) {
-        require("aframe");
-        require("aframe-environment-component");
-        require("aframe-extras");
+      // 1. Check WebGL availability first
+      const webglAvailable = isWebGLAvailable();
+      setWebglSupported(webglAvailable);
+
+      if (!webglAvailable) {
+        setLoadError('webgl-unavailable');
+        return;
       }
 
-      // Load aframe-transformer-component
-      if (!document.querySelector('script[src*="aframe-transformer-component"]')) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/aframe-transformer-component@1.2.0/dist/aframe-transformer-component.min.js';
-        script.async = false;
-        document.head.appendChild(script);
-      }
+      // 2. Set timeout fallback (10 seconds)
+      initTimeoutRef.current = setTimeout(() => {
+        if (!ready) {
+          setLoadError('timeout');
+        }
+      }, 10000);
 
-      const timer = setTimeout(() => {
-        setReady(true);
-        window.dispatchEvent(new Event('resize'));
-      }, 150);
-      return () => clearTimeout(timer);
+      try {
+        // 3. Load A-Frame core libraries with error handling
+        if (!window.AFRAME) {
+          require("aframe");
+          require("aframe-environment-component");
+          require("aframe-extras");
+        }
+
+        // 4. Load aframe-transformer-component with error handler
+        if (!document.querySelector('script[src*="aframe-transformer-component"]')) {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/aframe-transformer-component@1.2.0/dist/aframe-transformer-component.min.js';
+          script.async = false;
+
+          script.onerror = () => {
+            setLoadError('script-load-failed');
+            if (initTimeoutRef.current) {
+              clearTimeout(initTimeoutRef.current);
+            }
+          };
+
+          document.head.appendChild(script);
+        }
+
+        const timer = setTimeout(() => {
+          setReady(true);
+          window.dispatchEvent(new Event('resize'));
+
+          // Clear timeout on successful init
+          if (initTimeoutRef.current) {
+            clearTimeout(initTimeoutRef.current);
+          }
+        }, 150);
+
+        return () => {
+          clearTimeout(timer);
+          if (initTimeoutRef.current) {
+            clearTimeout(initTimeoutRef.current);
+          }
+        };
+      } catch (error) {
+        console.error('[SCENE] A-Frame initialization error:', error);
+        setLoadError('aframe-load-failed');
+        if (initTimeoutRef.current) {
+          clearTimeout(initTimeoutRef.current);
+        }
+      }
     }
   }, []);
 
@@ -778,7 +828,122 @@ export default function Scene({
     };
   }, [ready, sceneAssets]);
 
-  if (!ready) return <div className="w-full h-full bg-[#0A0A0A]" />;
+  // Error Fallback UI
+  if (loadError || webglSupported === false) {
+    const getErrorMessage = () => {
+      if (webglSupported === false || loadError === 'webgl-unavailable') {
+        return {
+          title: '3D preview could not load',
+          body: 'Your browser may not support WebGL, or hardware acceleration may be disabled.',
+          action: 'Try using Chrome or enable hardware acceleration in browser settings.',
+          link: { text: 'How to enable hardware acceleration', url: 'chrome://settings/system' }
+        };
+      }
+      if (loadError === 'script-load-failed') {
+        return {
+          title: '3D preview could not load',
+          body: 'Failed to load required 3D rendering libraries. This may be due to network issues or browser restrictions.',
+          action: 'Check your internet connection or try refreshing the page.',
+          link: null
+        };
+      }
+      if (loadError === 'timeout') {
+        return {
+          title: '3D preview is taking longer than expected',
+          body: 'The 3D viewport failed to initialize. This may be due to browser restrictions or firewall settings.',
+          action: 'Try refreshing the page or using a different browser.',
+          link: null
+        };
+      }
+      // Default error
+      return {
+        title: '3D preview could not start',
+        body: 'An unexpected error occurred while initializing the 3D viewport.',
+        action: 'Try refreshing the page or contact support if the issue persists.',
+        link: null
+      };
+    };
+
+    const error = getErrorMessage();
+
+    return (
+      <div className="w-full h-full bg-[#0A0A0A] flex items-center justify-center p-8">
+        <div className="max-w-md text-center">
+          {/* Error Icon */}
+          <div className="mb-6 flex justify-center">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700">
+              <svg
+                className="w-8 h-8 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Error Title */}
+          <h2
+            className="text-xl font-bold text-white mb-3"
+            style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+          >
+            {error.title}
+          </h2>
+
+          {/* Error Body */}
+          <p
+            className="text-gray-400 mb-4 leading-relaxed"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            {error.body}
+          </p>
+
+          {/* Action */}
+          <p
+            className="text-gray-500 text-sm mb-6"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          >
+            {error.action}
+          </p>
+
+          {/* Link */}
+          {error.link && (
+            <a
+              href={error.link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-emerald-500 hover:text-emerald-400 font-medium text-sm border-b border-emerald-500/30 hover:border-emerald-400 transition-colors"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              {error.link.text}
+            </a>
+          )}
+
+          {/* Retry Button */}
+          <div className="mt-8">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-lg"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state (brief flash prevention)
+  if (!ready || webglSupported === null) {
+    return <div className="w-full h-full bg-[#0A0A0A]" />;
+  }
 
   return (
     <>
