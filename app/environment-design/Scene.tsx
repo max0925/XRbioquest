@@ -70,45 +70,6 @@ export default function Scene({
           require("aframe-extras");
         }
 
-        // 4. Load aframe-transformer-component in background (non-blocking)
-        // Scene works without it - just no transform gizmos
-        if (!document.querySelector('script[src*="aframe-transformer-component"]')) {
-          const loadTransformerWithRetry = (urls: string[], retryCount = 0, maxRetries = 2) => {
-            if (retryCount >= urls.length * (maxRetries + 1)) {
-              console.warn('[SCENE] Failed to load aframe-transformer-component after all retries. Transform gizmos will not be available.');
-              return;
-            }
-
-            const urlIndex = Math.floor(retryCount / (maxRetries + 1));
-            const url = urls[urlIndex];
-            const script = document.createElement('script');
-            script.src = url;
-            script.async = true; // Non-blocking
-
-            script.onload = () => {
-              console.log('[SCENE] aframe-transformer-component loaded successfully from:', url);
-            };
-
-            script.onerror = () => {
-              console.warn(`[SCENE] Failed to load aframe-transformer-component from ${url}, retry ${retryCount + 1}`);
-              // Retry after 2 seconds
-              setTimeout(() => {
-                loadTransformerWithRetry(urls, retryCount + 1, maxRetries);
-              }, 2000);
-            };
-
-            document.head.appendChild(script);
-          };
-
-          // Try unpkg first, then jsdelivr as fallback
-          const cdnUrls = [
-            'https://unpkg.com/aframe-transformer-component@1.2.0/dist/aframe-transformer-component.min.js',
-            'https://cdn.jsdelivr.net/npm/aframe-transformer-component@1.2.0/dist/aframe-transformer-component.min.js',
-          ];
-
-          loadTransformerWithRetry(cdnUrls);
-        }
-
         const timer = setTimeout(() => {
           setReady(true);
           window.dispatchEvent(new Event('resize'));
