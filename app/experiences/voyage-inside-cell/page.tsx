@@ -111,11 +111,11 @@ export default function VoyageInsideCellPage() {
           </h1>
 
           <p style={{ fontSize: 18, lineHeight: 1.7, color: "#7a90b8", maxWidth: 520, marginBottom: 40, animation: "fadeUp 0.6s 0.2s ease both" }}>
-            A 4-minute immersive VR biology game where students become cellular doctors — repairing organelles and learning cell biology by doing.
+            A 5-minute immersive VR biology game where students explore, interact, and master cell biology through hands-on challenges — earning points and unlocking AP/IB-aligned knowledge cards along the way.
           </p>
 
           <div style={{ display: "flex", gap: 32, marginBottom: 48, animation: "fadeUp 0.6s 0.3s ease both" }}>
-            {[["4 min", "Play Time"], ["5", "Phases"], ["4", "Concepts Taught"], ["90%", "Engagement Lift"]].map(([num, label]) => (
+            {[["5 min", "Play Time"], ["6", "Phases"], ["4", "Concepts Taught"], ["750+", "Total Points"]].map(([num, label]) => (
               <div key={label} style={{ textAlign: "center" }}>
                 <span className="syne" style={{ fontSize: 28, fontWeight: 800, color: "#10b981", display: "block" }}>{num}</span>
                 <span style={{ fontSize: 12, color: "#7a90b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
@@ -160,10 +160,10 @@ export default function VoyageInsideCellPage() {
       <section id="phases" style={{ padding: "100px 48px", maxWidth: 1200, margin: "0 auto" }}>
         <p style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "#10b981", marginBottom: 16 }}>The Premise</p>
         <h2 className="syne" style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.1, marginBottom: 20, letterSpacing: "-0.02em" }}>
-          A sick cell.<br />One student-doctor. Four missions.
+          A sick cell.<br />One student-doctor. Five missions.
         </h2>
         <p style={{ fontSize: 17, lineHeight: 1.7, color: "#7a90b8", maxWidth: 600, marginBottom: 64 }}>
-          The cell is in crisis — mitochondria have gone dark, waste is piling up, and protein delivery has halted. Students are shrunk and injected into the cell with a mission: restore each organelle to bring the cell back to life.
+          The cell is in crisis — mitochondria have gone dark, waste is piling up, and protein delivery has halted. Students are shrunk and injected into the cell with a mission: restore each organelle to bring the cell back to life. Every action earns points, and each completed challenge unlocks a curriculum-aligned knowledge card that reinforces the science behind the gameplay.
         </p>
 
         <div ref={phasesRef} style={{ position: "relative" }}>
@@ -172,39 +172,50 @@ export default function VoyageInsideCellPage() {
 
           {[
             {
-              num: "1", numBg: "rgba(16,185,129,0.12)", numBorder: "rgba(16,185,129,0.3)", numColor: "#10b981",
-              title: "Enter the Cell", time: "~30 sec",
-              desc: 'Students start outside a massive cell — an alien, glowing structure. A voice guides them: "This cell is dying. It needs your help. Step through the membrane." Students physically walk through the phospholipid bilayer with a full crossing animation.',
-              learn: "Key concept: The cell membrane is a selective barrier — controlling what enters and exits the cell.",
-              mechanic: "🎮 Mechanic: walk-through portal trigger",
+              num: "0", numBg: "rgba(16,185,129,0.12)", numBorder: "rgba(16,185,129,0.3)", numColor: "#10b981",
+              title: "Enter the Cell", time: "~15 sec",
+              desc: 'Students start outside a massive bioluminescent cell floating in deep space. A brief intro orients them: "This cell is dying. It needs your help." The 360° AI-generated skybox creates an alien microscopic world. Students familiarize themselves with movement controls (WASD + mouse, or VR controllers) before diving in.',
+              learn: "Key concept: Orientation and spatial awareness — students build a mental model of the cell's interior layout before interacting with organelles.",
+              mechanic: "🎮 Mechanic: intro screen + \"Begin Voyage\" button → phase advance",
             },
             {
-              num: "2", numBg: "rgba(255,200,80,0.12)", numBorder: "rgba(255,200,80,0.3)", numColor: "#ffc850",
-              title: "Restart the Mitochondria — Energy Crisis", time: "~60 sec",
-              desc: "The cell interior is dark — no ATP, no energy. Students spot the dimmed mitochondria and must drag floating glucose molecules into the organelle's entry point. As each glucose molecule enters, the mitochondria lights up and the cell brightens.",
-              learn: "Key concept: Mitochondria are the cell's power plants — converting glucose into ATP (cellular energy).",
-              mechanic: "🎮 Mechanic: grab-and-drop into trigger zone → glow animation",
+              num: "1", numBg: "rgba(255,200,80,0.12)", numBorder: "rgba(255,200,80,0.3)", numColor: "#ffc850",
+              title: "Find the Mitochondria", time: "~30 sec", points: "+100 pts",
+              desc: "The cell interior is dim. Students must locate and click the Mitochondria among the floating organelles. A glowing teal ring highlights the target. Clicking the correct organelle triggers a knowledge card about mitochondrial structure and ATP production. Wrong clicks are ignored — no penalty, just guidance.",
+              learn: "Key concept: Mitochondria are the cell's power plants — their double-membrane structure with cristae folds maximizes ATP synthase surface area.",
+              mechanic: "🎮 Mechanic: click-to-identify → +100 points → knowledge card overlay",
+              knowledgeCard: "The double-membraned powerhouse. Cristae folds maximize surface area for ATP synthase — more folds = more ATP. (AP Bio: Inner membrane = electron transport chain site. IB HL: B2.2.4)",
             },
             {
-              num: "3", numBg: "rgba(255,100,100,0.12)", numBorder: "rgba(255,100,100,0.3)", numColor: "#ff8080",
-              title: "Clear the Lysosomes — Waste Crisis", time: "~45 sec",
-              desc: "Broken proteins and cellular debris float everywhere. Students grab waste particles and throw them into lysosomes, triggering a satisfying dissolve animation. The environment visibly clears as each load is processed.",
-              learn: "Key concept: Lysosomes are the cell's recycling centers — breaking down waste and worn-out components.",
-              mechanic: "🎮 Mechanic: throw/toss gesture → dissolve particle effect",
+              num: "2", numBg: "rgba(255,128,80,0.12)", numBorder: "rgba(255,128,80,0.3)", numColor: "#ff8050",
+              title: "Feed the Cell — Cellular Respiration", time: "~45 sec", points: "+150 pts (+50 speed bonus)",
+              desc: "A glowing glucose molecule appears near the Mitochondria. Students must grab and drag the glucose into the Mitochondria's entry zone. On success, a spectacular ATP burst animation fires — 36 blue ATP spheres radiate outward while 6 gray CO₂ molecules float upward. Complete it in under 10 seconds for a 50-point speed bonus.",
+              learn: "Key concept: C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + 36 ATP. Three stages: Glycolysis (cytoplasm) → Krebs Cycle (matrix) → Electron Transport Chain (inner membrane).",
+              mechanic: "🎮 Mechanic: grab-and-drag into snap zone → ATP particle burst + CO₂ float animation → speed bonus timer",
+              knowledgeCard: "C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + 36 ATP. Common misconception: carbon atoms leave as CO₂ you breathe out — mass is conserved. (AP Bio / IB)",
+            },
+            {
+              num: "3", numBg: "rgba(255,128,128,0.12)", numBorder: "rgba(255,128,128,0.3)", numColor: "#ff8080",
+              title: "Clean the Cell — Lysosome Recycling", time: "~60 sec", points: "+100 pts per protein (300 total)",
+              desc: "Three damaged protein spheres float in the cytoplasm. Students must grab each one and drag it into the Lysosome. Each successful delivery triggers a green particle burst and +100 points. A progress counter (0/3, 1/3, 2/3, 3/3) tracks completion. After all three are delivered, a knowledge card explains lysosomal enzyme function at pH 4.5.",
+              learn: "Key concept: Lysosomes contain 50+ hydrolytic enzymes at pH 4.5. If ruptured, cytoplasm's higher pH neutralizes enzymes — a safety mechanism. Waste is broken into reusable monomers.",
+              mechanic: "🎮 Mechanic: multi-target drag (3 items) → progress counter → green particle burst per delivery",
+              knowledgeCard: "Contains 50+ hydrolytic enzymes at pH 4.5. Lysosome dysfunction → Tay-Sachs disease. (IB / AP Bio: connects to autophagy pathway)",
             },
             {
               num: "4", numBg: "rgba(79,255,176,0.12)", numBorder: "rgba(79,255,176,0.3)", numColor: "#4fffb0",
-              title: "Deliver the Proteins — Transport Chain", time: "~60 sec",
-              desc: "Ribosomes on the ER are producing protein balls — but delivery has stopped. Students run the supply chain: pick up proteins from the ER, carry them to the Golgi apparatus (which packages them into vesicles), then deliver the vesicles to the cell membrane.",
-              learn: "Key concept: Ribosomes make proteins → ER processes → Golgi packages → vesicles deliver. The full secretory pathway.",
-              mechanic: "🎮 Mechanic: multi-step carry chain — 3 sequential drop zones",
+              title: "Build a Protein — The Secretory Pathway", time: "~60 sec", points: "+100 pts per step (200 total)",
+              desc: "This is the most complex challenge — a two-step transport chain. Step 1: A polypeptide chain model appears. Students drag it into the Endoplasmic Reticulum for folding and glycosylation. Step 2: A processed protein sphere emerges from the ER. Students drag it to the Golgi Apparatus for sorting and packaging. Each step awards 100 points and the instruction text updates dynamically. A vesicle animation plays after completion.",
+              learn: "Key concept: Ribosome → Rough ER (folding + glycosylation) → Golgi (sorting + packaging) → Vesicle → Cell Membrane. Order is essential — each station modifies the protein.",
+              mechanic: "🎮 Mechanic: 2-step sequential drag chain with dynamic instruction updates → vesicle budding animation",
+              knowledgeCard: "Protein pathway: Ribosome → Rough ER → Golgi → Vesicle → Membrane. AP Bio FRQ target: Golgi cis face receives from ER, trans face ships to membrane.",
             },
             {
-              num: "5", numBg: "rgba(123,109,255,0.12)", numBorder: "rgba(123,109,255,0.3)", numColor: "#a89cff",
-              title: "Cell Restored — Summary", time: "~30 sec",
-              desc: "All organelles light up and hum with activity. The camera pulls back to reveal the whole cell, now pulsing with health. A recap screen surfaces 4 knowledge cards — one per concept learned — reinforcing what happened and why it matters.",
-              learn: "Outcome: Students leave with a coherent mental model of organelle function — not just names, but roles.",
-              mechanic: "🎮 Mechanic: cinematic camera pull + knowledge card overlay",
+              num: "5", numBg: "rgba(168,156,255,0.12)", numBorder: "rgba(168,156,255,0.3)", numColor: "#a89cff",
+              title: "Mission Complete — Cell Restored", time: "~20 sec", points: "Final score display",
+              desc: "All organelles pulse with renewed energy. A celebration screen appears with confetti animation and the student's final score (out of 750+ possible points). The scoring breakdown rewards both accuracy and speed. Students can review the 4 knowledge cards they earned — each aligned to AP Biology and IB curriculum standards. A \"Play Again\" button lets them retry for a higher score.",
+              learn: "Outcome: Students leave with a coherent mental model of organelle function — not just names, but roles, mechanisms, and exam-relevant details.",
+              mechanic: "🎮 Mechanic: confetti celebration + score reveal + knowledge card review + replay button",
             },
           ].map((phase) => (
             <div key={phase.num} className="phase-item" style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: 32, marginBottom: 40 }}>
@@ -212,9 +223,12 @@ export default function VoyageInsideCellPage() {
                 {phase.num}
               </div>
               <div className="phase-card-hover" style={{ background: "#0c1829", border: "1px solid rgba(100,180,255,0.12)", borderRadius: 16, padding: "28px 32px", transition: "border-color 0.3s, transform 0.3s" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <span className="syne" style={{ fontSize: 18, fontWeight: 700 }}>{phase.title}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#10b981", background: "rgba(16,185,129,0.1)", borderRadius: 100, padding: "4px 12px", border: "1px solid rgba(16,185,129,0.2)" }}>{phase.time}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#10b981", background: "rgba(16,185,129,0.1)", borderRadius: 100, padding: "4px 12px", border: "1px solid rgba(16,185,129,0.2)" }}>{phase.time}</span>
+                    {(phase as any).points && <span style={{ fontSize: 12, fontWeight: 600, color: "#ffc850", background: "rgba(255,200,80,0.1)", borderRadius: 100, padding: "4px 12px", border: "1px solid rgba(255,200,80,0.2)" }}>{(phase as any).points}</span>}
+                  </div>
                 </div>
                 <p style={{ fontSize: 15, color: "#7a90b8", lineHeight: 1.65, marginBottom: 16 }}>{phase.desc}</p>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "rgba(79,255,176,0.06)", border: "1px solid rgba(79,255,176,0.15)", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#4fffb0", marginBottom: 10 }}>
@@ -240,10 +254,34 @@ export default function VoyageInsideCellPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
           {[
-            { icon: "🧱", iconBg: "rgba(16,185,129,0.1)", title: "Cell Membrane", desc: "Selective permeability — experienced by physically passing through the bilayer with a sensory crossing effect." },
-            { icon: "⚡", iconBg: "rgba(255,200,80,0.1)", title: "Mitochondria & ATP", desc: "Glucose-to-energy conversion — learned by dragging glucose in and watching light return to the cell." },
-            { icon: "♻️", iconBg: "rgba(255,100,100,0.1)", title: "Lysosome Function", desc: "Cellular waste recycling — understood by physically collecting and depositing debris for enzymatic digestion." },
-            { icon: "📬", iconBg: "rgba(79,255,176,0.1)", title: "Protein Secretory Pathway", desc: "ER → Golgi → vesicle → membrane — internalized by physically running the delivery chain step-by-step." },
+            { icon: "⚡", iconBg: "rgba(255,200,80,0.1)", title: "Mitochondria & ATP", desc: "Double-membrane structure with cristae folds maximizing ATP synthase surface area — learned by clicking to identify, then feeding glucose to trigger a 36-ATP burst animation." },
+            { icon: "🔥", iconBg: "rgba(255,128,80,0.1)", title: "Cellular Respiration", desc: "C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + 36 ATP — experienced by dragging glucose into the mitochondria and watching ATP radiate outward while CO₂ floats away. Speed bonus rewards quick thinking." },
+            { icon: "♻️", iconBg: "rgba(255,128,128,0.1)", title: "Lysosome Function", desc: "Contains 50+ hydrolytic enzymes at pH 4.5. Understood by physically collecting 3 damaged proteins and delivering them for enzymatic digestion. Progress tracking reinforces completion." },
+            { icon: "📬", iconBg: "rgba(79,255,176,0.1)", title: "Endomembrane System / Secretory Pathway", desc: "ER → Golgi → Vesicle → Membrane — internalized by running a 2-step delivery chain where each station visibly transforms the protein. Dynamic instructions guide each step." },
+          ].map(({ icon, iconBg, title, desc }) => (
+            <div key={title} className="outcome-card" style={{ background: "#0c1829", border: "1px solid rgba(100,180,255,0.12)", borderRadius: 16, padding: 28, transition: "border-color 0.3s, transform 0.3s" }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: iconBg, marginBottom: 16 }}>{icon}</div>
+              <div className="syne" style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+              <p style={{ fontSize: 14, color: "#7a90b8", lineHeight: 1.6 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <hr style={{ border: "none", borderTop: "1px solid rgba(100,180,255,0.12)", margin: "0 48px" }} />
+
+      {/* SCORING & KNOWLEDGE SYSTEM */}
+      <section style={{ padding: "100px 48px", maxWidth: 1200, margin: "0 auto" }}>
+        <p style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "#10b981", marginBottom: 16 }}>Scoring & Knowledge System</p>
+        <h2 className="syne" style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.1, marginBottom: 20, letterSpacing: "-0.02em" }}>Gamification meets curriculum</h2>
+        <p style={{ fontSize: 17, lineHeight: 1.7, color: "#7a90b8", maxWidth: 600, marginBottom: 64 }}>Points and knowledge cards create a measurable feedback loop — students know instantly when they've mastered a concept.</p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+          {[
+            { icon: "⭐", iconBg: "rgba(255,200,80,0.1)", title: "Point System", desc: "Every interaction earns points — 100 for identification, 150 for respiration (plus 50 speed bonus), 100 per protein cleanup, and 100 per transport step. Final scores reach 750+ for top performers." },
+            { icon: "💡", iconBg: "rgba(79,255,176,0.1)", title: "Knowledge Cards", desc: "After each phase, curriculum-aligned knowledge cards reinforce the science. Content maps to AP Biology standards and IB HL topics with exam-relevant details and common misconceptions." },
+            { icon: "⚡", iconBg: "rgba(255,128,80,0.1)", title: "Speed Bonuses", desc: "Phase 2 rewards quick thinkers with a 50-point speed bonus for completing cellular respiration in under 10 seconds — adding urgency without sacrificing understanding." },
+            { icon: "📊", iconBg: "rgba(168,156,255,0.1)", title: "Progress Tracking", desc: "Visual phase dots, score counters, and step-by-step instructions keep students oriented. Multi-step phases show completion progress (1/3, 2/3, 3/3) for immediate feedback." },
           ].map(({ icon, iconBg, title, desc }) => (
             <div key={title} className="outcome-card" style={{ background: "#0c1829", border: "1px solid rgba(100,180,255,0.12)", borderRadius: 16, padding: 28, transition: "border-color 0.3s, transform 0.3s" }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: iconBg, marginBottom: 16 }}>{icon}</div>
@@ -265,8 +303,8 @@ export default function VoyageInsideCellPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
           {[
             { num: "01", title: "Narrative-driven motivation", desc: '"Save the cell" gives students a goal and a sense of urgency. Motivation precedes learning — students are far more focused when they have agency over an outcome.' },
-            { num: "02", title: "Action-concept binding", desc: "Every mechanic encodes a concept. Dragging glucose into mitochondria IS the lesson — not a decoration on top of it. Students learn through procedural memory, not declarative recall." },
-            { num: "03", title: "Progressive complexity", desc: "Simple drag-drop in Phase 2 scaffolds into a 3-step transport chain in Phase 4. Cognitive load is managed deliberately — students build schema before tackling complexity." },
+            { num: "02", title: "Action-concept binding with scoring", desc: "Every mechanic encodes a concept AND earns points. The scoring system isn't decoration — it creates a measurable feedback loop. Students know instantly if they've completed a task, and speed bonuses add healthy urgency. Knowledge cards close the loop by connecting the action to exam-relevant content." },
+            { num: "03", title: "Progressive complexity", desc: "Phase 1 starts with simple click-to-identify. Phase 2 introduces single drag-and-drop. Phase 3 scales to multi-target collection (3 items). Phase 4 culminates in a sequential 2-step transport chain. Each phase builds on the previous mechanic while adding cognitive complexity." },
             { num: "04", title: "Built on BioQuest's framework", desc: "The whole game maps to JSON config: scenes, assets, trigger zones, narration sequences. A teacher can generate this entire experience from a single prompt — no 3D expertise needed." },
           ].map(({ num, title, desc }) => (
             <div key={num} className="principle-card" style={{ background: "#0c1829", border: "1px solid rgba(100,180,255,0.12)", borderRadius: 16, padding: "28px 32px", display: "flex", gap: 20, alignItems: "flex-start", transition: "border-color 0.3s" }}>
