@@ -6,22 +6,22 @@ import { ReactNode } from "react";
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'BioQuest — AI-Powered VR Science Education',
-  description: 'Create immersive VR classrooms in minutes with AI. No code required. Built for STEM educators.',
+  title: 'BioQuestXR — The AI Instructional Design Agent for Immersive Biology',
+  description: 'Turn a single prompt into standards-aligned, interactive biology lessons — deployable on web and VR in minutes. No code required. NGSS & AP Bio aligned.',
   metadataBase: new URL('https://bioquestxr.vercel.app'),
   openGraph: {
-    title: 'BioQuest — AI-Powered VR Science Education',
-    description: 'Create immersive VR classrooms in minutes with AI. No code required.',
+    title: 'BioQuestXR — The AI Instructional Design Agent for Immersive Biology',
+    description: 'Turn a single prompt into standards-aligned, interactive biology lessons — deployable on web and VR in minutes. No code required. NGSS & AP Bio aligned.',
     url: 'https://bioquestxr.vercel.app',
-    siteName: 'BioQuest',
+    siteName: 'BioQuestXR',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'BioQuest - AI-Powered VR Science Education' }],
     locale: 'en_US',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BioQuest — AI-Powered VR Science Education',
-    description: 'Create immersive VR classrooms in minutes with AI. No code required.',
+    title: 'BioQuestXR — The AI Instructional Design Agent for Immersive Biology',
+    description: 'Turn a single prompt into standards-aligned, interactive biology lessons — deployable on web and VR in minutes. No code required. NGSS & AP Bio aligned.',
     images: ['/og-image.png'],
   },
   icons: { icon: '/bio.png', apple: '/bio.png' },
