@@ -25,11 +25,22 @@ export default function Navigation() {
   useEffect(() => {
     const supabase = createClient();
 
-    // Get initial session
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
-    });
+    // Get initial session with error handling
+    supabase.auth.getUser()
+      .then(({ data: { user }, error }) => {
+        if (error) {
+          console.warn('[Navigation] Auth check failed (possibly invalid credentials):', error.message);
+          setUser(null);
+        } else {
+          setUser(user);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.warn('[Navigation] Auth check error:', err.message);
+        setUser(null);
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -51,11 +62,18 @@ export default function Navigation() {
   }, []);
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setDropdownOpen(false);
-    router.push("/");
-    router.refresh();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setDropdownOpen(false);
+      router.push("/");
+      router.refresh();
+    } catch (err: any) {
+      console.error('[Navigation] Logout error:', err.message);
+      // Still close dropdown and redirect even if signOut fails
+      setDropdownOpen(false);
+      router.push("/");
+    }
   };
 
   // Get user initials for avatar
