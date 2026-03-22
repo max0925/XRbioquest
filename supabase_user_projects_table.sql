@@ -16,6 +16,40 @@ CREATE TABLE IF NOT EXISTS public.user_projects (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Add missing columns if table already exists (for migration)
+DO $$
+BEGIN
+    -- Add short_id if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'user_projects'
+        AND column_name = 'short_id'
+    ) THEN
+        ALTER TABLE public.user_projects ADD COLUMN short_id TEXT;
+    END IF;
+
+    -- Add thumbnail_url if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'user_projects'
+        AND column_name = 'thumbnail_url'
+    ) THEN
+        ALTER TABLE public.user_projects ADD COLUMN thumbnail_url TEXT;
+    END IF;
+
+    -- Add status if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'user_projects'
+        AND column_name = 'status'
+    ) THEN
+        ALTER TABLE public.user_projects ADD COLUMN status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published'));
+    END IF;
+END $$;
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_user_projects_user_id ON public.user_projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_projects_updated_at ON public.user_projects(updated_at DESC);
