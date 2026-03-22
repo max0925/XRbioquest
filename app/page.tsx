@@ -163,7 +163,9 @@ export default function Home() {
             className="text-lg md:text-xl text-white/70 mb-10 max-w-2xl mx-auto leading-relaxed fade-in-up"
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif', animationDelay: "0.2s" }}
           >
-            An AI-native instructional design agent that turns your lesson goals into interactive 3D experiences — deployable instantly on both web and VR.
+            AI-powered tools that turn lesson goals into interactive 3D experiences — playable on{" "}
+            <span className="text-emerald-500 font-semibold">Web</span> and{" "}
+            <span className="text-emerald-500 font-semibold">VR</span>.
           </p>
 
           {/* CTA Buttons */}
