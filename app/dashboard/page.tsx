@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Navigation from "@/components/Navigation";
-import { Plus, FolderOpen, Clock, MoreVertical, Globe, Lock, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, FolderOpen, Clock, MoreVertical, Globe, Lock, Loader2, Trash2, AlertTriangle, Edit3, Copy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Project = {
@@ -34,11 +34,15 @@ function formatRelativeTime(dateStr: string): string {
 function ProjectCard({
   project,
   index,
-  onDelete
+  onDelete,
+  onRename,
+  onDuplicate
 }: {
   project: Project;
   index: number;
   onDelete: (id: string, name: string) => void;
+  onRename: (id: string, currentName: string) => void;
+  onDuplicate: (id: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -145,16 +149,40 @@ function ProjectCard({
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="absolute right-0 top-8 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20"
+                  className="absolute right-0 top-8 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20"
                 >
                   <Link
                     href={`/environment-design?id=${project.id}`}
-                    className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                     style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
                     onClick={() => setMenuOpen(false)}
                   >
+                    <Edit3 className="w-3.5 h-3.5" />
                     Edit
                   </Link>
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRename(project.id, project.name);
+                    }}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Rename
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onDuplicate(project.id);
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Duplicate
+                  </button>
+                  <div className="border-t border-gray-100 my-1"></div>
                   <button
                     className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
                     style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
@@ -235,6 +263,95 @@ function EmptyState({ onCreate, creating }: { onCreate: () => void; creating: bo
           </>
         )}
       </button>
+    </motion.div>
+  );
+}
+
+// Rename modal
+function RenameModal({
+  projectId,
+  currentName,
+  onConfirm,
+  onCancel,
+  isRenaming
+}: {
+  projectId: string;
+  currentName: string;
+  onConfirm: (id: string, newName: string) => void;
+  onCancel: () => void;
+  isRenaming: boolean;
+}) {
+  const [newName, setNewName] = useState(currentName);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newName.trim() && newName !== currentName) {
+      onConfirm(projectId, newName.trim());
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          className="text-lg font-semibold text-gray-900 mb-4"
+          style={{ fontFamily: '"Syne", system-ui, sans-serif' }}
+        >
+          Rename Project
+        </h3>
+
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Project name"
+            autoFocus
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent mb-6"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            disabled={isRenaming}
+          />
+
+          <div className="flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isRenaming}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isRenaming || !newName.trim() || newName === currentName}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+            >
+              {isRenaming ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Renaming...
+                </>
+              ) : (
+                'Rename'
+              )}
+            </button>
+          </div>
+        </form>
+      </motion.div>
     </motion.div>
   );
 }
@@ -325,6 +442,9 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [renameModal, setRenameModal] = useState<{ id: string; name: string } | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch projects on mount
@@ -402,6 +522,59 @@ export default function Dashboard() {
       setError("Failed to delete project");
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  async function renameProject(id: string, newName: string) {
+    setIsRenaming(true);
+    try {
+      const response = await fetch('/api/projects/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: newName }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to rename project');
+      }
+
+      // Update local state
+      setProjects((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, name: newName } : p))
+      );
+      setRenameModal(null);
+    } catch (err: any) {
+      console.error("Error renaming project:", err);
+      setError(err.message || "Failed to rename project");
+    } finally {
+      setIsRenaming(false);
+    }
+  }
+
+  async function duplicateProject(id: string) {
+    setIsDuplicating(id);
+    try {
+      const response = await fetch('/api/projects/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to duplicate project');
+      }
+
+      const data = await response.json();
+
+      // Refresh projects list
+      await fetchProjects();
+    } catch (err: any) {
+      console.error("Error duplicating project:", err);
+      setError(err.message || "Failed to duplicate project");
+    } finally {
+      setIsDuplicating(null);
     }
   }
 
@@ -494,12 +667,27 @@ export default function Dashboard() {
                   project={project}
                   index={index}
                   onDelete={(id, name) => setDeleteModal({ id, name })}
+                  onRename={(id, name) => setRenameModal({ id, name })}
+                  onDuplicate={duplicateProject}
                 />
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {/* Rename modal */}
+      <AnimatePresence>
+        {renameModal && (
+          <RenameModal
+            projectId={renameModal.id}
+            currentName={renameModal.name}
+            onConfirm={renameProject}
+            onCancel={() => setRenameModal(null)}
+            isRenaming={isRenaming}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Delete confirmation modal */}
       <AnimatePresence>
