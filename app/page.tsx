@@ -141,7 +141,7 @@ export default function Home() {
           <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full border border-white/20 backdrop-blur-sm fade-in-up" style={{ background: "rgba(255,255,255,0.07)", animationDelay: "0s" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-semibold text-white/80 tracking-widest uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-              For Educators
+              For Educators & Designers
             </span>
           </div>
 
@@ -150,7 +150,7 @@ export default function Home() {
             className="text-4xl md:text-5xl lg:text-[3.75rem] xl:text-6xl font-semibold tracking-tight text-white mb-6 leading-[1.08] fade-in-up"
             style={{ fontFamily: '"Syne", system-ui, sans-serif', animationDelay: "0.1s" }}
           >
-            Create VR Classrooms
+            Design Immersive STEM Lessons
             <br />
             <span className="whitespace-nowrap">
               <span className="text-white/55">in Minutes,</span>{" "}
@@ -163,10 +163,7 @@ export default function Home() {
             className="text-lg md:text-xl text-white/70 mb-10 max-w-2xl mx-auto leading-relaxed fade-in-up"
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif', animationDelay: "0.2s" }}
           >
-            Design immersive 3D learning experiences effortlessly with
-            <br />
-            <span className="text-white font-medium">AI-powered tools</span>{" "}
-            built for educators.
+            An AI-native instructional design agent that turns your lesson goals into interactive 3D experiences — deployable instantly on both web and VR.
           </p>
 
           {/* CTA Buttons */}
@@ -198,7 +195,7 @@ export default function Home() {
 
           {/* Feature badges */}
           <div className="flex flex-wrap justify-center gap-3 fade-in-up" style={{ animationDelay: "0.4s" }}>
-            {["AI-Powered", "Full VR/AR", "No Code"].map((feature) => (
+            {["AI-Powered", "Web + VR", "No Code"].map((feature) => (
               <div
                 key={feature}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full backdrop-blur-sm border border-white/20 hover:border-white/35 transition-colors duration-200"
