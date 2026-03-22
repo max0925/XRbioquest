@@ -51,7 +51,9 @@ function ProjectCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className="group relative bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-50 transition-all duration-300"
+      className={`group relative bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-50 transition-all duration-300 ${
+        menuOpen ? 'z-10' : 'z-0'
+      }`}
     >
       {/* Thumbnail */}
       <Link href={`/environment-design?id=${project.id}`} className="block">
@@ -143,13 +145,13 @@ function ProjectCard({
             {menuOpen && (
               <>
                 <div
-                  className="fixed inset-0 z-10"
+                  className="fixed inset-0 z-40"
                   onClick={() => setMenuOpen(false)}
                 />
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="absolute right-0 top-8 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20"
+                  className="absolute right-0 top-8 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50"
                 >
                   <Link
                     href={`/environment-design?id=${project.id}`}
@@ -259,7 +261,7 @@ function EmptyState({ onCreate, creating }: { onCreate: () => void; creating: bo
         ) : (
           <>
             <Plus className="w-5 h-5" />
-            Create Your First Project
+            Create Your First VR Experience
           </>
         )}
       </button>
