@@ -173,8 +173,13 @@ export async function POST(req: NextRequest) {
         const customerId = subscription.customer as string;
         const subscriptionItem = subscription.items.data[0];
         const priceId = subscriptionItem?.price.id;
-        const status = mapStatus(subscription.status);
         const periodEnd = new Date(subscriptionItem.current_period_end * 1000);
+
+        // Check if subscription is set to cancel at period end
+        let status = mapStatus(subscription.status);
+        if (subscription.cancel_at_period_end && status === 'active') {
+          status = 'canceling';
+        }
 
         const { error } = await supabase
           .from('profiles')
@@ -196,10 +201,11 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
+        // Downgrade to Free plan
         const { error } = await supabase
           .from('profiles')
           .update({
-            subscription_status: 'canceled',
+            subscription_status: 'free',
             subscription_id: null,
             price_id: null,
             env_credits: 0,
