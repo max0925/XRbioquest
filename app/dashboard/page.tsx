@@ -455,16 +455,49 @@ export default function Dashboard() {
   async function fetchProjects() {
     try {
       const supabase = createClient();
+
+      // Check authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('[DASHBOARD] Auth check:', {
+        user: user ? { id: user.id, email: user.email } : null,
+        authError
+      });
+
+      if (authError) {
+        console.error('[DASHBOARD] Auth error:', authError);
+        throw new Error('Authentication failed');
+      }
+
+      if (!user) {
+        console.warn('[DASHBOARD] No authenticated user');
+        setProjects([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch projects
+      console.log('[DASHBOARD] Fetching projects for user:', user.id);
       const { data, error } = await supabase
         .from("user_projects")
         .select("id, name, thumbnail_url, updated_at, status")
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      if (error) throw error;
+      console.log('[DASHBOARD] Query result:', {
+        data,
+        error,
+        count: data?.length || 0
+      });
+
+      if (error) {
+        console.error('[DASHBOARD] Supabase query error:', error);
+        throw error;
+      }
+
       setProjects(data || []);
     } catch (err: any) {
-      console.error("Error fetching projects:", err);
-      setError("Failed to load projects");
+      console.error("[DASHBOARD] Error fetching projects:", err);
+      setError(err.message || "Failed to load projects");
     } finally {
       setLoading(false);
     }
@@ -476,7 +509,10 @@ export default function Dashboard() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
+      console.log('[DASHBOARD] Creating project for user:', user?.id);
+
       if (!user) {
+        console.warn('[DASHBOARD] No user, redirecting to login');
         router.push("/login?redirect=/dashboard");
         return;
       }
@@ -492,13 +528,19 @@ export default function Dashboard() {
         .select("id")
         .single();
 
-      if (error) throw error;
+      console.log('[DASHBOARD] Create project result:', { data, error });
+
+      if (error) {
+        console.error('[DASHBOARD] Create project error:', error);
+        throw error;
+      }
 
       // Redirect to editor with new project ID
+      console.log('[DASHBOARD] Redirecting to editor with project:', data.id);
       router.push(`/environment-design?id=${data.id}`);
     } catch (err: any) {
-      console.error("Error creating project:", err);
-      setError("Failed to create project");
+      console.error("[DASHBOARD] Error creating project:", err);
+      setError(err.message || "Failed to create project");
       setCreating(false);
     }
   }

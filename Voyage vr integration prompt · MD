@@ -1,0 +1,558 @@
+# Voyage VR Integration Prompt — Claude Code
+
+## 背景
+Voyage Inside the Cell 是一个 A-Frame VR 游戏，目前有以下问题需要同时修复并整合：
+
+1. **VR HUD phase不同步** — 进入VR头显后显示的还是旧版内容，没有跟随桌面版的phase逻辑
+2. **人物不能移动** — 缺少thumbstick locomotion + teleport双模式
+3. **左手dashboard没有整合** — BioQuest environment-design里的wrist-menu/dashboard系统需要移植进来，并与Voyage的phase/score系统打通
+
+---
+
+## 任务一：修复 VR HUD phase 同步
+
+**文件：`/app/voyage/page.tsx` 和 `/app/voyage/aframe/registerComponents.ts`**
+
+VR HUD是显示在相机前方的`a-entity`面板。当前问题：HUD文字在进入VR后不更新，因为React state的phase变化没有同步到A-Frame DOM。
+
+**修复方案：**
+
+在`registerComponents.ts`中注册一个新组件`vr-hud-sync`，挂在HUD panel entity上：
+
+```javascript
+AFRAME.registerComponent('vr-hud-sync', {
+  init: function() {
+    var self = this;
+    
+    // Listen for phase changes via window event
+    this.onPhaseChange = function(evt) {
+      var phase = evt.detail.phase;
+      var score = evt.detail.score;
+      
+      // Update phase text
+      var phaseEl = document.getElementById('vr-hud-phase');
+      if (phaseEl) phaseEl.setAttribute('value', 'Phase ' + phase + '/5');
+      
+      // Update instruction text
+      var instrEl = document.getElementById('vr-hud-instruction');
+      var instructions = {
+        1: 'Click the Mitochondria',
+        2: 'Drag Glucose → Mitochondria',
+        3: 'Drag damaged proteins → Lysosome',
+        4: 'Guide polypeptide through ER → Golgi',
+        5: 'Answer the knowledge questions'
+      };
+      if (instrEl) instrEl.setAttribute('value', instructions[phase] || '');
+      
+      // Update score
+      var scoreEl = document.getElementById('vr-hud-score');
+      if (scoreEl) scoreEl.setAttribute('value', '⭐ ' + (score || 0));
+    };
+    
+    window.addEventListener('phase-changed-vr', this.onPhaseChange);
+  },
+  remove: function() {
+    window.removeEventListener('phase-changed-vr', this.onPhaseChange);
+  }
+});
+```
+
+在`page.tsx`的phase advance handler里，每次phase变化时dispatch这个事件：
+
+```javascript
+window.dispatchEvent(new CustomEvent('phase-changed-vr', {
+  detail: { phase: newPhase, score: currentScore }
+}));
+```
+
+VR HUD的a-entity结构改为（放在camera entity内，跟着头显走）：
+
+```jsx
+<a-entity
+  id="vr-hud"
+  vr-hud-sync
+  position="0 0.3 -1.2"
+>
+  {/* Phase indicator */}
+  <a-text
+    id="vr-hud-phase"
+    value="Phase 1/5"
+    align="center"
+    color="#10b981"
+    width="2"
+    position="0 0.1 0"
+  ></a-text>
+  
+  {/* Current instruction */}
+  <a-text
+    id="vr-hud-instruction"
+    value="Click the Mitochondria"
+    align="center"
+    color="#ffffff"
+    width="2.5"
+    position="0 0 0"
+  ></a-text>
+  
+  {/* Score */}
+  <a-text
+    id="vr-hud-score"
+    value="⭐ 0"
+    align="center"
+    color="#F59E0B"
+    width="1.5"
+    position="0 -0.1 0"
+  ></a-text>
+</a-entity>
+```
+
+---
+
+## 任务二：修复人物移动（双模式）
+
+**文件：`/app/voyage/page.tsx` 的camera rig部分**
+
+需要：Thumbstick连续移动 + Teleport点击移动，两种同时工作。
+
+**修复camera rig：**
+
+```jsx
+{/* Camera Rig */}
+<a-entity
+  id="camera-rig"
+  position="0 0 2"
+  movement-controls="fly: false; speed: 0.15; controls: gamepad, touch, keyboard"
+>
+  <a-camera
+    id="head"
+    look-controls="pointerLockEnabled: true; reverseMouseDrag: false"
+    wasd-controls="acceleration: 65"
+    position="0 1.6 0"
+  >
+    {/* VR HUD — follows head */}
+    <a-entity id="vr-hud" vr-hud-sync position="0 0.3 -1.2">
+      ...
+    </a-entity>
+    
+    {/* Crosshair */}
+    <a-entity
+      position="0 0 -1"
+      geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
+      material="color: white; shader: flat; opacity: 0.5"
+    ></a-entity>
+  </a-camera>
+
+  {/* Left Hand — thumbstick locomotion + wrist dashboard */}
+  <a-entity
+    id="leftHand"
+    hand-controls="hand: left"
+    laser-controls="hand: left"
+    raycaster="objects: .clickable, .teleport-floor; far: 10"
+    thumbstick-logging
+    left-thumbstick-listener
+  ></a-entity>
+
+  {/* Right Hand — interact + teleport */}
+  <a-entity
+    id="rightHand"
+    hand-controls="hand: right"
+    laser-controls="hand: right"
+    raycaster="objects: .clickable; far: 10"
+    teleport-controls="cameraRig: #camera-rig; teleportOrigin: #head; button: trigger; collisionEntities: .teleport-floor; landingNormal: 0 1 0; landingMaxAngle: 45"
+  ></a-entity>
+</a-entity>
+```
+
+在`registerComponents.ts`中注册thumbstick locomotion：
+
+```javascript
+AFRAME.registerComponent('left-thumbstick-listener', {
+  init: function() {
+    var self = this;
+    this.moveVector = new THREE.Vector3();
+    
+    this.el.addEventListener('axismove', function(evt) {
+      // Left thumbstick: axes[2]=X, axes[3]=Y (Quest 2/3)
+      var x = evt.detail.axis[2] || evt.detail.axis[0] || 0;
+      var y = evt.detail.axis[3] || evt.detail.axis[1] || 0;
+      self.moveVector.set(x, 0, y);
+    });
+    
+    this.el.addEventListener('thumbstickup', function() {
+      self.moveVector.set(0, 0, 0);
+    });
+  },
+  
+  tick: function(time, delta) {
+    if (this.moveVector.length() < 0.1) return;
+    
+    var rig = document.getElementById('camera-rig');
+    var head = document.getElementById('head');
+    if (!rig || !head) return;
+    
+    var speed = 0.004 * delta;
+    var rigPos = rig.getAttribute('position');
+    
+    // Move relative to head yaw direction
+    var headRot = head.object3D.rotation;
+    var angle = headRot.y;
+    
+    var dx = (this.moveVector.x * Math.cos(angle) + this.moveVector.z * Math.sin(angle)) * speed;
+    var dz = (-this.moveVector.x * Math.sin(angle) + this.moveVector.z * Math.cos(angle)) * speed;
+    
+    rig.setAttribute('position', {
+      x: rigPos.x + dx,
+      y: rigPos.y,
+      z: rigPos.z + dz
+    });
+  },
+  
+  remove: function() {
+    this.moveVector.set(0, 0, 0);
+  }
+});
+```
+
+在a-scene中加载teleport-controls组件（aframe-teleport-controls）：
+
+```javascript
+// In the useEffect that loads aframe
+if (!window.AFRAME.components['teleport-controls']) {
+  const script = document.createElement('script');
+  script.src = 'https://unpkg.com/aframe-teleport-controls@0.3.1/dist/aframe-teleport-controls.min.js';
+  document.head.appendChild(script);
+}
+```
+
+地板要加 `.teleport-floor` class：
+
+```jsx
+<a-plane
+  class="teleport-floor"
+  rotation="-90 0 0"
+  width="20"
+  height="20"
+  material="color: #1a0a2e; opacity: 0.8; transparent: true"
+></a-plane>
+```
+
+---
+
+## 任务三：整合左手 Dashboard（从 BioQuest 移植）
+
+这是最大的改动。BioQuest environment-design的`Scene.tsx`里有完整的wrist-menu系统，需要移植并定制给Voyage。
+
+**目标效果：**
+- 左手手腕朝上看向时，显示dashboard
+- Dashboard显示：当前Phase任务 / Quiz进度 / 学习笔记
+- 保留底部的instruction panel不变（那个是桌面版2D UI）
+- Dashboard是VR专属的额外信息层
+
+### 3.1 移植并注册所需A-Frame组件
+
+在`registerComponents.ts`中添加以下组件（直接从BioQuest的Scene.tsx复制并修改）：
+
+**1. `rounded`组件** — 圆角矩形（直接复制BioQuest版本，无需改动）
+
+**2. `wrist-dashboard`组件**（基于BioQuest的`wrist-menu`改写，添加Voyage逻辑）：
+
+```javascript
+AFRAME.registerComponent('wrist-dashboard', {
+  init: function() {
+    this.dashboardEl = null;
+    this.isVisible = false;
+    this.camera = null;
+    this.checkInterval = null;
+    this.hand = this.el;
+  },
+  
+  play: function() {
+    this.checkInterval = setInterval(() => {
+      this.checkWristAngle();
+    }, 150);
+  },
+  
+  pause: function() {
+    if (this.checkInterval) clearInterval(this.checkInterval);
+  },
+  
+  checkWristAngle: function() {
+    if (!this.camera) this.camera = document.querySelector('[camera]');
+    if (!this.dashboardEl) this.dashboardEl = document.getElementById('voyage-wrist-dashboard');
+    if (!this.camera || !this.dashboardEl) return;
+    
+    var headPos = new THREE.Vector3();
+    var handPos = new THREE.Vector3();
+    this.camera.object3D.getWorldPosition(headPos);
+    this.hand.object3D.getWorldPosition(handPos);
+    
+    var toHead = new THREE.Vector3().subVectors(headPos, handPos).normalize();
+    var handUp = new THREE.Vector3(0, 1, 0);
+    this.hand.object3D.localToWorld(handUp);
+    handUp.sub(handPos).normalize();
+    
+    var angle = Math.acos(Math.max(-1, Math.min(1, toHead.dot(handUp)))) * (180 / Math.PI);
+    var shouldShow = angle < 40;
+    
+    if (shouldShow && !this.isVisible) {
+      this.showDashboard();
+    } else if (!shouldShow && this.isVisible) {
+      this.hideDashboard();
+    }
+    
+    if (this.isVisible) this.updatePosition();
+  },
+  
+  showDashboard: function() {
+    if (!this.dashboardEl) return;
+    this.dashboardEl.setAttribute('visible', true);
+    this.isVisible = true;
+    // Refresh content when showing
+    window.dispatchEvent(new Event('vr-dashboard-refresh'));
+  },
+  
+  hideDashboard: function() {
+    if (!this.dashboardEl) return;
+    this.dashboardEl.setAttribute('visible', false);
+    this.isVisible = false;
+  },
+  
+  updatePosition: function() {
+    if (!this.dashboardEl || !this.camera) return;
+    var handPos = new THREE.Vector3();
+    this.hand.object3D.getWorldPosition(handPos);
+    this.dashboardEl.object3D.position.set(handPos.x, handPos.y + 0.2, handPos.z);
+    var camPos = new THREE.Vector3();
+    this.camera.object3D.getWorldPosition(camPos);
+    this.dashboardEl.object3D.lookAt(camPos);
+  },
+  
+  remove: function() {
+    if (this.checkInterval) clearInterval(this.checkInterval);
+  }
+});
+```
+
+**3. `dashboard-content-sync`组件** — 监听phase变化，更新dashboard文字：
+
+```javascript
+AFRAME.registerComponent('dashboard-content-sync', {
+  init: function() {
+    var self = this;
+    
+    this.onRefresh = function() {
+      var phase = window.currentPhase || 1;
+      var score = window.currentScore || 0;
+      
+      var tasks = {
+        1: ['🔬 Find and click the Mitochondria', '💡 Learn: powerhouse of the cell'],
+        2: ['⚡ Drag glucose molecule to mitochondria', '💡 Learn: cellular respiration'],
+        3: ['🧹 Drag 3 damaged proteins to lysosome', '💡 Learn: autophagy & recycling'],
+        4: ['🔗 Guide polypeptide: ER → Golgi → membrane', '💡 Learn: protein secretory pathway'],
+        5: ['❓ Answer 3 knowledge check questions', '🏆 Final score calculation']
+      };
+      
+      var currentTasks = tasks[phase] || [];
+      
+      // Update task list
+      var task1El = document.getElementById('vr-dash-task1');
+      var task2El = document.getElementById('vr-dash-task2');
+      if (task1El) task1El.setAttribute('value', currentTasks[0] || '');
+      if (task2El) task2El.setAttribute('value', currentTasks[1] || '');
+      
+      // Update phase/score header
+      var headerEl = document.getElementById('vr-dash-header');
+      if (headerEl) headerEl.setAttribute('value', 'Phase ' + phase + ' | Score: ' + score);
+      
+      // Update progress bar (simple text representation)
+      var progressEl = document.getElementById('vr-dash-progress');
+      var filled = '█'.repeat(phase) + '░'.repeat(5 - phase);
+      if (progressEl) progressEl.setAttribute('value', filled);
+    };
+    
+    window.addEventListener('vr-dashboard-refresh', this.onRefresh);
+    window.addEventListener('phase-changed-vr', this.onRefresh);
+    
+    // Init on load
+    setTimeout(this.onRefresh, 500);
+  },
+  
+  remove: function() {
+    window.removeEventListener('vr-dashboard-refresh', this.onRefresh);
+    window.removeEventListener('phase-changed-vr', this.onRefresh);
+  }
+});
+```
+
+### 3.2 在场景中添加 Dashboard Entity
+
+在`page.tsx`的a-scene里，**在camera-rig之外**添加dashboard panel（世界坐标，由wrist-dashboard组件控制位置）：
+
+```jsx
+{/* Voyage Wrist Dashboard — controlled by wrist-dashboard component */}
+<a-entity
+  id="voyage-wrist-dashboard"
+  visible={false}
+  dashboard-content-sync
+>
+  {/* Background panel */}
+  <a-entity
+    geometry="primitive: plane; width: 0.35; height: 0.28"
+    material="color: #0d0d1f; opacity: 0.92; transparent: true; side: double"
+  ></a-entity>
+  
+  {/* Green accent top bar */}
+  <a-entity
+    position="0 0.12 0.001"
+    geometry="primitive: plane; width: 0.35; height: 0.04"
+    material="color: #10b981; opacity: 1; side: double"
+  ></a-entity>
+  
+  {/* Header: Phase + Score */}
+  <a-text
+    id="vr-dash-header"
+    value="Phase 1 | Score: 0"
+    align="center"
+    color="#ffffff"
+    width="0.9"
+    position="0 0.12 0.002"
+    font="kelsonsans"
+  ></a-text>
+  
+  {/* Progress bar */}
+  <a-text
+    id="vr-dash-progress"
+    value="█░░░░"
+    align="center"
+    color="#10b981"
+    width="0.7"
+    position="0 0.06 0.001"
+  ></a-text>
+  
+  {/* Section label */}
+  <a-text
+    value="📋 CURRENT TASKS"
+    align="left"
+    color="#94a3b8"
+    width="0.7"
+    position="-0.15 0.02 0.001"
+  ></a-text>
+  
+  {/* Task 1 */}
+  <a-text
+    id="vr-dash-task1"
+    value=""
+    align="left"
+    color="#ffffff"
+    width="0.75"
+    position="-0.15 -0.03 0.001"
+    wrap-count={35}
+  ></a-text>
+  
+  {/* Task 2 */}
+  <a-text
+    id="vr-dash-task2"
+    value=""
+    align="left"
+    color="#64748b"
+    width="0.75"
+    position="-0.15 -0.07 0.001"
+    wrap-count={35}
+  ></a-text>
+  
+  {/* Notes section */}
+  <a-text
+    value="📝 NOTES"
+    align="left"
+    color="#94a3b8"
+    width="0.7"
+    position="-0.15 -0.11 0.001"
+  ></a-text>
+  
+  <a-text
+    id="vr-dash-notes"
+    value="Mitochondria converts\nglucose → ATP energy"
+    align="left"
+    color="#64748b"
+    width="0.75"
+    position="-0.15 -0.15 0.001"
+    wrap-count={35}
+  ></a-text>
+</a-entity>
+```
+
+### 3.3 在左手控制器上挂载 wrist-dashboard 组件
+
+```jsx
+<a-entity
+  id="leftHand"
+  hand-controls="hand: left"
+  laser-controls="hand: left"
+  raycaster="objects: .clickable; far: 10"
+  left-thumbstick-listener
+  wrist-dashboard
+></a-entity>
+```
+
+### 3.4 Notes内容随phase更新
+
+在`dashboard-content-sync`的`onRefresh`里，同步更新notes内容：
+
+```javascript
+var notes = {
+  1: 'Mitochondria: powerhouse\nconverts glucose → ATP',
+  2: 'ATP = Adenosine\nTriphosphate = cell energy',
+  3: 'Lysosome: recycling center\nbreaks down damaged proteins',
+  4: 'ER → Golgi → Vesicle:\nprotein secretory pathway',
+  5: 'Review: all organelles\nwork together for life!'
+};
+
+var notesEl = document.getElementById('vr-dash-notes');
+if (notesEl) notesEl.setAttribute('value', notes[phase] || '');
+```
+
+---
+
+## 任务四：确保游戏化设计与桌面版一致
+
+VR内的交互逻辑（click/drag/snap）已经在之前的debug session修好，不需要重写。只需确认：
+
+1. **phase-advance事件** 在VR内点击/拖拽成功后仍然正常触发（当前已工作）
+2. **score更新**同步到`window.currentScore`，并dispatch `phase-changed-vr`时带上score
+3. **知识卡片** 在VR模式下改为显示在视野前方的`a-entity`而不是2D overlay（参考HUD的position="0 0.3 -1.2"）
+
+在`page.tsx`的`phase-advance`监听器里补充：
+
+```javascript
+window.addEventListener('phase-advance', (evt: any) => {
+  const newPhase = currentPhase + 1;
+  window.currentPhase = newPhase;
+  setCurrentPhase(newPhase);
+  
+  // 同步到VR HUD和Dashboard
+  window.dispatchEvent(new CustomEvent('phase-changed-vr', {
+    detail: { 
+      phase: newPhase, 
+      score: window.currentScore || score 
+    }
+  }));
+});
+```
+
+---
+
+## 执行顺序
+
+1. 先在`registerComponents.ts`里注册所有新组件：`vr-hud-sync`, `wrist-dashboard`, `dashboard-content-sync`, `left-thumbstick-listener`
+2. 然后修改`page.tsx`的camera rig（加thumbstick+teleport）
+3. 在page.tsx的a-scene里加入dashboard entity
+4. 在phase-advance handler里补上`phase-changed-vr` dispatch
+5. 确认teleport-controls script在useEffect里加载
+6. 加载aframe-extras（movement-controls依赖它）：确认`require('aframe-extras')`已在useEffect里
+
+## 注意事项
+
+- **不要动`game-draggable`和`game-clickable`组件** — 这两个刚调试好，不要碰
+- **不要动organelle positions** — SNAP_POSITIONS里的坐标是校准好的
+- **wrist-dashboard的visible初始值必须是false** — 避免进入VR时立即显示挡住视野
+- **teleport-controls加载是异步的** — 脚本可能还没加载好就尝试enter VR，加500ms延迟保护
+- **window.THREE vs import THREE** — 全程用`window.THREE`，不要import THREE（已知会导致多实例冲突）

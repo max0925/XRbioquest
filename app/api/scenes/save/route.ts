@@ -86,6 +86,8 @@ export async function POST(request: NextRequest) {
     // If user is authenticated, also save/update in user_projects table
     if (user) {
       try {
+        console.log('[SAVE] Authenticated user detected:', user.id);
+
         // Extract thumbnail from scene data (environment imagePath)
         let thumbnailUrl: string | null = null;
         let projectName = 'Untitled Project';
@@ -103,17 +105,28 @@ export async function POST(request: NextRequest) {
           projectName = `Scene with ${sceneData.models.length} model${sceneData.models.length !== 1 ? 's' : ''}`;
         }
 
+        console.log('[SAVE] Extracted project metadata:', {
+          name: projectName,
+          thumbnail: thumbnailUrl?.substring(0, 50) + '...',
+          short_id: shortId
+        });
+
         // Check if a project with this short_id already exists
-        const { data: existingProject } = await supabase
+        const { data: existingProject, error: findError } = await supabase
           .from('user_projects')
           .select('id')
           .eq('user_id', user.id)
           .eq('short_id', shortId)
           .maybeSingle();
 
+        if (findError) {
+          console.error('[SAVE] Error finding existing project:', findError);
+          throw findError;
+        }
+
         if (existingProject) {
           // Update existing project
-          await supabase
+          const { error: updateError } = await supabase
             .from('user_projects')
             .update({
               scene_data: sceneData,
@@ -122,10 +135,15 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', existingProject.id);
 
-          console.log('[SAVE] Updated existing project:', existingProject.id);
+          if (updateError) {
+            console.error('[SAVE] Error updating project:', updateError);
+            throw updateError;
+          }
+
+          console.log('[SAVE] ✓ Updated existing project:', existingProject.id);
         } else {
           // Create new project
-          await supabase
+          const { data: newProject, error: insertError } = await supabase
             .from('user_projects')
             .insert({
               user_id: user.id,
@@ -136,14 +154,28 @@ export async function POST(request: NextRequest) {
               status: 'draft',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            });
+            })
+            .select('id')
+            .single();
 
-          console.log('[SAVE] Created new project for user:', user.id);
+          if (insertError) {
+            console.error('[SAVE] Error inserting project:', insertError);
+            throw insertError;
+          }
+
+          console.log('[SAVE] ✓ Created new project:', newProject.id, 'for user:', user.id);
         }
       } catch (projectError: any) {
         // Log but don't fail the request - scenes table save succeeded
-        console.error('[SAVE] Failed to save to user_projects:', projectError.message);
+        console.error('[SAVE] ✗ Failed to save to user_projects:', {
+          message: projectError.message,
+          code: projectError.code,
+          details: projectError.details,
+          hint: projectError.hint
+        });
       }
+    } else {
+      console.log('[SAVE] No authenticated user - skipping user_projects save');
     }
 
     return NextResponse.json({
