@@ -47,6 +47,15 @@ drag-multi   → player collects N identical items → one target.
                RULE: declare total separate assets each with quest_phase_id = this phase id
 drag-chain   → sequential drag pathway. Requires: steps[] where each step has { drag_item, drag_target }
                Use for metabolic pathways, protein secretion, signal cascades
+quiz         → multiple-choice question overlay (no 3D interaction).
+               Requires: question (string), options (array of 4 objects), explanation (string)
+               Each option: { "id": "a"|"b"|"c"|"d", "text": string, "is_correct": boolean }
+               Exactly one option must have is_correct: true.
+               Use after click/drag phases to check conceptual understanding.
+explore      → player walks to a target location in the scene.
+               Requires: target_position ([x,y,z]), trigger_radius (number, default 2.5)
+               Optional: target_asset (asset id to highlight as destination)
+               Use to guide players between scene areas or to landmark organelles.
 complete     → required last phase. Shows score + celebration.
 
 ════════════════════════════════════════
@@ -70,10 +79,12 @@ Middle School: MS-LS1-1, MS-LS1-2, MS-LS1-3, MS-LS1-5, MS-LS1-6, MS-LS1-7
 PEDAGOGY RULES (MUST FOLLOW)
 ════════════════════════════════════════
 1. ACTION-CONCEPT BINDING: Every interactive phase teaches exactly one concept.
-   click    → identification & recognition
-   drag     → function / cause-effect relationship
+   click      → identification & recognition
+   drag       → function / cause-effect relationship
    drag-multi → bulk/repeated processes (autophagy, phagocytosis, ion channels)
    drag-chain → sequential pathway (secretory pathway, electron transport, signal transduction)
+   quiz       → conceptual check / misconception correction (insert after a click or drag)
+   explore    → spatial orientation / navigation to a key structure
 
 2. PROGRESSIVE COMPLEXITY: phases must increase in cognitive load.
    Typical arc: intro → click → drag → drag-multi → drag-chain → complete
@@ -81,7 +92,7 @@ PEDAGOGY RULES (MUST FOLLOW)
 
 3. KNOWLEDGE CARDS (REQUIRED for every interactive phase):
    knowledge_cards must have one entry keyed by phase.id for each
-   click / drag / drag-multi / drag-chain phase.
+   click / drag / drag-multi / drag-chain / quiz / explore phase.
    Each card must include: title, body (with unicode formulas if relevant), tag.
    Include misconception where a common student error exists.
 
@@ -90,6 +101,8 @@ PEDAGOGY RULES (MUST FOLLOW)
    drag phases:       100–200 pts + optional time_bonus (10–30s, 25–75pts)
    drag-multi phases: 100–200 pts (for completing all items, not per item)
    drag-chain phases: 100–200 pts (for completing entire chain)
+   quiz phases:       50–100 pts (awarded on first correct answer)
+   explore phases:    25–75 pts (awarded on reaching target)
    Set scoring.max_possible = sum of all phase points + all possible bonuses.
    Set scoring.passing_threshold = 60% of max_possible.
 
@@ -150,6 +163,15 @@ OUTPUT JSON SCHEMA (exact shape required)
         { "drag_item": "item-id", "drag_target": "target-id" },
         { "drag_item": "item-id", "drag_target": "target-id" }
       ], "points": 150 },
+    { "id": "...", "type": "quiz", "title": "Quick Check", "instruction": "...", "question": "...",
+      "options": [
+        { "id": "a", "text": "...", "is_correct": false },
+        { "id": "b", "text": "...", "is_correct": true },
+        { "id": "c", "text": "...", "is_correct": false },
+        { "id": "d", "text": "...", "is_correct": false }
+      ], "explanation": "...", "points": 75 },
+    { "id": "...", "type": "explore", "title": "...", "instruction": "Walk to the ...",
+      "target_position": [x, y, z], "trigger_radius": 2.5, "target_asset": "asset-id", "points": 50 },
     { "id": "complete", "type": "complete", "title": "Mission Complete!", "instruction": "Summary sentence." }
   ],
   "knowledge_cards": {

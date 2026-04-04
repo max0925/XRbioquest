@@ -19,6 +19,8 @@ import type {
   KnowledgeCardConfig,
   DragMultiPhase,
   DragChainPhase,
+  QuizPhase,
+  ExplorePhase,
 } from '@/types/game-config';
 
 // ─── Type narrowing helpers ───────────────────────────────────────────────────
@@ -33,6 +35,12 @@ function isDragMultiPhase(p: PhaseConfig): p is DragMultiPhase {
 }
 function isDragChainPhase(p: PhaseConfig): p is DragChainPhase {
   return p.type === 'drag-chain';
+}
+function isQuizPhase(p: PhaseConfig): p is QuizPhase {
+  return p.type === 'quiz';
+}
+function isExplorePhase(p: PhaseConfig): p is ExplorePhase {
+  return p.type === 'explore';
 }
 
 export default function PlayPage() {
@@ -61,6 +69,10 @@ export default function PlayPage() {
   const phaseStartTime = useRef<number>(0);
   const advancedRef = useRef(false);
   const wrongClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Imperative counters for drag-multi/drag-chain — updated synchronously in
+  // event handlers so side effects never run inside setState updater functions.
+  const dragMultiCountRef = useRef(0);
+  const dragChainStepRef = useRef(0);
 
   // ─── Load config from URL id ─────────────────────────────────────────────
 
@@ -179,6 +191,15 @@ export default function PlayPage() {
     window.currentPlaySnapTargetId = snapTargetId;
     window.currentPlaySnapDistance = snapDistance;
     window.currentPlayChainIsLastStep = isLastChainStep;
+
+    // ExplorePhase: pass target + radius to proximity-trigger component
+    if (isExplorePhase(phase)) {
+      window.currentPlayExploreTarget = phase.target_position;
+      window.currentPlayExploreTriggerRadius = phase.trigger_radius ?? 2.0;
+    } else {
+      window.currentPlayExploreTarget = null;
+      window.currentPlayExploreTriggerRadius = 0;
+    }
   }, [config, phase, phaseProgress]);
 
   // ─── Phase start: reset progress / continue button ───────────────────────
@@ -191,8 +212,10 @@ export default function PlayPage() {
     setWrongClickHint(null);
 
     if (isDragMultiPhase(phase)) {
+      dragMultiCountRef.current = 0;
       setPhaseProgress({ count: 0, total: phase.total });
     } else if (isDragChainPhase(phase)) {
+      dragChainStepRef.current = 0;
       setPhaseProgress({ count: 0, total: phase.steps.length, step: 0 });
     } else {
       setPhaseProgress(null);
@@ -226,7 +249,11 @@ export default function PlayPage() {
   const dismissCard = useCallback(() => {
     setShowKnowledgeCard(false);
     setKnowledgeCardData(null);
-    setShowContinue(true);
+    // Do NOT set showContinue here. By the time the knowledge card appears,
+    // advancePhase() has already moved to the *next* phase. showContinue is
+    // managed by the phase-start useEffect (true only for intro / complete).
+    // Setting it here would expose a "Continue →" button during interactive
+    // phases and let players accidentally skip them.
   }, []);
 
   const handleContinue = useCallback(() => {
@@ -281,28 +308,29 @@ export default function PlayPage() {
         showCard(phase.id);
         advancePhase();
       } else if (isDragMultiPhase(phase)) {
-        setPhaseProgress((prev) => {
-          if (!prev) return prev;
-          const next = { ...prev, count: prev.count + 1 };
-          if (next.count >= next.total) {
-            setScore((s) => s + (phase.points ?? 0));
-            showCard(phase.id);
-            advancePhase();
-          }
-          return next;
-        });
+        // Use an imperative ref so side effects never fire inside a setState
+        // updater (which React may call multiple times in strict mode / future
+        // concurrent features).
+        dragMultiCountRef.current += 1;
+        const count = dragMultiCountRef.current;
+        setPhaseProgress((prev) => (prev ? { ...prev, count } : prev));
+        if (count >= phase.total) {
+          setScore((s) => s + (phase.points ?? 0));
+          showCard(phase.id);
+          advancePhase();
+        }
       } else if (isDragChainPhase(phase)) {
-        setPhaseProgress((prev) => {
-          if (!prev || prev.step === undefined) return prev;
-          const nextStep = prev.step + 1;
-          const isLast = nextStep >= phase.steps.length;
-          if (isLast) {
-            setScore((s) => s + (phase.points ?? 0));
-            showCard(phase.id);
-            advancePhase();
-          }
-          return { ...prev, step: nextStep, count: nextStep };
-        });
+        dragChainStepRef.current += 1;
+        const nextStep = dragChainStepRef.current;
+        const isLast = nextStep >= phase.steps.length;
+        setPhaseProgress((prev) =>
+          prev ? { ...prev, step: nextStep, count: nextStep } : prev
+        );
+        if (isLast) {
+          setScore((s) => s + (phase.points ?? 0));
+          showCard(phase.id);
+          advancePhase();
+        }
       }
     };
     window.addEventListener('play-drag-success', handler as EventListener);
@@ -327,6 +355,43 @@ export default function PlayPage() {
     window.addEventListener('voyage-continue', handler);
     return () => window.removeEventListener('voyage-continue', handler);
   }, [handleContinue]);
+
+  // ─── Quiz answer callback (from PlayOverlayUI QuizUI) ────────────────────
+  // Called synchronously when the player taps the correct option. Adds score
+  // and schedules phase advance after a 2-second explanation window.
+
+  const handleQuizAnswer = useCallback(
+    (optionId: string, isCorrect: boolean) => {
+      if (!config || !phase || !isQuizPhase(phase) || !isCorrect) return;
+      const pts = phase.points ?? 0;
+      setPrevScore((s) => s);
+      setScore((s) => s + pts);
+      showCard(phase.id);
+      // Give the student 2 s to read the explanation, then advance
+      setTimeout(() => {
+        advancePhase();
+      }, 2000);
+    },
+    [config, phase, advancePhase, showCard]
+  );
+
+  // ─── Event: play-proximity-reached (ExplorePhase) ─────────────────────────
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (!config || !phase) return;
+      const { phaseId } = e.detail ?? {};
+      if (phaseId !== phase.id || !isExplorePhase(phase)) return;
+      const pts = phase.points ?? 0;
+      setPrevScore((s) => s);
+      setScore((s) => s + pts);
+      showCard(phase.id);
+      advancePhase();
+    };
+    window.addEventListener('play-proximity-reached', handler as EventListener);
+    return () =>
+      window.removeEventListener('play-proximity-reached', handler as EventListener);
+  }, [config, phase, advancePhase, showCard]);
 
   // ─── Event: show-info-panel ───────────────────────────────────────────────
 
@@ -404,22 +469,23 @@ export default function PlayPage() {
           embedded
           vr-mode-ui="enabled: false"
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-          cursor="rayOrigin: mouse; fuse: false"
-          raycaster="objects: [config-clickable], [config-draggable]; far: 100"
         >
           {skyboxUrl ? (
             <a-sky src={skyboxUrl} rotation="0 -130 0"></a-sky>
           ) : (
-            <a-sky color="#0f172a" rotation="0 -130 0"></a-sky>
+            // No skybox URL — use procedural environment preset
+            <a-entity environment="preset: starry; ground: none; fog: 0"></a-entity>
           )}
 
+          {/* Mouse cursor entity — rayOrigin: mouse shoots from the active camera
+              using mouse NDC position, regardless of this entity's world position. */}
           <a-entity
-            cursor="fuse: false"
-            raycaster="objects: .clickable; far: 100"
-            position="0 0 -1"
-            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
-            material="color: #00e5ff; shader: flat"
+            cursor="rayOrigin: mouse; fuse: false"
+            raycaster="objects: [config-clickable], [config-draggable]; far: 100"
           ></a-entity>
+
+          {/* Proximity trigger — always in scene, self-manages indicator/detection */}
+          <a-entity config-proximity-trigger></a-entity>
 
           <GameAssets config={config} currentPhase={phase} chainStep={chainStep} />
           <Lighting />
@@ -473,6 +539,7 @@ export default function PlayPage() {
               showContinue={showContinue}
               onDismissCard={dismissCard}
               onContinue={handleContinue}
+              onQuizAnswer={handleQuizAnswer}
             />
             {wrongClickHint && (
               <div

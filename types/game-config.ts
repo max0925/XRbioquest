@@ -89,6 +89,8 @@ export type PhaseType =
   | 'drag'
   | 'drag-multi'
   | 'drag-chain'
+  | 'quiz'
+  | 'explore'
   | 'complete';
 
 interface PhaseBase {
@@ -153,6 +155,32 @@ export interface DragChainPhase extends PhaseBase {
   steps: DragChainStep[];
 }
 
+export interface QuizOption {
+  id: string;
+  text: string;
+  is_correct: boolean;
+}
+
+export interface QuizPhase extends PhaseBase {
+  type: 'quiz';
+  /** The question text (may duplicate `instruction` for clarity) */
+  question: string;
+  /** Exactly 4 answer options; exactly one must have is_correct: true */
+  options: QuizOption[];
+  /** Shown after a correct answer before auto-advancing */
+  explanation: string;
+}
+
+export interface ExplorePhase extends PhaseBase {
+  type: 'explore';
+  /** World-space position the player must walk to */
+  target_position: Vec3;
+  /** Horizontal distance (world units) that triggers success; default 2.0 */
+  trigger_radius: number;
+  /** Optional asset id to highlight as the destination */
+  target_asset?: string;
+}
+
 export interface CompletePhase extends PhaseBase {
   type: 'complete';
 }
@@ -163,6 +191,8 @@ export type PhaseConfig =
   | DragPhase
   | DragMultiPhase
   | DragChainPhase
+  | QuizPhase
+  | ExplorePhase
   | CompletePhase;
 
 // ─── Knowledge Cards ─────────────────────────────────────────────────────

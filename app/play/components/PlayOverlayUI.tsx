@@ -1,11 +1,14 @@
 // @ts-nocheck
 'use client';
 
+import { useState, useEffect } from 'react';
 import type {
   GameConfig,
   PhaseConfig,
   KnowledgeCardConfig,
   HUDConfig,
+  QuizPhase,
+  QuizOption,
 } from '@/types/game-config';
 
 // ─── Phase progress (multi-step phases) ──────────────────────────────────────
@@ -31,6 +34,94 @@ interface PlayOverlayUIProps {
   showContinue: boolean;
   onDismissCard: () => void;
   onContinue: () => void;
+  /** Called when the player selects a quiz answer */
+  onQuizAnswer?: (optionId: string, isCorrect: boolean) => void;
+}
+
+// ─── QuizUI sub-component ────────────────────────────────────────────────────
+// Stateful component that handles option selection, wrong-answer flash, and
+// explanation reveal. Parent (page.tsx) receives correct answers via onAnswer
+// to add score and schedule phase advance.
+
+function QuizUI({
+  phase,
+  onAnswer,
+}: {
+  phase: QuizPhase;
+  onAnswer: (optionId: string, isCorrect: boolean) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [wrongId, setWrongId] = useState<string | null>(null);
+
+  const handleClick = (opt: QuizOption) => {
+    // Locked while a wrong-flash is in progress, or after correct answer
+    if (selectedId !== null || wrongId !== null) return;
+
+    if (opt.is_correct) {
+      setSelectedId(opt.id);
+      onAnswer(opt.id, true);
+    } else {
+      setWrongId(opt.id);
+      setTimeout(() => setWrongId(null), 700);
+    }
+  };
+
+  return (
+    <div className="mb-2">
+      {/* Option buttons */}
+      <div className="flex flex-col gap-2 mb-3">
+        {phase.options.map((opt) => {
+          const isCorrect = opt.id === selectedId;
+          const isWrong = opt.id === wrongId;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => handleClick(opt)}
+              disabled={selectedId !== null}
+              className="w-full text-left text-sm font-medium rounded-xl px-4 py-2.5 transition-all duration-150"
+              style={{
+                backgroundColor: isCorrect
+                  ? 'rgba(34, 197, 94, 0.25)'
+                  : isWrong
+                  ? 'rgba(239, 68, 68, 0.25)'
+                  : 'rgba(255, 255, 255, 0.07)',
+                border: isCorrect
+                  ? '1px solid rgba(34, 197, 94, 0.5)'
+                  : isWrong
+                  ? '1px solid rgba(239, 68, 68, 0.5)'
+                  : '1px solid rgba(255, 255, 255, 0.12)',
+                color: isCorrect ? '#86efac' : isWrong ? '#fca5a5' : '#e2e8f0',
+                cursor: selectedId !== null ? 'default' : 'pointer',
+                transform: isWrong ? 'translateX(0)' : undefined,
+              }}
+            >
+              <span
+                className="inline-block mr-2 text-xs font-bold uppercase"
+                style={{ color: isCorrect ? '#86efac' : isWrong ? '#fca5a5' : 'rgba(255,255,255,0.4)' }}
+              >
+                {opt.id.toUpperCase()}
+              </span>
+              {opt.text}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Explanation — shown after correct answer */}
+      {selectedId !== null && (
+        <div
+          className="text-xs leading-relaxed px-3 py-2.5 rounded-lg"
+          style={{
+            backgroundColor: 'rgba(34, 197, 94, 0.08)',
+            border: '1px solid rgba(34, 197, 94, 0.2)',
+            color: '#86efac',
+          }}
+        >
+          ✓ {phase.explanation}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -48,6 +139,7 @@ export function PlayOverlayUI({
   showContinue,
   onDismissCard,
   onContinue,
+  onQuizAnswer,
 }: PlayOverlayUIProps) {
   const hud: HUDConfig = config.hud;
 
@@ -184,16 +276,24 @@ export function PlayOverlayUI({
                 {currentPhase.title}
               </div>
 
-              {/* Instruction */}
-              <div
-                className="text-white text-sm mb-4 leading-relaxed"
-                style={{ opacity: 0.85 }}
-              >
-                {instruction}
-              </div>
+              {/* Instruction / Quiz */}
+              {currentPhase.type === 'quiz' ? (
+                <QuizUI
+                  key={currentPhase.id}
+                  phase={currentPhase as QuizPhase}
+                  onAnswer={onQuizAnswer ?? (() => {})}
+                />
+              ) : (
+                <div
+                  className="text-white text-sm mb-4 leading-relaxed"
+                  style={{ opacity: 0.85 }}
+                >
+                  {instruction}
+                </div>
+              )}
 
-              {/* Continue button */}
-              {showContinue && (
+              {/* Continue button — hidden during quiz (quiz auto-advances) */}
+              {showContinue && currentPhase.type !== 'quiz' && (
                 <button
                   onClick={onContinue}
                   className="w-full text-black font-bold text-sm uppercase tracking-widest py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
@@ -393,12 +493,14 @@ export function PlayOverlayUI({
           ))}
 
           {/* Celebration message */}
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-auto">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-auto">
             <div
               className="rounded-3xl px-12 py-10 animate-[bounceIn_0.6s_ease-out]"
               style={{
-                backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                backgroundColor: 'rgba(15, 23, 42, 0.96)',
                 border: '2px solid rgba(34, 197, 94, 0.5)',
+                boxShadow: '0 0 60px rgba(34,197,94,0.15)',
+                minWidth: '320px',
               }}
             >
               <div className="text-5xl mb-3 animate-bounce">🎉</div>
@@ -408,29 +510,49 @@ export function PlayOverlayUI({
               >
                 {currentPhase.title}
               </div>
+
+              {/* Score */}
               <div className="text-white text-lg mb-1">
                 Final Score:{' '}
                 <span className="font-black" style={{ color: '#22c55e' }}>
                   {score}
                 </span>{' '}
-                <span
-                  className="text-sm"
-                  style={{ color: 'rgba(255,255,255,0.5)' }}
-                >
+                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   / {config.scoring.max_possible}
                 </span>
               </div>
-              <div className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                {currentPhase.instruction}
-              </div>
-              {score >= config.scoring.passing_threshold && (
+
+              {/* Passed / Failed badge */}
+              {score >= config.scoring.passing_threshold ? (
                 <div
-                  className="mt-3 text-sm font-bold"
-                  style={{ color: '#22c55e' }}
+                  className="inline-block mt-2 mb-3 px-4 py-1 rounded-full text-sm font-bold"
+                  style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.4)' }}
                 >
                   ✓ Passed
                 </div>
+              ) : (
+                <div
+                  className="inline-block mt-2 mb-3 px-4 py-1 rounded-full text-sm font-bold"
+                  style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                >
+                  Keep practicing
+                </div>
               )}
+
+              <div className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                {currentPhase.instruction}
+              </div>
+
+              {/* Play Again button — primary CTA directly in celebration card */}
+              <button
+                onClick={onContinue}
+                className="w-full font-bold text-sm uppercase tracking-widest py-3.5 rounded-xl transition-all duration-200"
+                style={{ backgroundColor: '#22c55e', color: '#000', boxShadow: '0 0 20px rgba(34,197,94,0.3)' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = '#4ade80')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = '#22c55e')}
+              >
+                🔄 Play Again
+              </button>
             </div>
           </div>
         </div>

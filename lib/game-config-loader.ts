@@ -9,6 +9,8 @@ import type {
   DragPhase,
   DragMultiPhase,
   DragChainPhase,
+  QuizPhase,
+  ExplorePhase,
 } from '@/types/game-config';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -244,6 +246,37 @@ function validatePhase(raw: unknown, index: number): asserts raw is PhaseConfig 
           throw new Error(`${ctx} steps[${si}]: requires drag_target (string)`);
         }
       });
+      break;
+    }
+
+    case 'quiz': {
+      const qp = p as unknown as Partial<QuizPhase>;
+      if (typeof qp.question !== 'string') {
+        throw new Error(`${ctx}: QuizPhase requires question (string)`);
+      }
+      if (!Array.isArray(qp.options) || qp.options.length === 0) {
+        throw new Error(`${ctx}: QuizPhase requires options (non-empty array)`);
+      }
+      if (typeof qp.explanation !== 'string') {
+        throw new Error(`${ctx}: QuizPhase requires explanation (string)`);
+      }
+      break;
+    }
+
+    case 'explore': {
+      const ep = p as unknown as Partial<ExplorePhase>;
+      if (
+        !Array.isArray(ep.target_position) ||
+        ep.target_position.length !== 3 ||
+        ep.target_position.some((v) => typeof v !== 'number')
+      ) {
+        throw new Error(
+          `${ctx}: ExplorePhase requires target_position ([x, y, z] numbers)`
+        );
+      }
+      if (typeof ep.trigger_radius !== 'number') {
+        throw new Error(`${ctx}: ExplorePhase requires trigger_radius (number)`);
+      }
       break;
     }
 

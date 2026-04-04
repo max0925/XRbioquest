@@ -229,7 +229,7 @@ export function registerPlayComponents() {
 
           console.log('[CONFIG-DRAG] dist to snap target:', dist.toFixed(2), 'threshold:', snapDist);
 
-          if (dist < snapDist) {
+          if (dist <= snapDist) {
             // ── SUCCESS ──
             spawnParticleBurst(targetPos);
 
@@ -312,7 +312,95 @@ export function registerPlayComponents() {
     });
   }
 
-  // ─── 3. CONFIG-AUTO-SCALE ─────────────────────────────────────────────
+  // ─── 3. CONFIG-PROXIMITY-TRIGGER ──────────────────────────────────────
+  // Placed as a single persistent entity in the scene. On each tick it:
+  //   1. Reads window.currentPlayPhaseType — active only during 'explore' phases
+  //   2. Compares camera-rig XZ position to window.currentPlayExploreTarget
+  //   3. Fires 'play-proximity-reached' when the player is within trigger_radius
+  //   4. Renders a pulsing cyan ring on the ground at the target position
+  if (!window.AFRAME.components['config-proximity-trigger']) {
+    window.AFRAME.registerComponent('config-proximity-trigger', {
+      init: function () {
+        this._triggered = false;
+        this._indicatorEl = null;
+        this._lastPhaseId = null;
+      },
+
+      _createIndicator: function (target) {
+        if (this._indicatorEl) return; // already exists
+        var el = document.createElement('a-entity');
+        el.setAttribute('position', target[0] + ' 0.05 ' + target[2]);
+        el.setAttribute('geometry', 'primitive: torus; radius: 1.5; radiusTubular: 0.05');
+        el.setAttribute('material', 'color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.6; transparent: true; opacity: 0.8; shader: flat');
+        el.setAttribute('rotation', '-90 0 0');
+        el.setAttribute('animation', 'property: scale; to: 1.15 1.15 1.15; dir: alternate; loop: true; dur: 900; easing: easeInOutSine');
+        // Outer glow ring
+        var glow = document.createElement('a-entity');
+        glow.setAttribute('geometry', 'primitive: torus; radius: 1.7; radiusTubular: 0.02');
+        glow.setAttribute('material', 'color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.3; transparent: true; opacity: 0.35; shader: flat');
+        glow.setAttribute('animation', 'property: scale; to: 1.08 1.08 1.08; dir: alternate; loop: true; dur: 1400; easing: easeInOutSine');
+        el.appendChild(glow);
+        this.el.sceneEl.appendChild(el);
+        this._indicatorEl = el;
+      },
+
+      _removeIndicator: function () {
+        if (this._indicatorEl) {
+          try { this.el.sceneEl.removeChild(this._indicatorEl); } catch (_) {}
+          this._indicatorEl = null;
+        }
+      },
+
+      tick: function () {
+        var phaseId = window.currentPlayPhaseId;
+        var phaseType = window.currentPlayPhaseType;
+
+        // Detect phase change → reset triggered state and indicator
+        if (phaseId !== this._lastPhaseId) {
+          this._lastPhaseId = phaseId;
+          this._triggered = false;
+          this._removeIndicator();
+        }
+
+        var isExplore = phaseType === 'explore';
+
+        if (isExplore && !this._indicatorEl && !this._triggered) {
+          var target = window.currentPlayExploreTarget;
+          if (target) this._createIndicator(target);
+        } else if (!isExplore && this._indicatorEl) {
+          this._removeIndicator();
+        }
+
+        if (!isExplore || this._triggered) return;
+
+        var target = window.currentPlayExploreTarget;
+        var radius = window.currentPlayExploreTriggerRadius || 2.0;
+        if (!target) return;
+
+        var rig = document.getElementById('camera-rig');
+        if (!rig) return;
+
+        var rigPos = rig.getAttribute('position');
+        var dx = (rigPos.x || 0) - target[0];
+        var dz = (rigPos.z || 0) - target[2];
+        var dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist <= radius) {
+          this._triggered = true;
+          this._removeIndicator();
+          window.dispatchEvent(new CustomEvent('play-proximity-reached', {
+            detail: { phaseId: phaseId }
+          }));
+        }
+      },
+
+      remove: function () {
+        this._removeIndicator();
+      }
+    });
+  }
+
+  // ─── 4. CONFIG-AUTO-SCALE ─────────────────────────────────────────────
   // Same as voyage auto-scale — normalizes GLB to target unit size.
   if (!window.AFRAME.components['config-auto-scale']) {
     window.AFRAME.registerComponent('config-auto-scale', {
