@@ -22,11 +22,41 @@ export interface GameMeta {
 
 // ─── Environment ─────────────────────────────────────────────────────────
 
+export type AFrameEnvironmentPreset =
+  | 'default'
+  | 'contact'
+  | 'egypt'
+  | 'checkerboard'
+  | 'forest'
+  | 'goaland'
+  | 'yavapai'
+  | 'goldmine'
+  | 'threetowers'
+  | 'poison'
+  | 'arches'
+  | 'tron'
+  | 'japan'
+  | 'dream'
+  | 'volcano'
+  | 'starry'
+  | 'osiris';
+
 export interface EnvironmentConfig {
   /** Prompt sent to Blockade Labs for skybox generation */
   skybox_prompt: string;
   /** Pre-generated skybox URL (filled by resolver) */
   skybox_url?: string;
+  /**
+   * A-Frame environment preset used as an immediate fallback when skybox_url
+   * is not yet available. The AI assembler should always include this.
+   * Recommended pairings:
+   *   cell biology → 'tron'
+   *   genetics     → 'starry'
+   *   ecology      → 'forest'
+   *   human body   → 'default'
+   *   chemistry    → 'tron'
+   */
+  preset?: AFrameEnvironmentPreset;
   /** Lighting mood applied to the scene */
   lighting: 'warm' | 'cool' | 'neutral' | 'dramatic' | 'bioluminescent';
 }
@@ -57,7 +87,9 @@ export interface AssetConfig {
   model_source: ModelSource;
   /** Supabase storage path (when model_source = 'supabase') */
   model_path?: string;
-  /** Keyword for internal ngss_assets lookup (when model_source = 'library') */
+  /** UUID from ngss_assets table (when model_source = 'library') */
+  supabase_id?: string;
+  /** Keyword for ngss_assets lookup (when model_source = 'library') */
   search_keyword?: string;
   /** Text prompt for Meshy AI generation (when model_source = 'meshy') */
   generate_prompt?: string;

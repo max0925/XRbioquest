@@ -12,6 +12,7 @@ import type {
   QuizPhase,
   ExplorePhase,
 } from '@/types/game-config';
+import { lookupBySupabaseId, lookupByKeyword } from '@/lib/asset-registry';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -123,18 +124,30 @@ function resolveModelUrl(asset: AssetConfig): string {
     return `${SUPABASE_STORAGE_BASE}/${asset.model_path}`;
   }
 
-  // For 'library' and 'meshy', the URL is provided externally after async
-  // resolution (ngssAssets lookup or Meshy generation job). The asset should
-  // carry it as model_path by the time resolve is called.
+  // 'library' assets: model_path is set to the full ngss_assets model_url at
+  // assembly time (by the /api/assemble-game route). Use it directly.
   if (asset.model_path) {
     return asset.model_path.startsWith('http')
       ? asset.model_path
       : `${SUPABASE_STORAGE_BASE}/${asset.model_path}`;
   }
 
-  // No model URL yet — asset is pending Meshy generation or library lookup.
-  // Return empty string so the runtime can render a placeholder geometry
-  // instead of crashing the entire experience.
+  // Fallback: try registry lookup by supabase_id or search_keyword.
+  // (Handles configs assembled before the auto-resolution step existed.)
+  if (asset.model_source === 'library') {
+    const entry =
+      (asset.supabase_id ? lookupBySupabaseId(asset.supabase_id) : null) ??
+      (asset.search_keyword ? lookupByKeyword(asset.search_keyword) : null);
+    if (entry) {
+      // Registry entries don't store model_url — flag for re-assembly
+      console.warn(
+        `[game-config-loader] Asset "${asset.id}" (library) has no model_path. ` +
+          `Re-assemble the experience to populate URLs from the ngss_assets table.`
+      );
+    }
+  }
+
+  // No model URL — render placeholder geometry.
   console.warn(
     `[game-config-loader] Asset "${asset.id}" (source: ${asset.model_source}) has no ` +
       `resolved model URL — rendering placeholder geometry.`

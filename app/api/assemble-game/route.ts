@@ -1,39 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { validateGameConfig } from '@/lib/game-config-loader';
+import { buildAssetTableForPrompt } from '@/lib/asset-registry';
+import { searchNGSSAssetsServer } from '@/lib/ngssAssetsServer';
 import type { GameConfig } from '@/types/game-config';
 
 export const maxDuration = 60;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ─── Available Supabase assets ────────────────────────────────────────────────
-// These are real GLB files in storage. GPT-4o may pick any subset.
-const SUPABASE_ASSETS = `
-id                       | model_path                                    | description
--------------------------|-----------------------------------------------|-------------------------------------
-mitochondria             | mitochondria_-_cell_organelles.glb            | Double-membraned powerhouse; produces ATP
-lysosome                 | lysosome.glb                                  | Digestive vesicle; breaks down waste at pH 4.5
-endoplasmic-reticulum    | endoplasmic_reticulum.glb                     | Protein folding & transport network
-golgi-apparatus          | golgi_apparatuscomplex.glb                    | Packaging/sorting station; modifies proteins
-glucose                  | glucose_molecule.glb                          | C₆H₁₂O₆ fuel molecule for cellular respiration
-`.trim();
-
 // ─── System prompt ────────────────────────────────────────────────────────────
+// Built as a function so it always reflects the current asset registry.
 
-const SYSTEM_PROMPT = `
+function buildSystemPrompt(): string {
+  return `
 You are an expert VR biology game designer and curriculum specialist.
 Your task: output a single valid GameConfig JSON object for a 3D VR biology game.
 
 ════════════════════════════════════════
-AVAILABLE SUPABASE ASSETS
-(model_source: "supabase")
+AVAILABLE LIBRARY ASSETS
+(model_source: "library" — confirmed in ngss_assets table)
 ════════════════════════════════════════
-${SUPABASE_ASSETS}
+${buildAssetTableForPrompt()}
 
-For any asset NOT in the table above, use:
-  model_source: "meshy"   + generate_prompt: "<vivid 3D model description>"
-  model_source: "library" + search_keyword: "<keyword>"  (for generic lab/biology items)
+PREFERRED: Use model_source: "library" + search_keyword from the table above.
+FALLBACK:  model_source: "meshy" + generate_prompt: "<vivid description>" for anything not listed.
 
 ════════════════════════════════════════
 AVAILABLE PHASE TYPES
@@ -132,16 +123,16 @@ OUTPUT JSON SCHEMA (exact shape required)
   },
   "environment": {
     "skybox_prompt": "detailed scene prompt for AI skybox generator",
+    "preset": "tron" | "starry" | "forest" | "default" | "contact" | "egypt" | "checkerboard" | "goaland" | "yavapai" | "goldmine" | "threetowers" | "poison" | "arches" | "japan" | "dream" | "volcano" | "osiris",
     "lighting": "warm" | "cool" | "neutral" | "dramatic" | "bioluminescent"
   },
   "assets": [
     {
       "id": "kebab-case-asset-id",
       "name": "Display Name",
-      "model_source": "supabase" | "meshy" | "library",
-      "model_path": "filename.glb",          // supabase only
+      "model_source": "library" | "meshy",
+      "search_keyword": "...",              // library: exact keyword from table above
       "generate_prompt": "...",              // meshy only
-      "search_keyword": "...",              // library only
       "position": [x, y, z],
       "rotation": [rx, ry, rz],             // optional
       "scale": 1.0,                         // optional
@@ -202,6 +193,22 @@ OUTPUT JSON SCHEMA (exact shape required)
 }
 
 ════════════════════════════════════════
+ENVIRONMENT PRESET GUIDE
+════════════════════════════════════════
+Always include BOTH skybox_prompt AND preset. The preset renders immediately
+as a fallback; skybox_prompt is used to generate a photorealistic skybox later.
+
+Topic → recommended preset:
+  Cell biology / biochemistry → "tron"    (neon grid, futuristic lab feel)
+  Genetics / DNA              → "starry"  (cosmic, deep-space DNA lab)
+  Ecology / plants            → "forest"  (natural outdoor environment)
+  Human body / physiology     → "default" (clean neutral space)
+  Evolution                   → "osiris"  (ancient, dramatic atmosphere)
+  General biology             → "contact" (sci-fi research station)
+  Ocean / marine biology      → "dream"   (surreal, underwater-like)
+  Middle school               → "japan"   (calm, approachable aesthetic)
+
+════════════════════════════════════════
 STRICT OUTPUT RULES
 ════════════════════════════════════════
 - Output ONLY the JSON object. No markdown, no explanation, no code fences.
@@ -210,8 +217,10 @@ STRICT OUTPUT RULES
 - The phases array must start with an "intro" type and end with a "complete" type.
 - Asset positions must not overlap (min 1.5 units apart).
 - Use kebab-case for all id fields.
+- environment.preset is REQUIRED — choose from the preset guide above.
 - The "npc" field is optional but encouraged.
 `.trim();
+}
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -249,7 +258,7 @@ export async function POST(req: NextRequest) {
       temperature: 0.7,
       max_tokens: 4096,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: buildSystemPrompt() },
         { role: 'user', content: userMessage },
       ],
     });
@@ -271,6 +280,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: 'AI returned invalid JSON', raw: rawContent.slice(0, 500) },
       { status: 422 }
+    );
+  }
+
+  // ── Resolve library asset model_urls before validation ──
+  // For each library asset, look up the ngss_assets table to get the real model_url.
+  // This ensures the saved GameConfig has fully-resolved URLs and doesn't need
+  // runtime DB calls.
+  if (parsed && typeof parsed === 'object' && Array.isArray((parsed as any).assets)) {
+    const assets = (parsed as any).assets as any[];
+    await Promise.all(
+      assets.map(async (asset) => {
+        if (asset.model_source === 'library' && asset.search_keyword && !asset.model_path) {
+          try {
+            const result = await searchNGSSAssetsServer({
+              keywords: [asset.search_keyword],
+            });
+            if (result.found && result.asset) {
+              asset.model_path = result.asset.model_url;
+              asset.supabase_id = result.asset.id;
+            }
+          } catch (e) {
+            console.warn(
+              `[assemble-game] library lookup failed for "${asset.search_keyword}":`,
+              (e as Error).message
+            );
+          }
+        }
+      })
     );
   }
 

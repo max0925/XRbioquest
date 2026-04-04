@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import type { ResolvedGameConfig, PhaseConfig, ResolvedAsset } from '@/types/game-config';
+import { NPCEntity } from './NPCEntity';
 
 // ─── Proxy helper (mirrors voyage's proxyUrl) ────────────────────────────────
 // Supabase storage URLs load fine directly. Meshy/CDN URLs need CORS proxy.
@@ -116,6 +117,9 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
 
   return (
     <>
+      {/* ── NPC guide entity (rendered when config includes an npc) ── */}
+      {config.npc && <NPCEntity npc={config.npc} />}
+
       {assetsToRender.map((asset) => {
         const isClickTarget = asset.id === clickTargetId;
         const isSnapTarget = asset.id === snapTargetId;

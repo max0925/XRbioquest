@@ -400,7 +400,67 @@ export function registerPlayComponents() {
     });
   }
 
-  // ─── 4. CONFIG-AUTO-SCALE ─────────────────────────────────────────────
+  // ─── 4. CONFIG-NPC-ENTITY ─────────────────────────────────────────────
+  // Handles NPC proximity detection (shows "Press T to talk" within 3 units),
+  // click-to-open-chat (dispatches `play-npc-talk`), and hover glow.
+  if (!window.AFRAME.components['config-npc-entity']) {
+    window.AFRAME.registerComponent('config-npc-entity', {
+      init: function () {
+        var self = this;
+        self._hintEl = null;
+        self._hintVisible = false;
+
+        // Find the hint text element once children are loaded
+        self.el.addEventListener('loaded', function () {
+          self._hintEl = self.el.querySelector('[data-npc-hint]');
+        });
+
+        // Click / VR trigger → open chat
+        var handleTalk = function () {
+          window.dispatchEvent(new CustomEvent('play-npc-talk'));
+        };
+        self.el.addEventListener('click', handleTalk);
+        self.el.addEventListener('triggerdown', handleTalk);
+
+        // Hover scale pulse
+        self.el.addEventListener('mouseenter', function () {
+          self.el.setAttribute('animation__hover', {
+            property: 'scale',
+            to: '1.12 1.12 1.12',
+            dur: 200,
+            easing: 'easeOutQuad'
+          });
+        });
+        self.el.addEventListener('mouseleave', function () {
+          self.el.setAttribute('animation__hover', {
+            property: 'scale',
+            to: '1 1 1',
+            dur: 200,
+            easing: 'easeOutQuad'
+          });
+        });
+      },
+
+      tick: function () {
+        var rig = document.getElementById('camera-rig');
+        if (!rig || !this._hintEl) return;
+
+        var rigPos = rig.getAttribute('position');
+        var myPos = this.el.getAttribute('position');
+        var dx = (rigPos.x || 0) - (myPos.x || 0);
+        var dz = (rigPos.z || 0) - (myPos.z || 0);
+        var dist = Math.sqrt(dx * dx + dz * dz);
+
+        var shouldShow = dist <= 3.0;
+        if (shouldShow !== this._hintVisible) {
+          this._hintVisible = shouldShow;
+          this._hintEl.setAttribute('visible', shouldShow ? 'true' : 'false');
+        }
+      }
+    });
+  }
+
+  // ─── 5. CONFIG-AUTO-SCALE ─────────────────────────────────────────────
   // Same as voyage auto-scale — normalizes GLB to target unit size.
   if (!window.AFRAME.components['config-auto-scale']) {
     window.AFRAME.registerComponent('config-auto-scale', {

@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type {
   GameConfig,
   PhaseConfig,
@@ -17,6 +17,13 @@ export interface PlayPhaseProgress {
   count: number;
   total: number;
   step?: number; // drag-chain current step index
+}
+
+// ─── NPC chat message ─────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -36,6 +43,14 @@ interface PlayOverlayUIProps {
   onContinue: () => void;
   /** Called when the player selects a quiz answer */
   onQuizAnswer?: (optionId: string, isCorrect: boolean) => void;
+  /** NPC chat props */
+  npcName?: string;
+  npcChatOpen?: boolean;
+  npcMessages?: ChatMessage[];
+  npcIsTyping?: boolean;
+  autoHint?: string | null;
+  onNpcChatClose?: () => void;
+  onNpcSendMessage?: (msg: string) => void;
 }
 
 // ─── QuizUI sub-component ────────────────────────────────────────────────────
@@ -124,6 +139,172 @@ function QuizUI({
   );
 }
 
+// ─── NPC Chat Overlay ────────────────────────────────────────────────────────
+
+function NPCChatOverlay({
+  npcName,
+  isOpen,
+  messages,
+  isTyping,
+  onClose,
+  onSend,
+}: {
+  npcName: string;
+  isOpen: boolean;
+  messages: ChatMessage[];
+  isTyping: boolean;
+  onClose: () => void;
+  onSend: (msg: string) => void;
+}) {
+  const [input, setInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const handleSend = () => {
+    if (!input.trim() || isTyping) return;
+    onSend(input.trim());
+    setInput('');
+  };
+
+  return (
+    <div
+      className="fixed bottom-28 right-6 pointer-events-auto"
+      style={{ zIndex: 10001, width: '300px' }}
+    >
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: 'rgba(15, 23, 42, 0.96)',
+          border: '1px solid rgba(52, 211, 153, 0.3)',
+          backdropFilter: 'blur(16px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(52,211,153,0.06)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ borderBottom: '1px solid rgba(52, 211, 153, 0.15)' }}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: '#34d399', boxShadow: '0 0 8px #34d399' }}
+            ></div>
+            <span className="text-sm font-bold" style={{ color: '#34d399' }}>
+              {npcName}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ color: 'rgba(255,255,255,0.45)', fontSize: '18px', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#fff')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)')}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div
+          className="px-4 py-3"
+          style={{ maxHeight: '200px', overflowY: 'auto', scrollbarWidth: 'thin' }}
+        >
+          {messages.length === 0 && (
+            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Ask me anything about this mission!
+            </p>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} className={`mb-2 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <span
+                className="inline-block text-xs px-3 py-2 rounded-xl leading-relaxed"
+                style={{
+                  maxWidth: '88%',
+                  backgroundColor:
+                    msg.role === 'user'
+                      ? 'rgba(0, 229, 255, 0.1)'
+                      : 'rgba(52, 211, 153, 0.1)',
+                  color: msg.role === 'user' ? '#7dd3fc' : '#6ee7b7',
+                  border: `1px solid ${msg.role === 'user' ? 'rgba(0,229,255,0.2)' : 'rgba(52,211,153,0.2)'}`,
+                }}
+              >
+                {msg.content}
+              </span>
+            </div>
+          ))}
+          {isTyping && (
+            <div className="mb-2 flex justify-start">
+              <span
+                className="inline-block text-xs px-3 py-2 rounded-xl"
+                style={{
+                  backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                  color: '#6ee7b7',
+                  border: '1px solid rgba(52,211,153,0.2)',
+                }}
+              >
+                <span className="animate-pulse">● ● ●</span>
+              </span>
+            </div>
+          )}
+          <div ref={messagesEndRef}></div>
+        </div>
+
+        {/* Input */}
+        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(52,211,153,0.1)' }}>
+          <div className="flex gap-2 mt-2">
+            <input
+              className="flex-1 text-xs rounded-xl px-3 py-2 text-white outline-none"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+              placeholder="Ask for a hint…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                // Stop all keys from bubbling to A-Frame / page.tsx handlers
+                e.stopPropagation();
+                if (e.key === 'Enter') handleSend();
+              }}
+              autoFocus
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isTyping}
+              className="text-xs font-bold px-3 py-2 rounded-xl transition-all"
+              style={{
+                backgroundColor: '#10b981',
+                color: '#000',
+                opacity: !input.trim() || isTyping ? 0.45 : 1,
+                cursor: !input.trim() || isTyping ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Send
+            </button>
+          </div>
+          <p className="text-center mt-2" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)' }}>
+            T to toggle · Esc to close
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function PlayOverlayUI({
@@ -140,6 +321,13 @@ export function PlayOverlayUI({
   onDismissCard,
   onContinue,
   onQuizAnswer,
+  npcName,
+  npcChatOpen,
+  npcMessages,
+  npcIsTyping,
+  autoHint,
+  onNpcChatClose,
+  onNpcSendMessage,
 }: PlayOverlayUIProps) {
   const hud: HUDConfig = config.hud;
 
@@ -355,6 +543,7 @@ export function PlayOverlayUI({
             { key: 'Q', desc: 'Move down' },
             { key: 'Mouse drag', desc: 'Look around' },
             { key: 'Click + drag', desc: 'Grab objects' },
+            { key: 'T', desc: 'Talk to guide' },
           ].map(({ key, desc }) => (
             <div
               key={key}
@@ -463,6 +652,47 @@ export function PlayOverlayUI({
             >
               Got it →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── NPC CHAT OVERLAY ─── */}
+      {npcName && npcChatOpen && (
+        <NPCChatOverlay
+          npcName={npcName}
+          isOpen={!!npcChatOpen}
+          messages={npcMessages ?? []}
+          isTyping={!!npcIsTyping}
+          onClose={onNpcChatClose ?? (() => {})}
+          onSend={onNpcSendMessage ?? (() => {})}
+        />
+      )}
+
+      {/* ─── AUTO-HINT BUBBLE ─── */}
+      {autoHint && (
+        <div
+          className="fixed pointer-events-none"
+          style={{
+            bottom: npcChatOpen ? '420px' : '310px',
+            right: '24px',
+            zIndex: 10002,
+            width: '260px',
+            transition: 'bottom 0.3s ease',
+          }}
+        >
+          <div
+            className="rounded-xl px-4 py-3 text-xs leading-relaxed"
+            style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#6ee7b7',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <span className="font-bold" style={{ color: '#34d399' }}>
+              💡 Hint:{' '}
+            </span>
+            {autoHint}
           </div>
         </div>
       )}

@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation';
 import { loadGameConfig, resolveAssetPaths } from '@/lib/game-config-loader';
 import { registerPlayComponents } from '../aframe/registerPlayComponents';
 import { GameAssets } from '../scene/GameAssets';
-import { PlayOverlayUI, type PlayPhaseProgress } from '../components/PlayOverlayUI';
+import { PlayOverlayUI, type PlayPhaseProgress, type ChatMessage } from '../components/PlayOverlayUI';
 import { CameraRig } from '../../voyage/scene/CameraRig';
 import { Lighting } from '../../voyage/scene/Lighting';
 import WebGLCheck from '../../voyage/components/WebGLCheck';
@@ -74,6 +74,14 @@ export default function PlayPage() {
   const dragMultiCountRef = useRef(0);
   const dragChainStepRef = useRef(0);
 
+  // ── NPC state ──
+  const [npcChatOpen, setNpcChatOpen] = useState(false);
+  const [npcMessages, setNpcMessages] = useState<ChatMessage[]>([]);
+  const [npcIsTyping, setNpcIsTyping] = useState(false);
+  const [autoHint, setAutoHint] = useState<string | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoHintShownRef = useRef(false);
+
   // ─── Load config from URL id ─────────────────────────────────────────────
 
   useEffect(() => {
@@ -121,8 +129,19 @@ export default function PlayPage() {
 
     registerPlayComponents();
 
+    const isTypingInInput = () => {
+      const tag = document.activeElement?.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA';
+    };
+
     const handleQE = (evt: KeyboardEvent) => {
+      if (isTypingInInput()) return;
       const key = evt.key.toLowerCase();
+      // T → toggle NPC chat (only when not typing)
+      if (key === 't') {
+        setNpcChatOpen((open) => !open);
+        return;
+      }
       const rig = document.getElementById('camera-rig');
       if (!rig) return;
       const pos = rig.getAttribute('position') as any;
@@ -210,6 +229,9 @@ export default function PlayPage() {
     phaseStartTime.current = Date.now();
     setShowContinue(phase.type === 'intro' || phase.type === 'complete');
     setWrongClickHint(null);
+    setNpcMessages([]);
+    setAutoHint(null);
+    autoHintShownRef.current = false;
 
     if (isDragMultiPhase(phase)) {
       dragMultiCountRef.current = 0;
@@ -393,6 +415,106 @@ export default function PlayPage() {
       window.removeEventListener('play-proximity-reached', handler as EventListener);
   }, [config, phase, advancePhase, showCard]);
 
+  // ─── Event: play-npc-talk (NPC clicked or proximity prompt) ─────────────────
+
+  useEffect(() => {
+    const handler = () => setNpcChatOpen(true);
+    window.addEventListener('play-npc-talk', handler);
+    return () => window.removeEventListener('play-npc-talk', handler);
+  }, []);
+
+  // ─── Disable A-Frame controls while NPC chat is open ────────────────────────
+  // Prevents WASD camera movement and look-controls mouse-drag from firing
+  // while the player is typing in the chat input.
+
+  useEffect(() => {
+    const wasdEl = document.querySelector('[wasd-controls]') as Element | null;
+    const lookEl = document.querySelector('[look-controls]') as Element | null;
+    if (wasdEl) wasdEl.setAttribute('wasd-controls', `enabled: ${!npcChatOpen}`);
+    if (lookEl) lookEl.setAttribute('look-controls', `enabled: ${!npcChatOpen}`);
+  }, [npcChatOpen]);
+
+  // ─── NPC idle-hint timer ──────────────────────────────────────────────────
+  // After 30s without keyboard/mouse activity on an interactive phase,
+  // show the pre-written hint from config.npc.hints[phaseId] for 8s.
+
+  useEffect(() => {
+    if (!config?.npc || !phase) return;
+    const hint = config.npc.hints[phase.id];
+    if (!hint || phase.type === 'intro' || phase.type === 'complete') return;
+
+    const startTimer = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        if (!autoHintShownRef.current) {
+          autoHintShownRef.current = true;
+          setAutoHint(hint);
+          setTimeout(() => setAutoHint(null), 8000);
+        }
+      }, 30000);
+    };
+
+    startTimer();
+
+    // Throttle activity handler — reset timer at most once per 5s
+    let lastReset = Date.now();
+    const handleActivity = () => {
+      const now = Date.now();
+      if (now - lastReset < 5000 || autoHintShownRef.current) return;
+      lastReset = now;
+      startTimer();
+    };
+
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('mousemove', handleActivity);
+
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('mousemove', handleActivity);
+    };
+  }, [config?.npc, phase?.id]);
+
+  // ─── NPC send message ─────────────────────────────────────────────────────
+
+  const handleNpcSendMessage = useCallback(
+    async (message: string) => {
+      if (!config?.npc || !phase) return;
+
+      const userMsg: ChatMessage = { role: 'user', content: message };
+      setNpcMessages((prev) => [...prev, userMsg]);
+      setNpcIsTyping(true);
+
+      try {
+        const knowledgeContext = config.knowledge_cards[phase.id]?.body ?? '';
+        const res = await fetch('/api/npc-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            npcPersona: config.npc.persona,
+            currentPhaseTitle: phase.title,
+            currentPhaseInstruction: phase.instruction,
+            knowledgeContext,
+            // Pass the current messages snapshot for history
+            history: npcMessages,
+          }),
+        });
+        const data = await res.json();
+        const reply = data.reply ?? "Keep exploring — I'm sure you'll figure it out!";
+        setNpcMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+      } catch {
+        setNpcMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: "Hmm, I couldn't connect. Try again!" },
+        ]);
+      } finally {
+        setNpcIsTyping(false);
+      }
+    },
+    [config, phase, npcMessages]
+  );
+
   // ─── Event: show-info-panel ───────────────────────────────────────────────
 
   useEffect(() => {
@@ -461,6 +583,7 @@ export default function PlayPage() {
 
   const chainStep = phaseProgress?.step ?? 0;
   const skyboxUrl = config.environment.skybox_url || '';
+  const envPreset = config.environment.preset ?? 'starry';
 
   return (
     <div className="h-screen w-screen bg-transparent">
@@ -471,17 +594,18 @@ export default function PlayPage() {
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
         >
           {skyboxUrl ? (
+            // Generated skybox image (Blockade Labs or pre-baked URL)
             <a-sky src={skyboxUrl} rotation="0 -130 0"></a-sky>
           ) : (
-            // No skybox URL — use procedural environment preset
-            <a-entity environment="preset: starry; ground: none; fog: 0"></a-entity>
+            // No skybox yet — use A-Frame environment preset from config (fallback: starry)
+            <a-entity environment={`preset: ${envPreset}; ground: none; fog: 0`}></a-entity>
           )}
 
           {/* Mouse cursor entity — rayOrigin: mouse shoots from the active camera
               using mouse NDC position, regardless of this entity's world position. */}
           <a-entity
             cursor="rayOrigin: mouse; fuse: false"
-            raycaster="objects: [config-clickable], [config-draggable]; far: 100"
+            raycaster="objects: [config-clickable], [config-draggable], [config-npc-entity]; far: 100"
           ></a-entity>
 
           {/* Proximity trigger — always in scene, self-manages indicator/detection */}
@@ -540,6 +664,13 @@ export default function PlayPage() {
               onDismissCard={dismissCard}
               onContinue={handleContinue}
               onQuizAnswer={handleQuizAnswer}
+              npcName={config.npc?.name}
+              npcChatOpen={npcChatOpen}
+              npcMessages={npcMessages}
+              npcIsTyping={npcIsTyping}
+              autoHint={autoHint}
+              onNpcChatClose={() => setNpcChatOpen(false)}
+              onNpcSendMessage={handleNpcSendMessage}
             />
             {wrongClickHint && (
               <div
