@@ -59,7 +59,28 @@ const openai = new OpenAI({
 });
 
 // In-memory conversation storage (use Redis/DB for production)
+const MAX_CONVERSATIONS = 200;
 const conversationMemory = new Map<string, Array<ChatCompletionMessageParam>>();
+
+// Evict oldest entries when map exceeds limit
+function setConversation(id: string, messages: ChatCompletionMessageParam[]) {
+  if (conversationMemory.size >= MAX_CONVERSATIONS && !conversationMemory.has(id)) {
+    // Delete the oldest entry (first inserted key)
+    const oldestKey = conversationMemory.keys().next().value;
+    if (oldestKey) conversationMemory.delete(oldestKey);
+  }
+  conversationMemory.set(id, messages);
+}
+
+// Safe JSON parse with fallback
+function safeJsonParse<T>(raw: string, fallback: T): T {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.warn('[CHAT] Failed to parse JSON response, using fallback');
+    return fallback;
+  }
+}
 
 export async function POST(request: NextRequest) {
   // Safety check for API key
@@ -157,7 +178,7 @@ Respond in JSON:
         max_tokens: 200
       });
 
-      const skyboxData = JSON.parse(skyboxCompletion.choices[0]?.message?.content || '{}');
+      const skyboxData = safeJsonParse(skyboxCompletion.choices[0]?.message?.content || '{}', {} as any);
 
       const response: AgentResponse = {
         reasoning: `Partial update: Changing skybox to "${skyboxData.description || 'new environment'}"`,
@@ -217,7 +238,7 @@ Respond in JSON:
         max_tokens: 300
       });
 
-      const assetData = JSON.parse(assetCompletion.choices[0]?.message?.content || '{}');
+      const assetData = safeJsonParse(assetCompletion.choices[0]?.message?.content || '{}', {} as any);
       const actions: AgentAction[] = [];
 
       // Search internal assets first for each requested asset
@@ -492,7 +513,7 @@ VALIDATION CHECKLIST:
       });
 
       const rawContent = completion.choices[0]?.message?.content || '{}';
-      const lessonData = JSON.parse(rawContent);
+      const lessonData = safeJsonParse(rawContent, {} as any);
 
       // ═══════════════════════════════════════════════════════════════════════════
       // INTERNAL ASSET SEARCH: Check ngss_assets database for educational assets
@@ -546,7 +567,7 @@ VALIDATION CHECKLIST:
         { role: 'user', content: input },
         { role: 'assistant', content: JSON.stringify(lessonData) }
       );
-      conversationMemory.set(sessionId, messages.slice(-10));
+      setConversation(sessionId, messages.slice(-10));
 
       // Build structured lesson plan for display
       const allAssets = [
@@ -856,7 +877,7 @@ You: "I can help you create engaging VR lessons for STEM subjects! Just describe
         { role: 'user', content: input },
         { role: 'assistant', content: chatMessage }
       );
-      conversationMemory.set(sessionId, messages.slice(-10));
+      setConversation(sessionId, messages.slice(-10));
 
       const response: AgentResponse = {
         reasoning: 'User sent a casual message. Responding with friendly conversation to guide them toward VR lesson creation.',

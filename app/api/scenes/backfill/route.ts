@@ -12,6 +12,13 @@ function generateShortId(): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Admin-only: require SUPABASE_SERVICE_ROLE_KEY as bearer token
+  const authHeader = request.headers.get('authorization');
+  const expectedToken = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

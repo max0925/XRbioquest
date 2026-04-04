@@ -28,9 +28,6 @@ export async function POST(request: NextRequest) {
     }, { status: 429 });
   }
 
-  // Increment counter
-  incrementGeneration(clientId);
-
   try {
     const { prompt } = await request.json();
 
@@ -43,6 +40,9 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       return NextResponse.json({ error: 'Meshy API key not configured' }, { status: 500 });
     }
+
+    // Increment rate limit counter only after input validation passes
+    incrementGeneration(clientId);
 
     // Meshy v2 Text-to-3D request with PBR texturing enabled
     const controller = new AbortController();

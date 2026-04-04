@@ -12,20 +12,8 @@ function generateShortId(): string {
 }
 
 export async function POST(request: NextRequest) {
-  console.log("SUPABASE SDK VERSION:", require("@supabase/supabase-js/package.json").version);
-
-  // Check variables at the very beginning
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // Log status (safe - only length and first 5 chars of URL)
-  console.log('=== Supabase Debug ===');
-  console.log('NEXT_PUBLIC_SUPABASE_URL defined:', !!supabaseUrl);
-  console.log('NEXT_PUBLIC_SUPABASE_URL first 5 chars:', supabaseUrl?.substring(0, 5) || 'N/A');
-  console.log('NEXT_PUBLIC_SUPABASE_URL length:', supabaseUrl?.length || 0);
-  console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY defined:', !!supabaseKey);
-  console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY length:', supabaseKey?.length || 0);
-  console.log('======================');
 
   // Validation: Check if variables are missing or too short
   const urlMissing = !supabaseUrl || supabaseUrl.length < 20;
@@ -58,7 +46,6 @@ export async function POST(request: NextRequest) {
     const shortId = generateShortId();
 
     // Create Supabase client
-    console.log("USING KEY PREFIX:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 16));
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

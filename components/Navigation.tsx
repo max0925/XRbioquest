@@ -15,7 +15,7 @@ export default function Navigation() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
-    { name: "AI XR Creator", href: "/environment-design" },
+    { name: "Create", href: "/create" },
     { name: "Use Cases", href: "/use-cases" },
     { name: "Pricing", href: "/pricing" },
     { name: "About Us", href: "/about" },

@@ -1,6 +1,36 @@
 export const runtime = 'nodejs';
 export const maxDuration = 60; // GLB files can be large, allow up to 60s
 
+// Domain whitelist — only proxy 3D model files from trusted CDNs
+const ALLOWED_DOMAINS = [
+  'assets.meshy.ai',
+  'api.meshy.ai',
+  'meshy.ai',
+  'storage.googleapis.com',
+  'storage.cloud.google.com',
+  'blockadelabs.com',
+  'backend.blockadelabs.com',
+  'cdn.blockadelabs.com',
+  'blockadelabs-skybox-uploads.s3.amazonaws.com',
+  'blockadelabs-skybox.s3.amazonaws.com',
+  's3.amazonaws.com',
+  's3.us-west-2.amazonaws.com',
+  's3.us-east-1.amazonaws.com',
+  'cloudfront.net',
+  'd1a370nemizbjq.cloudfront.net',
+];
+
+function isAllowedDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return ALLOWED_DOMAINS.some(domain =>
+      hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url);
   const raw = searchParams.get('url');
@@ -10,6 +40,14 @@ export async function GET(req: Request) {
   const absolute = raw.startsWith('http')
     ? raw
     : new URL(raw, origin).toString();
+
+  // Security: only allow proxying from trusted domains
+  if (!isAllowedDomain(absolute)) {
+    return new Response(
+      JSON.stringify({ error: 'Domain not allowed for proxying' }),
+      { status: 403, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
 
   let upstream: Response;
   try {

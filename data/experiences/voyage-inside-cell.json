@@ -1,0 +1,252 @@
+{
+  "meta": {
+    "id": "voyage-inside-cell",
+    "title": "Voyage Inside the Cell",
+    "subject": "Biology",
+    "grade": "high",
+    "duration_minutes": 15,
+    "ngss_standards": ["HS-LS1-2", "HS-LS1-6"],
+    "learning_objectives": [
+      "Identify the mitochondria as the site of cellular respiration",
+      "Explain the role of glucose as fuel for ATP production",
+      "Describe the lysosome's function in cellular waste processing",
+      "Trace the endomembrane pathway from ER to Golgi to cell membrane"
+    ]
+  },
+
+  "environment": {
+    "skybox_prompt": "interior of a living cell, bioluminescent organelles floating in cytoplasm, deep blue and purple glow, scientific visualization, immersive VR educational environment, microscopic world",
+    "lighting": "bioluminescent"
+  },
+
+  "assets": [
+    {
+      "id": "mitochondria",
+      "name": "Mitochondria",
+      "model_source": "supabase",
+      "model_path": "mitochondria_-_cell_organelles.glb",
+      "position": [-1.5, 0, -3],
+      "role": "target",
+      "function": "energy",
+      "description": "Powerhouse of the cell — produces ATP energy through cellular respiration",
+      "quest_phase_id": "find-mito",
+      "snap_distance": 2.0
+    },
+    {
+      "id": "lysosome",
+      "name": "Lysosome",
+      "model_source": "supabase",
+      "model_path": "lysosome.glb",
+      "position": [1.5, 0, -3],
+      "role": "target",
+      "function": "digestion",
+      "description": "Digestive system — breaks down waste and cellular debris at pH 4.5",
+      "quest_phase_id": "clean-cell",
+      "snap_distance": 2.5
+    },
+    {
+      "id": "endoplasmic-reticulum",
+      "name": "Endoplasmic Reticulum",
+      "model_source": "supabase",
+      "model_path": "endoplasmic_reticulum.glb",
+      "position": [0, 0, -4.5],
+      "role": "target",
+      "function": "transport",
+      "description": "Transport network — folds, glycosylates, and routes proteins",
+      "quest_phase_id": "build-protein",
+      "snap_distance": 2.0
+    },
+    {
+      "id": "golgi-apparatus",
+      "name": "Golgi Apparatus",
+      "model_source": "supabase",
+      "model_path": "golgi_apparatuscomplex.glb",
+      "position": [-3, 0, -4],
+      "role": "target",
+      "function": "packaging",
+      "description": "Packaging center — modifies and ships proteins via vesicles",
+      "quest_phase_id": "build-protein",
+      "snap_distance": 2.0
+    },
+    {
+      "id": "glucose",
+      "name": "Glucose Molecule",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [1.5, 1, -3],
+      "role": "draggable",
+      "function": "fuel",
+      "description": "Energy source — C₆H₁₂O₆, fuel for cellular respiration",
+      "quest_phase_id": "feed-cell"
+    },
+    {
+      "id": "damaged-protein-1",
+      "name": "Damaged Protein",
+      "_placeholder": true,
+      "_generate_prompt": "misfolded protein, tangled molecular chain, biological model, low poly, purple tint",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [-2, 0.5, -2],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Misfolded protein — must be recycled by the lysosome",
+      "quest_phase_id": "clean-cell"
+    },
+    {
+      "id": "damaged-protein-2",
+      "name": "Damaged Protein",
+      "_placeholder": true,
+      "_generate_prompt": "misfolded protein, tangled molecular chain, biological model, low poly, purple tint",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [2.5, 0.5, -2.5],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Misfolded protein — must be recycled by the lysosome",
+      "quest_phase_id": "clean-cell"
+    },
+    {
+      "id": "damaged-protein-3",
+      "name": "Damaged Protein",
+      "_placeholder": true,
+      "_generate_prompt": "misfolded protein, tangled molecular chain, biological model, low poly, purple tint",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [0.5, 0.5, -2],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Misfolded protein — must be recycled by the lysosome",
+      "quest_phase_id": "clean-cell"
+    },
+    {
+      "id": "polypeptide",
+      "name": "Polypeptide Chain",
+      "_placeholder": true,
+      "_generate_prompt": "polypeptide amino acid chain, ribbon diagram, biological molecule, low poly, blue and green",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [1, 1, -3.5],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Newly synthesized polypeptide — needs folding and packaging",
+      "quest_phase_id": "build-protein"
+    }
+  ],
+
+  "phases": [
+    {
+      "id": "enter-cell",
+      "type": "intro",
+      "title": "Enter the Cell",
+      "instruction": "Welcome! Click Continue to begin your voyage inside a living cell."
+    },
+    {
+      "id": "find-mito",
+      "type": "click",
+      "title": "Find the Mitochondria",
+      "instruction": "The cell needs energy. Click on the Mitochondria — the cell's power generator.",
+      "target_asset": "mitochondria",
+      "points": 100
+    },
+    {
+      "id": "feed-cell",
+      "type": "drag",
+      "title": "Feed the Cell",
+      "instruction": "Drag the Glucose Molecule into the Mitochondria to start cellular respiration.",
+      "drag_item": "glucose",
+      "drag_target": "mitochondria",
+      "points": 200,
+      "time_bonus": {
+        "threshold_seconds": 10,
+        "bonus_points": 50
+      }
+    },
+    {
+      "id": "clean-cell",
+      "type": "drag-multi",
+      "title": "Clean the Cell",
+      "instruction": "Drag all 3 damaged proteins into the Lysosome. (0/3)",
+      "drag_item": "damaged-protein-1",
+      "drag_target": "lysosome",
+      "total": 3,
+      "points": 200,
+      "snap_distance": 2.5
+    },
+    {
+      "id": "build-protein",
+      "type": "drag-chain",
+      "title": "Build a Protein",
+      "instruction": "Step 1: Drag the polypeptide into the Endoplasmic Reticulum.",
+      "points": 200,
+      "steps": [
+        {
+          "drag_item": "polypeptide",
+          "drag_target": "endoplasmic-reticulum",
+          "snap_distance": 2.0
+        },
+        {
+          "drag_item": "polypeptide",
+          "drag_target": "golgi-apparatus",
+          "snap_distance": 2.0
+        }
+      ]
+    },
+    {
+      "id": "mission-complete",
+      "type": "complete",
+      "title": "Mission Complete",
+      "instruction": "You've mastered cellular respiration! You understand how a cell generates energy, cleans itself, and builds proteins."
+    }
+  ],
+
+  "knowledge_cards": {
+    "find-mito": {
+      "title": "Mitochondria",
+      "body": "The double-membraned powerhouse. Cristae folds maximize surface area for ATP synthase — more folds = more ATP. This structure explains why mitochondria produce 36 ATP per glucose.",
+      "tag": "AP Bio: Inner membrane = electron transport chain site. IB HL: B2.2.4"
+    },
+    "feed-cell": {
+      "title": "Cellular Respiration",
+      "body": "C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + 36 ATP. Three stages: Glycolysis (cytoplasm, 2 ATP) → Krebs Cycle (matrix, 2 ATP) → Electron Transport Chain (inner membrane, 32 ATP).",
+      "tag": "Common misconception: carbon atoms leave as CO₂ you breathe out — mass is conserved.",
+      "misconception": "Students often think energy is stored in the glucose molecule itself. In fact, energy is released by breaking chemical bonds and captured in ATP."
+    },
+    "clean-cell": {
+      "title": "Lysosome",
+      "body": "Contains 50+ hydrolytic enzymes at pH 4.5. This acidic environment is essential — if ruptured, the cytoplasm's higher pH neutralizes the enzymes, protecting the cell. Waste is broken into reusable monomers.",
+      "tag": "IB: Lysosome dysfunction → Tay-Sachs disease. AP Bio: connects to autophagy pathway.",
+      "misconception": "Lysosomes don't just destroy — they recycle. The monomers from broken proteins are reused to build new molecules."
+    },
+    "build-protein": {
+      "title": "Endomembrane System",
+      "body": "Protein pathway: Ribosome → Rough ER (folding + glycosylation) → Golgi (sorting + packaging) → Vesicle → Cell Membrane (exocytosis). Order is essential — each station modifies the protein.",
+      "tag": "AP Bio FRQ target: Golgi cis face receives from ER, trans face ships to membrane."
+    }
+  },
+
+  "npc": {
+    "name": "Dr. Nucleus",
+    "persona": "You are Dr. Nucleus, a friendly cell biologist who lives inside the cell nucleus. You guide students through the cell with enthusiasm and give encouraging hints. Keep answers short, age-appropriate for high schoolers, and scientifically accurate. Use analogies to everyday life.",
+    "spawn_position": [2, 0, -1.5],
+    "hints": {
+      "find-mito": "Look for the bean-shaped organelle to your left — it has a distinctive folded inner membrane called cristae. Those folds are what make it so efficient at producing ATP!",
+      "feed-cell": "Pick up the hexagonal glucose molecule and carry it to the mitochondria. The faster you deliver it, the more bonus points you earn!",
+      "clean-cell": "There are 3 damaged proteins scattered around the cell. They look tangled and misfolded. Drag each one into the lysosome — it'll break them down into reusable pieces.",
+      "build-protein": "Start by dragging the polypeptide chain into the Endoplasmic Reticulum on your right. The ER will fold it correctly, then you'll deliver it to the Golgi for packaging."
+    }
+  },
+
+  "scoring": {
+    "max_possible": 750,
+    "passing_threshold": 450
+  },
+
+  "hud": {
+    "show_score": true,
+    "show_phase_counter": true,
+    "show_instruction": true,
+    "show_timer": true,
+    "show_knowledge_cards": true,
+    "show_tasks": true
+  }
+}

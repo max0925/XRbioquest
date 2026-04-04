@@ -4,8 +4,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q') || "";
 
-  // ✅ 直接在这里定义变量，消除红线
-  const apiKey = "61a9131ca9dc4805a0a2005c693d7820"; 
+  const apiKey = process.env.SKETCHFAB_API_TOKEN;
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Sketchfab API token not configured' }, { status: 500 });
+  }
 
   try {
     const response = await fetch(

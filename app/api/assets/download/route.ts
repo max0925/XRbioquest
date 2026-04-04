@@ -3,7 +3,7 @@ import AdmZip from 'adm-zip';
 import fs from 'fs';
 import path from 'path';
 
-const SKETCHFAB_API_KEY = "61a9131ca9dc4805a0a2005c693d7820";
+const SKETCHFAB_API_KEY = process.env.SKETCHFAB_API_TOKEN || '';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +12,10 @@ export async function POST(request: NextRequest) {
 
     if (!modelUid) {
       return NextResponse.json({ error: 'Model UID is required' }, { status: 400 });
+    }
+
+    if (!SKETCHFAB_API_KEY) {
+      return NextResponse.json({ error: 'Sketchfab API token not configured' }, { status: 500 });
     }
 
     // Step 1: Get download URL from Sketchfab API

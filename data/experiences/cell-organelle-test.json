@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "id": "cell-organelle-quest",
+    "title": "Cell Organelle Quest",
+    "subject": "Biology",
+    "grade": "high",
+    "duration_minutes": 25,
+    "ngss_standards": [
+      "HS-LS1-2",
+      "HS-LS1-7"
+    ],
+    "learning_objectives": [
+      "Students will identify and describe the functions of major cell organelles.",
+      "Students will understand the process of cellular respiration."
+    ]
+  },
+  "environment": {
+    "skybox_prompt": "a futuristic science lab with holographic displays of cellular processes",
+    "lighting": "cool"
+  },
+  "assets": [
+    {
+      "id": "mitochondria",
+      "name": "Mitochondria",
+      "model_source": "supabase",
+      "model_path": "mitochondria_-_cell_organelles.glb",
+      "position": [
+        -4,
+        0,
+        -3
+      ],
+      "role": "interactive",
+      "function": "energy",
+      "description": "Double-membraned powerhouse; produces ATP.",
+      "quest_phase_id": "click-mitochondria"
+    },
+    {
+      "id": "lysosome",
+      "name": "Lysosome",
+      "model_source": "supabase",
+      "model_path": "lysosome.glb",
+      "position": [
+        -2,
+        0,
+        -4
+      ],
+      "role": "target",
+      "function": "digestion",
+      "description": "Digestive vesicle; breaks down waste at pH 4.5."
+    },
+    {
+      "id": "endoplasmic-reticulum",
+      "name": "Endoplasmic Reticulum",
+      "model_source": "supabase",
+      "model_path": "endoplasmic_reticulum.glb",
+      "position": [
+        0,
+        0,
+        -3
+      ],
+      "role": "target",
+      "function": "transport",
+      "description": "Protein folding & transport network."
+    },
+    {
+      "id": "golgi-apparatus",
+      "name": "Golgi Apparatus",
+      "model_source": "supabase",
+      "model_path": "golgi_apparatuscomplex.glb",
+      "position": [
+        2,
+        0,
+        -4
+      ],
+      "role": "target",
+      "function": "packaging",
+      "description": "Packaging/sorting station; modifies proteins."
+    },
+    {
+      "id": "glucose",
+      "name": "Glucose",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [
+        4,
+        1,
+        -3
+      ],
+      "role": "draggable",
+      "function": "fuel",
+      "description": "C₆H₁₂O₆ fuel molecule for cellular respiration.",
+      "quest_phase_id": "drag-glucose"
+    },
+    {
+      "id": "waste-particle-1",
+      "name": "Cellular Waste",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [-3.5, 0.5, -2],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Cellular waste debris — must be digested by the lysosome.",
+      "quest_phase_id": "drag-multi-lysosome"
+    },
+    {
+      "id": "waste-particle-2",
+      "name": "Cellular Waste",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [0, 0.5, -2],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Cellular waste debris — must be digested by the lysosome.",
+      "quest_phase_id": "drag-multi-lysosome"
+    },
+    {
+      "id": "waste-particle-3",
+      "name": "Cellular Waste",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [2.5, 0.5, -2],
+      "role": "draggable",
+      "function": "structural",
+      "description": "Cellular waste debris — must be digested by the lysosome.",
+      "quest_phase_id": "drag-multi-lysosome"
+    },
+    {
+      "id": "protein-vesicle",
+      "name": "Protein Vesicle",
+      "model_source": "supabase",
+      "model_path": "glucose_molecule.glb",
+      "position": [3, 1, -2.5],
+      "role": "draggable",
+      "function": "transport",
+      "description": "Newly synthesized protein vesicle traveling through the endomembrane system.",
+      "quest_phase_id": "drag-chain-protein-pathway"
+    }
+  ],
+  "phases": [
+    {
+      "id": "intro",
+      "type": "intro",
+      "title": "Welcome to the Cell Organelle Quest!",
+      "instruction": "Embark on a journey to explore the functions of cell organelles and the process of cellular respiration."
+    },
+    {
+      "id": "click-mitochondria",
+      "type": "click",
+      "title": "Identify the Powerhouse",
+      "instruction": "Click on the organelle responsible for ATP production.",
+      "target_asset": "mitochondria",
+      "points": 100
+    },
+    {
+      "id": "drag-glucose",
+      "type": "drag",
+      "title": "Fuel the Powerhouse",
+      "instruction": "Drag the glucose molecule to the mitochondria to start cellular respiration.",
+      "drag_item": "glucose",
+      "drag_target": "mitochondria",
+      "points": 150,
+      "time_bonus": {
+        "threshold_seconds": 10,
+        "bonus_points": 50
+      }
+    },
+    {
+      "id": "drag-multi-lysosome",
+      "type": "drag-multi",
+      "title": "Clean Up the Cell",
+      "instruction": "Drag all 3 waste particles into the Lysosome to digest them. (0/3)",
+      "drag_item": "waste-particle-1",
+      "drag_target": "lysosome",
+      "total": 3,
+      "points": 150
+    },
+    {
+      "id": "drag-chain-protein-pathway",
+      "type": "drag-chain",
+      "title": "Protein Processing Pathway",
+      "instruction": "Follow the secretory pathway: drag the protein vesicle to the ER, then to the Golgi Apparatus.",
+      "steps": [
+        {
+          "drag_item": "protein-vesicle",
+          "drag_target": "endoplasmic-reticulum",
+          "snap_distance": 2.5
+        },
+        {
+          "drag_item": "protein-vesicle",
+          "drag_target": "golgi-apparatus",
+          "snap_distance": 2.5
+        }
+      ],
+      "points": 150
+    },
+    {
+      "id": "complete",
+      "type": "complete",
+      "title": "Mission Complete!",
+      "instruction": "You have successfully explored the cell organelles and cellular respiration process!"
+    }
+  ],
+  "knowledge_cards": {
+    "click-mitochondria": {
+      "title": "Mitochondria",
+      "body": "Mitochondria are known as the powerhouses of the cell. They convert glucose (C₆H₁₂O₆) into ATP, the energy currency of the cell.",
+      "tag": "HS-LS1-7",
+      "misconception": "Students often confuse mitochondria with chloroplasts, which are only found in plant cells and perform photosynthesis."
+    },
+    "drag-glucose": {
+      "title": "Cellular Respiration",
+      "body": "During cellular respiration, glucose is broken down with oxygen to produce ATP: C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + 36ATP.",
+      "tag": "HS-LS1-7"
+    },
+    "drag-multi-lysosome": {
+      "title": "Lysosome Function",
+      "body": "Lysosomes contain digestive enzymes that break down waste materials and cellular debris at an acidic pH.",
+      "tag": "HS-LS1-2",
+      "misconception": "Lysosomes are sometimes mistaken for vesicles that transport proteins, but they primarily digest waste."
+    },
+    "drag-chain-protein-pathway": {
+      "title": "Protein Pathway",
+      "body": "Proteins are synthesized in the endoplasmic reticulum and modified in the Golgi apparatus for transport and use in the cell.",
+      "tag": "HS-LS1-2"
+    }
+  },
+  "npc": {
+    "name": "Dr. Cell",
+    "persona": "An enthusiastic and knowledgeable cell biologist with a passion for teaching about cellular functions and processes.",
+    "spawn_position": [
+      0,
+      1.5,
+      -2
+    ],
+    "hints": {
+      "click-mitochondria": "Remember, the powerhouse of the cell is responsible for producing energy!",
+      "drag-glucose": "Think of what fuels the mitochondria to produce energy.",
+      "drag-multi-lysosome": "Look for parts of the cell that need cleaning.",
+      "drag-chain-protein-pathway": "Follow the path from protein synthesis to processing."
+    }
+  },
+  "scoring": {
+    "max_possible": 650,
+    "passing_threshold": 390
+  },
+  "hud": {
+    "show_score": true,
+    "show_phase_counter": true,
+    "show_instruction": true,
+    "show_timer": true,
+    "show_knowledge_cards": true,
+    "show_tasks": true
+  }
+}

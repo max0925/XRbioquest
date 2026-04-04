@@ -17,6 +17,14 @@ function normalizeMimeType(contentType: string): string {
 
 // Upload skybox image to Supabase Storage
 export async function POST(request: NextRequest) {
+  // Validate request origin — only allow internal API calls (same-origin or server-side)
+  const referer = request.headers.get('referer');
+  const origin = request.headers.get('origin');
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+  if (origin && siteUrl && !origin.startsWith(siteUrl)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     // Parse FormData with image blob
     const formData = await request.formData();
