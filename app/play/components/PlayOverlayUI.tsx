@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type {
   GameConfig,
   PhaseConfig,
@@ -11,27 +11,23 @@ import type {
   QuizOption,
 } from '@/types/game-config';
 
-// ─── Phase progress (multi-step phases) ──────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface PlayPhaseProgress {
   count: number;
   total: number;
-  step?: number; // drag-chain current step index
+  step?: number;
 }
-
-// ─── NPC chat message ─────────────────────────────────────────────────────────
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-// ─── Props ───────────────────────────────────────────────────────────────────
-
 interface PlayOverlayUIProps {
   config: GameConfig;
   currentPhase: PhaseConfig;
-  phaseIndex: number;        // 0-based index (used for phase dots)
+  phaseIndex: number;
   totalPhases: number;
   score: number;
   prevScore: number;
@@ -41,9 +37,7 @@ interface PlayOverlayUIProps {
   showContinue: boolean;
   onDismissCard: () => void;
   onContinue: () => void;
-  /** Called when the player selects a quiz answer */
   onQuizAnswer?: (optionId: string, isCorrect: boolean) => void;
-  /** NPC chat props */
   npcName?: string;
   npcChatOpen?: boolean;
   npcMessages?: ChatMessage[];
@@ -51,14 +45,505 @@ interface PlayOverlayUIProps {
   autoHint?: string | null;
   onNpcChatClose?: () => void;
   onNpcSendMessage?: (msg: string) => void;
+  inventory?: string[];
+  showDeliveryPrompt?: boolean;
+  selectedInventoryItem?: string | null;
+  onSelectInventoryItem?: (id: string) => void;
+  quizAnswered?: boolean;
 }
 
-// ─── QuizUI sub-component ────────────────────────────────────────────────────
-// Stateful component that handles option selection, wrong-answer flash, and
-// explanation reveal. Parent (page.tsx) receives correct answers via onAnswer
-// to add score and schedule phase advance.
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function QuizUI({
+const PHASE_ICON: Record<string, string> = {
+  click: '🔬',
+  drag: '⚡',
+  'drag-multi': '♻️',
+  'drag-chain': '🔗',
+  quiz: '💡',
+  explore: '🧭',
+  intro: '📋',
+  complete: '🎉',
+};
+
+const DM = '"DM Sans", system-ui, sans-serif';
+const MONO = '"DM Mono", "Fira Mono", monospace';
+
+const PANEL_BASE: React.CSSProperties = {
+  backgroundColor: 'rgba(0,0,0,0.72)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '14px',
+  fontFamily: DM,
+};
+
+// ─── Injected keyframes ───────────────────────────────────────────────────────
+
+const KEYFRAMES = `
+  @keyframes hud-slide-left {
+    from { opacity: 0; transform: translateX(-20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes hud-slide-right {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes hud-scale-in {
+    from { opacity: 0; transform: translate(-50%, -48%) scale(0.92); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  @keyframes hud-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes hud-shake {
+    0%, 100% { transform: translateX(0); }
+    20%  { transform: translateX(-8px); }
+    40%  { transform: translateX(8px); }
+    60%  { transform: translateX(-5px); }
+    80%  { transform: translateX(5px); }
+  }
+  @keyframes confetti-fall {
+    0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  @keyframes hud-bounce-in {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    60%  { transform: translate(-50%, -50%) scale(1.04); }
+    80%  { transform: translate(-50%, -50%) scale(0.98); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+`;
+
+// ─── XP Bar ───────────────────────────────────────────────────────────────────
+
+function XPBar({ score, max }: { score: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, (score / max) * 100) : 0;
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0,
+      height: '3px', backgroundColor: 'rgba(255,255,255,0.07)', zIndex: 10010,
+    }}>
+      <div style={{
+        width: `${pct}%`, height: '100%',
+        backgroundColor: '#10b981',
+        boxShadow: '0 0 8px #10b981, 0 0 20px rgba(16,185,129,0.35)',
+        transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+      }} />
+    </div>
+  );
+}
+
+// ─── Quest Panel (top-left) ───────────────────────────────────────────────────
+
+function QuestPanel({
+  phase,
+  phaseIndex,
+  instruction,
+  interactivePhases,
+  config,
+  showContinue,
+  onContinue,
+}: {
+  phase: PhaseConfig;
+  phaseIndex: number;
+  instruction: string;
+  interactivePhases: PhaseConfig[];
+  config: GameConfig;
+  showContinue: boolean;
+  onContinue: () => void;
+}) {
+  const [animKey, setAnimKey] = useState(0);
+
+  useEffect(() => {
+    setAnimKey((k) => k + 1);
+  }, [phase.id]);
+
+  const isIntro = phase.type === 'intro';
+
+  // Count interactive phase done/current for label
+  const interactiveDone = interactivePhases.filter((p) => {
+    const gi = config.phases.findIndex((cp) => cp.id === p.id);
+    return gi < phaseIndex;
+  }).length;
+  const interactiveTotal = interactivePhases.length;
+
+  return (
+    <div
+      key={animKey}
+      style={{
+        position: 'fixed',
+        top: '20px',
+        left: '20px',
+        width: '280px',
+        ...PANEL_BASE,
+        padding: '16px',
+        zIndex: 9999,
+        animation: 'hud-slide-left 0.35s cubic-bezier(0.22,1,0.36,1) both',
+        pointerEvents: showContinue ? 'auto' : 'none',
+      }}
+    >
+      {/* Label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+        <span style={{ fontSize: '11px' }}>📋</span>
+        <span style={{
+          fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em',
+          color: '#fbbf24', textTransform: 'uppercase',
+        }}>
+          Current Mission
+        </span>
+      </div>
+
+      <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '12px' }} />
+
+      {/* Phase title */}
+      <div style={{
+        fontSize: '15px', fontWeight: 700, color: 'white',
+        lineHeight: 1.3, marginBottom: '8px',
+      }}>
+        {phase.title}
+      </div>
+
+      {/* Instruction */}
+      <div style={{
+        fontSize: '13px', color: 'rgba(255,255,255,0.6)',
+        lineHeight: 1.55, marginBottom: '14px',
+      }}>
+        {instruction}
+      </div>
+
+      {/* Progress dots */}
+      {!isIntro && interactivePhases.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '5px' }}>
+            {interactivePhases.map((p) => {
+              const gi = config.phases.findIndex((cp) => cp.id === p.id);
+              const isDone = gi < phaseIndex;
+              const isCurrent = gi === phaseIndex;
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    width: isCurrent ? '18px' : '7px',
+                    height: '7px',
+                    borderRadius: '4px',
+                    backgroundColor: isCurrent
+                      ? '#10b981'
+                      : isDone
+                      ? 'rgba(16,185,129,0.55)'
+                      : 'rgba(255,255,255,0.15)',
+                    boxShadow: isCurrent ? '0 0 8px #10b981' : 'none',
+                    transition: 'width 0.3s ease, background-color 0.3s ease',
+                  }}
+                />
+              );
+            })}
+          </div>
+          <span style={{
+            fontSize: '11px', color: 'rgba(255,255,255,0.3)',
+            fontFamily: MONO,
+          }}>
+            {interactiveDone}/{interactiveTotal}
+          </span>
+        </div>
+      )}
+
+      {/* Begin / Continue button */}
+      {showContinue && (
+        <button
+          onClick={onContinue}
+          style={{
+            marginTop: '14px',
+            width: '100%',
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '10px',
+            padding: '10px',
+            fontSize: '13px',
+            fontWeight: 700,
+            fontFamily: DM,
+            cursor: 'pointer',
+            letterSpacing: '0.04em',
+            boxShadow: '0 0 16px rgba(16,185,129,0.35)',
+            transition: 'background-color 0.15s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+        >
+          {isIntro ? 'Begin Voyage →' : 'Continue →'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Stats Panel (top-right) ──────────────────────────────────────────────────
+
+function StatsPanel({
+  score,
+  prevScore,
+  phaseIndex,
+  interactivePhases,
+  config,
+  cardsEarned,
+}: {
+  score: number;
+  prevScore: number;
+  phaseIndex: number;
+  interactivePhases: PhaseConfig[];
+  config: GameConfig;
+  cardsEarned: number;
+}) {
+  const scoreUp = score > prevScore;
+  const totalInteractive = interactivePhases.length;
+  const doneCount = interactivePhases.filter((p) => {
+    const gi = config.phases.findIndex((cp) => cp.id === p.id);
+    return gi < phaseIndex;
+  }).length;
+  const barPct = totalInteractive > 0 ? (doneCount / totalInteractive) * 100 : 0;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      width: '180px',
+      ...PANEL_BASE,
+      padding: '14px 16px',
+      zIndex: 9999,
+      animation: 'hud-slide-right 0.35s cubic-bezier(0.22,1,0.36,1) both',
+    }}>
+      {/* XP */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '10px' }}>
+        <span style={{ fontSize: '13px' }}>⚡</span>
+        <span style={{
+          fontFamily: MONO,
+          fontSize: '22px',
+          fontWeight: 700,
+          color: scoreUp ? '#10b981' : '#34d399',
+          transition: 'color 0.5s',
+          lineHeight: 1,
+        }}>
+          {score}
+        </span>
+        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO }}>XP</span>
+      </div>
+
+      {/* Phase progress bar */}
+      <div style={{ marginBottom: '4px' }}>
+        <div style={{
+          height: '5px', borderRadius: '3px',
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%',
+            width: `${barPct}%`,
+            backgroundColor: '#10b981',
+            borderRadius: '3px',
+            transition: 'width 0.6s ease',
+          }} />
+        </div>
+        <div style={{
+          marginTop: '4px', display: 'flex', justifyContent: 'space-between',
+          fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO,
+        }}>
+          <span>{doneCount}/{totalInteractive} phases</span>
+        </div>
+      </div>
+
+      {/* Cards count */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        marginTop: '8px', paddingTop: '8px',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+      }}>
+        <span style={{ fontSize: '12px' }}>🧬</span>
+        <span style={{
+          fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: DM,
+        }}>
+          <span style={{ color: '#6ee7b7', fontWeight: 700, fontFamily: MONO }}>{cardsEarned}</span>
+          {' '}cards earned
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Inventory Bar (bottom-center) ────────────────────────────────────────────
+
+function InventoryBar({ items, selectedItem, onSelect, deliveryTargetName }: {
+  items: string[];
+  selectedItem: string | null;
+  onSelect: (id: string) => void;
+  deliveryTargetName: string | null;
+}) {
+  const SLOT_COUNT = 6;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '8px',
+    }}>
+      {/* Delivery hint when item selected */}
+      {selectedItem && deliveryTargetName && (
+        <div style={{
+          padding: '8px 20px',
+          borderRadius: '100px',
+          backgroundColor: 'rgba(16,185,129,0.85)',
+          color: 'white',
+          fontSize: '13px',
+          fontWeight: 700,
+          fontFamily: DM,
+          letterSpacing: '0.02em',
+          boxShadow: '0 4px 20px rgba(16,185,129,0.4)',
+          animation: 'hud-fade-in 0.3s ease both',
+          pointerEvents: 'none',
+        }}>
+          Click on <span style={{ fontFamily: MONO, backgroundColor: 'rgba(0,0,0,0.2)', padding: '2px 8px', borderRadius: '4px', marginLeft: '4px', marginRight: '4px' }}>{deliveryTargetName}</span> to deliver
+        </div>
+      )}
+
+      {/* Inventory slots */}
+      <div style={{
+        display: 'flex',
+        gap: '6px',
+        padding: '8px',
+        ...PANEL_BASE,
+        borderRadius: '14px',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+      }}>
+        {Array.from({ length: SLOT_COUNT }).map((_, i) => {
+          const item = items[i];
+          const filled = !!item;
+          const isSelected = filled && item === selectedItem;
+
+          return (
+            <div
+              key={i}
+              onMouseDown={filled ? (e) => { e.stopPropagation(); e.preventDefault(); } : undefined}
+              onClick={filled ? (e) => { e.stopPropagation(); onSelect(item); } : undefined}
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: filled ? '18px' : '14px',
+                cursor: filled ? 'pointer' : 'default',
+                pointerEvents: filled ? 'auto' : 'none',
+                backgroundColor: isSelected
+                  ? 'rgba(245,158,11,0.35)'
+                  : filled
+                    ? 'rgba(245,158,11,0.15)'
+                    : 'rgba(255,255,255,0.03)',
+                border: isSelected
+                  ? '2px solid rgba(245,158,11,0.9)'
+                  : filled
+                    ? '1px solid rgba(245,158,11,0.45)'
+                    : '1px solid rgba(255,255,255,0.06)',
+                boxShadow: isSelected
+                  ? '0 0 16px rgba(245,158,11,0.5), inset 0 0 8px rgba(245,158,11,0.2)'
+                  : filled ? '0 0 10px rgba(245,158,11,0.15)' : 'none',
+                transition: 'all 0.2s ease',
+                opacity: filled ? 1 : 0.4,
+              }}>
+              {filled ? '📦' : '·'}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Controls Hint (bottom-left, auto-hides) ──────────────────────────────────
+
+function ControlsHint() {
+  const [visible, setVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetTimer = useCallback(() => {
+    setVisible(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setVisible(false), 10000);
+  }, []);
+
+  useEffect(() => {
+    resetTimer();
+    window.addEventListener('keydown', resetTimer);
+    return () => {
+      window.removeEventListener('keydown', resetTimer);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [resetTimer]);
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '24px',
+      left: '20px',
+      zIndex: 9999,
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 1s ease',
+      pointerEvents: 'none',
+    }}>
+      <span style={{
+        fontSize: '11px',
+        color: 'rgba(255,255,255,0.3)',
+        fontFamily: DM,
+        letterSpacing: '0.02em',
+      }}>
+        WASD Move&nbsp;&nbsp;│&nbsp;&nbsp;Mouse Look&nbsp;&nbsp;│&nbsp;&nbsp;Click Collect / Deliver&nbsp;&nbsp;│&nbsp;&nbsp;T Talk
+      </span>
+    </div>
+  );
+}
+
+// ─── Crosshair ────────────────────────────────────────────────────────────────
+
+function Crosshair() {
+  const s = 20;
+  const t = 2;
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '50%', left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: `${s}px`, height: `${s}px`,
+      zIndex: 9998,
+      pointerEvents: 'none',
+    }}>
+      {/* Horizontal */}
+      <div style={{
+        position: 'absolute', top: '50%', left: 0, right: 0,
+        height: `${t}px`, marginTop: `-${t / 2}px`,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        borderRadius: '1px',
+      }} />
+      {/* Vertical */}
+      <div style={{
+        position: 'absolute', left: '50%', top: 0, bottom: 0,
+        width: `${t}px`, marginLeft: `-${t / 2}px`,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        borderRadius: '1px',
+      }} />
+    </div>
+  );
+}
+
+// ─── Quiz Modal (center screen) ───────────────────────────────────────────────
+
+function QuizModal({
   phase,
   onAnswer,
 }: {
@@ -67,79 +552,512 @@ function QuizUI({
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [wrongId, setWrongId] = useState<string | null>(null);
+  const [shake, setShake] = useState<string | null>(null);
 
   const handleClick = (opt: QuizOption) => {
-    // Locked while a wrong-flash is in progress, or after correct answer
     if (selectedId !== null || wrongId !== null) return;
 
     if (opt.is_correct) {
       setSelectedId(opt.id);
-      onAnswer(opt.id, true);
+      // Auto-advance after 2s so user can read explanation
+      setTimeout(() => onAnswer(opt.id, true), 2000);
     } else {
       setWrongId(opt.id);
-      setTimeout(() => setWrongId(null), 700);
+      setShake(opt.id);
+      setTimeout(() => { setWrongId(null); setShake(null); }, 700);
     }
   };
 
-  return (
-    <div className="mb-2">
-      {/* Option buttons */}
-      <div className="flex flex-col gap-2 mb-3">
-        {phase.options.map((opt) => {
-          const isCorrect = opt.id === selectedId;
-          const isWrong = opt.id === wrongId;
-          return (
-            <button
-              key={opt.id}
-              onClick={() => handleClick(opt)}
-              disabled={selectedId !== null}
-              className="w-full text-left text-sm font-medium rounded-xl px-4 py-2.5 transition-all duration-150"
-              style={{
-                backgroundColor: isCorrect
-                  ? 'rgba(34, 197, 94, 0.25)'
-                  : isWrong
-                  ? 'rgba(239, 68, 68, 0.25)'
-                  : 'rgba(255, 255, 255, 0.07)',
-                border: isCorrect
-                  ? '1px solid rgba(34, 197, 94, 0.5)'
-                  : isWrong
-                  ? '1px solid rgba(239, 68, 68, 0.5)'
-                  : '1px solid rgba(255, 255, 255, 0.12)',
-                color: isCorrect ? '#86efac' : isWrong ? '#fca5a5' : '#e2e8f0',
-                cursor: selectedId !== null ? 'default' : 'pointer',
-                transform: isWrong ? 'translateX(0)' : undefined,
-              }}
-            >
-              <span
-                className="inline-block mr-2 text-xs font-bold uppercase"
-                style={{ color: isCorrect ? '#86efac' : isWrong ? '#fca5a5' : 'rgba(255,255,255,0.4)' }}
-              >
-                {opt.id.toUpperCase()}
-              </span>
-              {opt.text}
-            </button>
-          );
-        })}
-      </div>
+  const opts = phase.options;
+  const rows = [opts.slice(0, 2), opts.slice(2, 4)];
 
-      {/* Explanation — shown after correct answer */}
-      {selectedId !== null && (
-        <div
-          className="text-xs leading-relaxed px-3 py-2.5 rounded-lg"
-          style={{
-            backgroundColor: 'rgba(34, 197, 94, 0.08)',
-            border: '1px solid rgba(34, 197, 94, 0.2)',
-            color: '#86efac',
-          }}
-        >
-          ✓ {phase.explanation}
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '50%', left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: '480px',
+      maxWidth: 'calc(100vw - 40px)',
+      zIndex: 10002,
+      animation: 'hud-scale-in 0.3s cubic-bezier(0.22,1,0.36,1) both',
+      pointerEvents: 'auto',
+    }}>
+      <div style={{
+        ...PANEL_BASE,
+        borderRadius: '16px',
+        padding: '24px',
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+      }}>
+        {/* Label */}
+        <div style={{
+          fontSize: '10px', fontWeight: 700, color: '#fbbf24',
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px',
+        }}>
+          <span>💡</span> Quick Check
         </div>
-      )}
+
+        {/* Question */}
+        <div style={{
+          fontSize: '17px', fontWeight: 600, color: 'white',
+          lineHeight: 1.4, marginBottom: '20px',
+        }}>
+          {phase.question}
+        </div>
+
+        {/* 2×2 grid */}
+        {rows.map((row, ri) => (
+          <div key={ri} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            {row.map((opt) => {
+              const isCorrect = opt.id === selectedId;
+              const isWrong = opt.id === wrongId;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => handleClick(opt)}
+                  disabled={selectedId !== null}
+                  style={{
+                    flex: 1,
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    textAlign: 'left',
+                    fontSize: '13px',
+                    fontFamily: DM,
+                    fontWeight: 500,
+                    cursor: selectedId !== null ? 'default' : 'pointer',
+                    transition: 'all 0.15s ease',
+                    animation: shake === opt.id ? 'hud-shake 0.4s ease' : 'none',
+                    backgroundColor: isCorrect
+                      ? 'rgba(16,185,129,0.2)'
+                      : isWrong
+                      ? 'rgba(239,68,68,0.2)'
+                      : 'rgba(255,255,255,0.07)',
+                    border: isCorrect
+                      ? '1px solid rgba(16,185,129,0.6)'
+                      : isWrong
+                      ? '1px solid rgba(239,68,68,0.5)'
+                      : '1px solid rgba(255,255,255,0.1)',
+                    color: isCorrect ? '#6ee7b7' : isWrong ? '#fca5a5' : '#e2e8f0',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedId !== null || isWrong) return;
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedId !== null || isWrong) return;
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)';
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-block',
+                    marginRight: '8px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    fontFamily: MONO,
+                    color: isCorrect ? '#6ee7b7' : isWrong ? '#fca5a5' : 'rgba(255,255,255,0.35)',
+                  }}>
+                    {opt.id.toUpperCase()}
+                  </span>
+                  {opt.text}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Explanation after correct */}
+        {selectedId !== null && (
+          <div style={{
+            marginTop: '4px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            backgroundColor: 'rgba(16,185,129,0.08)',
+            border: '1px solid rgba(16,185,129,0.25)',
+            fontSize: '13px',
+            color: '#6ee7b7',
+            lineHeight: 1.5,
+            animation: 'hud-fade-in 0.3s ease both',
+          }}>
+            <span style={{ fontWeight: 700 }}>✓ Correct! </span>
+            {phase.explanation}
+            <div style={{
+              marginTop: '8px', fontSize: '11px',
+              color: 'rgba(255,255,255,0.35)',
+            }}>
+              Advancing in 2s…
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── NPC Chat Overlay ────────────────────────────────────────────────────────
+// ─── Knowledge Card Modal (center screen) ─────────────────────────────────────
+
+function KnowledgeCardModal({
+  card,
+  onDismiss,
+}: {
+  card: KnowledgeCardConfig;
+  onDismiss: () => void;
+}) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div style={{
+        position: 'fixed', inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
+        zIndex: 10003,
+        animation: 'hud-fade-in 0.2s ease both',
+        pointerEvents: 'auto',
+      }} />
+
+      {/* Card */}
+      <div style={{
+        position: 'fixed',
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '420px',
+        maxWidth: 'calc(100vw - 40px)',
+        zIndex: 10004,
+        animation: 'hud-scale-in 0.3s cubic-bezier(0.22,1,0.36,1) both',
+        pointerEvents: 'auto',
+      }}>
+        <div style={{
+          backgroundColor: 'rgba(10,15,30,0.97)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderLeft: '3px solid #10b981',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.65), 0 0 40px rgba(16,185,129,0.06)',
+          overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px', height: '36px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(16,185,129,0.15)',
+                border: '1px solid rgba(16,185,129,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '18px', flexShrink: 0,
+              }}>
+                💡
+              </div>
+              <div>
+                <div style={{
+                  fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em',
+                  color: '#10b981', textTransform: 'uppercase', marginBottom: '3px',
+                  fontFamily: DM,
+                }}>
+                  Knowledge Card
+                </div>
+                <div style={{
+                  fontSize: '16px', fontWeight: 700, color: 'white', fontFamily: DM,
+                }}>
+                  {card.title}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: '18px 24px' }}>
+            <div style={{
+              fontSize: '14px', color: 'rgba(226,232,240,0.88)',
+              lineHeight: 1.65, marginBottom: '14px', fontFamily: DM,
+            }}>
+              {card.body}
+            </div>
+
+            {/* Misconception */}
+            {card.misconception && (
+              <div style={{
+                padding: '10px 14px', borderRadius: '10px', marginBottom: '14px',
+                backgroundColor: 'rgba(251,191,36,0.06)',
+                border: '1px solid rgba(251,191,36,0.2)',
+                fontSize: '12px', color: '#fcd34d',
+                fontStyle: 'italic', lineHeight: 1.5, fontFamily: DM,
+              }}>
+                ⚠️ Common misconception: {card.misconception}
+              </div>
+            )}
+
+            {/* Footer row */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: '10px',
+            }}>
+              {/* NGSS tag */}
+              <span style={{
+                display: 'inline-block',
+                padding: '4px 10px', borderRadius: '100px',
+                backgroundColor: 'rgba(139,92,246,0.15)',
+                border: '1px solid rgba(139,92,246,0.3)',
+                fontSize: '11px', color: '#c4b5fd', fontFamily: DM,
+              }}>
+                {card.tag}
+              </span>
+
+              {/* GOT IT button */}
+              <button
+                onClick={onDismiss}
+                style={{
+                  padding: '9px 20px', borderRadius: '10px',
+                  backgroundColor: '#10b981', color: 'white',
+                  border: 'none', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: 700, fontFamily: DM,
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 0 16px rgba(16,185,129,0.3)',
+                  transition: 'background-color 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+              >
+                GOT IT →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Complete Screen ──────────────────────────────────────────────────────────
+
+function CompleteScreen({
+  phase,
+  config,
+  score,
+  onPlayAgain,
+}: {
+  phase: PhaseConfig;
+  config: GameConfig;
+  score: number;
+  onPlayAgain: () => void;
+}) {
+  const [displayScore, setDisplayScore] = useState(0);
+  const passed = score >= config.scoring.passing_threshold;
+  const pct = config.scoring.max_possible > 0
+    ? Math.round((score / config.scoring.max_possible) * 100)
+    : 0;
+
+  // Count-up animation
+  useEffect(() => {
+    let start = 0;
+    const duration = 1400;
+    const step = 16;
+    const increment = score / (duration / step);
+    const interval = setInterval(() => {
+      start += increment;
+      if (start >= score) {
+        setDisplayScore(score);
+        clearInterval(interval);
+      } else {
+        setDisplayScore(Math.floor(start));
+      }
+    }, step);
+    return () => clearInterval(interval);
+  }, [score]);
+
+  // Earned knowledge cards
+  const earnedCards = config.phases
+    .filter((p) => p.type !== 'intro' && p.type !== 'complete' && config.knowledge_cards?.[p.id])
+    .map((p) => ({
+      id: p.id,
+      card: config.knowledge_cards[p.id],
+      icon: PHASE_ICON[p.type] ?? '📚',
+    }));
+
+  // Confetti
+  const confetti = useRef(
+    Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 2.5}s`,
+      duration: `${3 + Math.random() * 2}s`,
+      color: ['#10b981', '#34d399', '#6ee7b7', '#fbbf24', '#a78bfa'][i % 5],
+      size: `${6 + Math.random() * 7}px`,
+      round: Math.random() > 0.5,
+    }))
+  ).current;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 99999,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      pointerEvents: 'none',
+    }}>
+      {/* Confetti */}
+      {confetti.map((c) => (
+        <div
+          key={c.id}
+          style={{
+            position: 'absolute', top: '-10px', left: c.left,
+            width: c.size, height: c.size,
+            backgroundColor: c.color,
+            borderRadius: c.round ? '50%' : '2px',
+            animation: `confetti-fall ${c.duration} ${c.delay} ease-in both`,
+          }}
+        />
+      ))}
+
+      {/* Card */}
+      <div style={{
+        position: 'absolute',
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '400px',
+        maxWidth: 'calc(100vw - 40px)',
+        animation: 'hud-bounce-in 0.6s cubic-bezier(0.22,1,0.36,1) both',
+        pointerEvents: 'auto',
+      }}>
+        <div style={{
+          backgroundColor: 'rgba(6,12,24,0.97)',
+          border: '1px solid rgba(16,185,129,0.3)',
+          borderRadius: '20px',
+          padding: '32px 28px 28px',
+          boxShadow: '0 0 60px rgba(16,185,129,0.1), 0 30px 80px rgba(0,0,0,0.7)',
+          textAlign: 'center',
+          fontFamily: DM,
+        }}>
+          {/* Emoji */}
+          <div style={{ fontSize: '44px', marginBottom: '12px', lineHeight: 1 }}>🎉</div>
+
+          {/* Title */}
+          <div style={{
+            fontSize: '22px', fontWeight: 800, color: 'white',
+            letterSpacing: '-0.01em', marginBottom: '4px',
+          }}>
+            {phase.title}
+          </div>
+          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '20px' }}>
+            {phase.instruction}
+          </div>
+
+          {/* Score count-up */}
+          <div style={{
+            fontSize: '42px', fontWeight: 800,
+            color: '#10b981', fontFamily: MONO,
+            marginBottom: '6px', lineHeight: 1,
+          }}>
+            ⚡ {displayScore}
+          </div>
+          <div style={{
+            fontSize: '12px', color: 'rgba(255,255,255,0.35)',
+            fontFamily: MONO, marginBottom: '14px',
+          }}>
+            / {config.scoring.max_possible} XP
+          </div>
+
+          {/* Progress bar */}
+          <div style={{
+            height: '6px', borderRadius: '4px',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            marginBottom: '6px', overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%', width: `${pct}%`,
+              backgroundColor: '#10b981',
+              borderRadius: '4px',
+              transition: 'width 1.4s cubic-bezier(0.22,1,0.36,1)',
+              boxShadow: '0 0 8px #10b981',
+            }} />
+          </div>
+          <div style={{
+            fontSize: '11px', color: 'rgba(255,255,255,0.3)',
+            fontFamily: MONO, marginBottom: '16px',
+          }}>
+            {pct}%
+          </div>
+
+          {/* Passed badge */}
+          <div style={{ marginBottom: '20px' }}>
+            {passed ? (
+              <span style={{
+                display: 'inline-block',
+                padding: '5px 14px', borderRadius: '100px',
+                backgroundColor: 'rgba(16,185,129,0.15)',
+                border: '1px solid rgba(16,185,129,0.4)',
+                fontSize: '12px', fontWeight: 700, color: '#34d399',
+              }}>
+                ✓ PASSED
+              </span>
+            ) : (
+              <span style={{
+                display: 'inline-block',
+                padding: '5px 14px', borderRadius: '100px',
+                backgroundColor: 'rgba(251,191,36,0.1)',
+                border: '1px solid rgba(251,191,36,0.3)',
+                fontSize: '12px', fontWeight: 700, color: '#fcd34d',
+              }}>
+                KEEP PRACTICING
+              </span>
+            )}
+          </div>
+
+          {/* Knowledge cards earned */}
+          {earnedCards.length > 0 && (
+            <div style={{
+              textAlign: 'left', marginBottom: '22px',
+              padding: '14px', borderRadius: '12px',
+              backgroundColor: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.07)',
+            }}>
+              <div style={{
+                fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.4)',
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                marginBottom: '10px',
+              }}>
+                Knowledge Cards Earned
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                {earnedCards.map(({ id, card, icon }) => (
+                  <div key={id} style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    fontSize: '13px', color: 'rgba(255,255,255,0.75)',
+                  }}>
+                    <span style={{ fontSize: '14px' }}>{icon}</span>
+                    {card.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Play Again */}
+          <button
+            onClick={onPlayAgain}
+            style={{
+              width: '100%', padding: '12px',
+              backgroundColor: '#10b981', color: 'white',
+              border: 'none', borderRadius: '12px',
+              fontSize: '14px', fontWeight: 700,
+              fontFamily: DM, cursor: 'pointer',
+              letterSpacing: '0.05em',
+              boxShadow: '0 0 24px rgba(16,185,129,0.3)',
+              transition: 'background-color 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+          >
+            🔄 PLAY AGAIN
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── NPC Chat Overlay ─────────────────────────────────────────────────────────
 
 function NPCChatOverlay({
   npcName,
@@ -165,9 +1083,7 @@ function NPCChatOverlay({
 
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
@@ -181,102 +1097,111 @@ function NPCChatOverlay({
   };
 
   return (
-    <div
-      className="fixed bottom-28 right-6 pointer-events-auto"
-      style={{ zIndex: 10001, width: '300px' }}
-    >
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          backgroundColor: 'rgba(15, 23, 42, 0.96)',
-          border: '1px solid rgba(52, 211, 153, 0.3)',
-          backdropFilter: 'blur(16px)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(52,211,153,0.06)',
-        }}
-      >
+    <div style={{
+      position: 'fixed', bottom: '90px', right: '20px',
+      width: '300px', zIndex: 10001, pointerEvents: 'auto',
+    }}>
+      <div style={{
+        ...PANEL_BASE,
+        borderRadius: '16px',
+        border: '1px solid rgba(16,185,129,0.25)',
+        backgroundColor: 'rgba(6,12,24,0.95)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.55), 0 0 20px rgba(16,185,129,0.05)',
+        overflow: 'hidden',
+      }}>
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderBottom: '1px solid rgba(52, 211, 153, 0.15)' }}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: '#34d399', boxShadow: '0 0 8px #34d399' }}
-            ></div>
-            <span className="text-sm font-bold" style={{ color: '#34d399' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px',
+          borderBottom: '1px solid rgba(16,185,129,0.12)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '8px', height: '8px', borderRadius: '50%',
+              backgroundColor: '#10b981', boxShadow: '0 0 8px #10b981',
+            }} />
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#10b981', fontFamily: DM }}>
               {npcName}
             </span>
           </div>
           <button
             onClick={onClose}
-            style={{ color: 'rgba(255,255,255,0.45)', fontSize: '18px', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#fff')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)')}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: 1,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'white')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
           >
             ×
           </button>
         </div>
 
         {/* Messages */}
-        <div
-          className="px-4 py-3"
-          style={{ maxHeight: '200px', overflowY: 'auto', scrollbarWidth: 'thin' }}
-        >
+        <div style={{
+          padding: '12px 14px', maxHeight: '200px',
+          overflowY: 'auto', scrollbarWidth: 'thin',
+        }}>
           {messages.length === 0 && (
-            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', textAlign: 'center', fontFamily: DM }}>
               Ask me anything about this mission!
             </p>
           )}
           {messages.map((msg, i) => (
-            <div key={i} className={`mb-2 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <span
-                className="inline-block text-xs px-3 py-2 rounded-xl leading-relaxed"
-                style={{
-                  maxWidth: '88%',
-                  backgroundColor:
-                    msg.role === 'user'
-                      ? 'rgba(0, 229, 255, 0.1)'
-                      : 'rgba(52, 211, 153, 0.1)',
-                  color: msg.role === 'user' ? '#7dd3fc' : '#6ee7b7',
-                  border: `1px solid ${msg.role === 'user' ? 'rgba(0,229,255,0.2)' : 'rgba(52,211,153,0.2)'}`,
-                }}
-              >
+            <div key={i} style={{
+              marginBottom: '8px',
+              display: 'flex',
+              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+            }}>
+              <span style={{
+                display: 'inline-block',
+                maxWidth: '88%',
+                fontSize: '12px',
+                lineHeight: 1.5,
+                padding: '8px 12px',
+                borderRadius: '12px',
+                fontFamily: DM,
+                backgroundColor: msg.role === 'user'
+                  ? 'rgba(59,130,246,0.12)'
+                  : 'rgba(16,185,129,0.1)',
+                color: msg.role === 'user' ? '#93c5fd' : '#6ee7b7',
+                border: `1px solid ${msg.role === 'user' ? 'rgba(59,130,246,0.2)' : 'rgba(16,185,129,0.2)'}`,
+              }}>
                 {msg.content}
               </span>
             </div>
           ))}
           {isTyping && (
-            <div className="mb-2 flex justify-start">
-              <span
-                className="inline-block text-xs px-3 py-2 rounded-xl"
-                style={{
-                  backgroundColor: 'rgba(52, 211, 153, 0.1)',
-                  color: '#6ee7b7',
-                  border: '1px solid rgba(52,211,153,0.2)',
-                }}
-              >
-                <span className="animate-pulse">● ● ●</span>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '8px' }}>
+              <span style={{
+                display: 'inline-block', fontSize: '12px',
+                padding: '8px 12px', borderRadius: '12px',
+                backgroundColor: 'rgba(16,185,129,0.1)',
+                color: '#6ee7b7',
+                border: '1px solid rgba(16,185,129,0.2)',
+              }}>
+                <span style={{ opacity: 0.7 }}>● ● ●</span>
               </span>
             </div>
           )}
-          <div ref={messagesEndRef}></div>
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
-        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(52,211,153,0.1)' }}>
-          <div className="flex gap-2 mt-2">
+        <div style={{ padding: '8px 12px 12px', borderTop: '1px solid rgba(16,185,129,0.08)' }}>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
             <input
-              className="flex-1 text-xs rounded-xl px-3 py-2 text-white outline-none"
               style={{
+                flex: 1, fontSize: '12px', borderRadius: '10px',
+                padding: '8px 12px', color: 'white', outline: 'none',
                 backgroundColor: 'rgba(255,255,255,0.07)',
-                border: '1px solid rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontFamily: DM,
               }}
               placeholder="Ask for a hint…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                // Stop all keys from bubbling to A-Frame / page.tsx handlers
                 e.stopPropagation();
                 if (e.key === 'Enter') handleSend();
               }}
@@ -285,18 +1210,22 @@ function NPCChatOverlay({
             <button
               onClick={handleSend}
               disabled={!input.trim() || isTyping}
-              className="text-xs font-bold px-3 py-2 rounded-xl transition-all"
               style={{
-                backgroundColor: '#10b981',
-                color: '#000',
-                opacity: !input.trim() || isTyping ? 0.45 : 1,
-                cursor: !input.trim() || isTyping ? 'not-allowed' : 'pointer',
+                padding: '8px 14px', borderRadius: '10px',
+                backgroundColor: '#10b981', color: 'white',
+                border: 'none', cursor: !input.trim() || isTyping ? 'not-allowed' : 'pointer',
+                fontSize: '12px', fontWeight: 700, fontFamily: DM,
+                opacity: !input.trim() || isTyping ? 0.4 : 1,
+                transition: 'opacity 0.15s',
               }}
             >
               Send
             </button>
           </div>
-          <p className="text-center mt-2" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)' }}>
+          <p style={{
+            textAlign: 'center', marginTop: '6px',
+            fontSize: '10px', color: 'rgba(255,255,255,0.2)', fontFamily: DM,
+          }}>
             T to toggle · Esc to close
           </p>
         </div>
@@ -305,7 +1234,7 @@ function NPCChatOverlay({
   );
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function PlayOverlayUI({
   config,
@@ -328,10 +1257,30 @@ export function PlayOverlayUI({
   autoHint,
   onNpcChatClose,
   onNpcSendMessage,
+  inventory,
+  showDeliveryPrompt,
+  selectedInventoryItem,
+  onSelectInventoryItem,
+  quizAnswered,
 }: PlayOverlayUIProps) {
   const hud: HUDConfig = config.hud;
 
-  // ── Dynamic instruction text for multi-step phases ──
+  // Resolve delivery target name for the hint
+  const deliveryTargetName = useMemo(() => {
+    const phase = currentPhase;
+    let targetId: string | null = null;
+    if (phase.type === 'drag') targetId = (phase as any).drag_target;
+    else if (phase.type === 'drag-multi') targetId = (phase as any).drag_target;
+    else if (phase.type === 'drag-chain') {
+      const step = phaseProgress?.step ?? 0;
+      targetId = (phase as any).steps?.[step]?.drag_target ?? null;
+    }
+    if (!targetId) return null;
+    const asset = config.assets.find((a: any) => a.id === targetId);
+    return asset?.name ?? targetId;
+  }, [currentPhase, config, phaseProgress]);
+
+  // ── Dynamic instruction for multi-step phases ──
   let instruction = currentPhase.instruction;
 
   if (currentPhase.type === 'drag-multi' && phaseProgress) {
@@ -341,323 +1290,115 @@ export function PlayOverlayUI({
     );
   }
 
-  if (
-    currentPhase.type === 'drag-chain' &&
-    phaseProgress &&
-    phaseProgress.step !== undefined
-  ) {
+  if (currentPhase.type === 'drag-chain' && phaseProgress && phaseProgress.step !== undefined) {
     const step = currentPhase.steps[phaseProgress.step];
     if (step) {
-      // Find target asset name from config
-      const targetAsset = config.assets.find((a) => a.id === step.drag_target);
-      const targetName = targetAsset?.name ?? step.drag_target;
-      instruction = `Step ${phaseProgress.step + 1}: Drag the ${
-        config.assets.find((a) => a.id === step.drag_item)?.name ?? step.drag_item
-      } into the ${targetName}.`;
+      const dragItem = config.assets.find((a) => a.id === step.drag_item);
+      const dragTarget = config.assets.find((a) => a.id === step.drag_target);
+      instruction = `Step ${phaseProgress.step + 1}: Drag the ${dragItem?.name ?? step.drag_item} into the ${dragTarget?.name ?? step.drag_target}.`;
     } else {
-      instruction = 'Protein pathway complete!';
+      instruction = 'Pathway complete!';
     }
   }
 
-  // ── Interactive phases (show controls hint) ──
-  const isInteractivePhase =
-    currentPhase.type !== 'intro' && currentPhase.type !== 'complete';
-
-  // ── Phase dot count: skip intro + complete ──
+  // ── Derived values ──
   const interactivePhases = config.phases.filter(
     (p) => p.type !== 'intro' && p.type !== 'complete'
   );
 
+  const cardsEarned = interactivePhases.filter((p) => {
+    const gi = config.phases.findIndex((cp) => cp.id === p.id);
+    return gi < phaseIndex && !!config.knowledge_cards?.[p.id];
+  }).length;
+
+  const isComplete = currentPhase.type === 'complete';
+  const isQuiz = currentPhase.type === 'quiz';
+  const showQuestPanel = !isComplete;
+
   return (
-    <div
-      className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 9999, fontFamily: 'system-ui' }}
-    >
-      {/* ─── TOP BAR ─── */}
-      <div className="absolute top-0 left-0 right-0 p-5">
-        <div className="max-w-5xl mx-auto">
-          <div
-            className="rounded-2xl px-6 py-4 flex items-center justify-between"
-            style={{
-              backgroundColor: 'rgba(15, 23, 42, 0.88)',
-              border: '1px solid rgba(0, 229, 255, 0.15)',
-              backdropFilter: 'blur(12px)',
-            }}
-          >
-            {/* Title */}
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🔬</span>
-              <span className="text-white font-extrabold text-base tracking-tight">
-                {config.meta.title}
-              </span>
-            </div>
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9999 }}>
+      {/* Inject keyframes */}
+      <style>{KEYFRAMES}</style>
 
-            {/* Phase dots (interactive phases only) */}
-            {hud.show_phase_counter && (
-              <div className="flex items-center gap-2.5">
-                {interactivePhases.map((p, i) => {
-                  const interactiveIndex = config.phases.findIndex((cp) => cp.id === p.id);
-                  const isCurrent = interactiveIndex === phaseIndex;
-                  const isDone = interactiveIndex < phaseIndex;
-                  return (
-                    <div key={p.id} className="flex flex-col items-center gap-1">
-                      <div
-                        className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${
-                          isCurrent ? 'scale-150' : ''
-                        }`}
-                        style={{
-                          backgroundColor:
-                            isDone || isCurrent
-                              ? '#22c55e'
-                              : 'rgba(255, 255, 255, 0.2)',
-                          boxShadow: isCurrent
-                            ? '0 0 12px #22c55e, 0 0 24px rgba(34, 197, 94, 0.4)'
-                            : isDone
-                            ? '0 0 6px rgba(34, 197, 94, 0.3)'
-                            : 'none',
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+      {/* ── XP Bar (top, full width) ── */}
+      <XPBar score={score} max={config.scoring.max_possible} />
 
-            {/* Score */}
-            {hud.show_score && (
-              <div className="flex items-center gap-3">
-                <div
-                  className="text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: 'rgba(255, 255, 255, 0.5)' }}
-                >
-                  Score
-                </div>
-                <div
-                  className="text-white text-xl font-black tabular-nums transition-all duration-500"
-                  style={{ color: score > prevScore ? '#22c55e' : '#ffffff' }}
-                >
-                  {score}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* ── Quest Panel (top-left) ── */}
+      {showQuestPanel && !isQuiz && (
+        <QuestPanel
+          phase={currentPhase}
+          phaseIndex={phaseIndex}
+          instruction={instruction}
+          interactivePhases={interactivePhases}
+          config={config}
+          showContinue={showContinue}
+          onContinue={onContinue}
+        />
+      )}
 
-      {/* ─── BOTTOM INSTRUCTION PANEL ─── */}
-      {hud.show_instruction && (
-        <div className="absolute bottom-0 left-0 right-0 p-5 pointer-events-auto">
-          <div className="max-w-2xl mx-auto">
-            <div
-              className="rounded-2xl px-7 py-5"
-              style={{
-                backgroundColor: 'rgba(15, 23, 42, 0.88)',
-                border: '1px solid rgba(0, 229, 255, 0.15)',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              {/* Phase title */}
-              <div
-                className="text-lg font-extrabold mb-1.5"
-                style={{ color: '#00e5ff' }}
-              >
-                {currentPhase.title}
-              </div>
+      {/* ── Stats Panel (top-right) ── */}
+      {!isComplete && (
+        <StatsPanel
+          score={score}
+          prevScore={prevScore}
+          phaseIndex={phaseIndex}
+          interactivePhases={interactivePhases}
+          config={config}
+          cardsEarned={cardsEarned}
+        />
+      )}
 
-              {/* Instruction / Quiz */}
-              {currentPhase.type === 'quiz' ? (
-                <QuizUI
-                  key={currentPhase.id}
-                  phase={currentPhase as QuizPhase}
-                  onAnswer={onQuizAnswer ?? (() => {})}
-                />
-              ) : (
-                <div
-                  className="text-white text-sm mb-4 leading-relaxed"
-                  style={{ opacity: 0.85 }}
-                >
-                  {instruction}
-                </div>
-              )}
+      {/* ── Crosshair (center) ── */}
+      {!isComplete && !showKnowledgeCard && !isQuiz && (
+        <Crosshair />
+      )}
 
-              {/* Continue button — hidden during quiz (quiz auto-advances) */}
-              {showContinue && currentPhase.type !== 'quiz' && (
-                <button
-                  onClick={onContinue}
-                  className="w-full text-black font-bold text-sm uppercase tracking-widest py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
-                  style={{
-                    backgroundColor: '#22c55e',
-                    boxShadow: '0 0 16px rgba(34, 197, 94, 0.4)',
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                      '#4ade80')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                      '#22c55e')
-                  }
-                >
-                  {currentPhase.type === 'complete'
-                    ? '🔄 Play Again'
-                    : currentPhase.type === 'intro'
-                    ? 'Begin Voyage →'
-                    : 'Continue →'}
-                </button>
-              )}
-            </div>
-          </div>
+      {/* ── Inventory Bar (bottom-center) ── */}
+      {!isComplete && (
+        <InventoryBar
+          items={inventory ?? []}
+          selectedItem={selectedInventoryItem ?? null}
+          onSelect={onSelectInventoryItem ?? (() => {})}
+          deliveryTargetName={deliveryTargetName}
+        />
+      )}
+
+      {/* ── Controls Hint (bottom-left) ── */}
+      {!isComplete && <ControlsHint />}
+
+      {/* ── Quiz Modal (center) ── */}
+      {isQuiz && !showKnowledgeCard && !quizAnswered && (
+        <div style={{ pointerEvents: 'auto' }}>
+          <QuizModal
+            key={currentPhase.id}
+            phase={currentPhase as QuizPhase}
+            onAnswer={onQuizAnswer ?? (() => {})}
+          />
         </div>
       )}
 
-      {/* ─── CONTROLS HINT — left side ─── */}
-      {isInteractivePhase && (
-        <div
-          className="absolute left-5 pointer-events-none"
-          style={{
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '200px',
-            backgroundColor: 'rgba(15, 23, 42, 0.82)',
-            border: '1px solid rgba(0, 229, 255, 0.15)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '16px',
-            padding: '16px',
-          }}
-        >
-          <div
-            style={{
-              color: '#00e5ff',
-              fontWeight: 800,
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              marginBottom: '10px',
-            }}
-          >
-            Controls
-          </div>
-          {[
-            { key: 'W A S D', desc: 'Move around' },
-            { key: 'E', desc: 'Move up' },
-            { key: 'Q', desc: 'Move down' },
-            { key: 'Mouse drag', desc: 'Look around' },
-            { key: 'Click + drag', desc: 'Grab objects' },
-            { key: 'T', desc: 'Talk to guide' },
-          ].map(({ key, desc }) => (
-            <div
-              key={key}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '7px',
-              }}
-            >
-              <span
-                style={{
-                  backgroundColor: 'rgba(0,229,255,0.1)',
-                  color: '#00e5ff',
-                  borderRadius: '6px',
-                  padding: '2px 7px',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  fontFamily: 'monospace',
-                  border: '1px solid rgba(0,229,255,0.2)',
-                }}
-              >
-                {key}
-              </span>
-              <span
-                style={{
-                  color: 'rgba(255,255,255,0.65)',
-                  fontSize: '10px',
-                  marginLeft: '8px',
-                  textAlign: 'right',
-                  flex: 1,
-                }}
-              >
-                {desc}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ─── KNOWLEDGE CARD ─── */}
+      {/* ── Knowledge Card Modal (center) ── */}
       {hud.show_knowledge_cards && showKnowledgeCard && knowledgeCardData && (
-        <div
-          className="absolute bottom-28 right-6 pointer-events-auto animate-[slideUp_0.35s_ease-out]"
-          style={{ width: '420px', maxWidth: 'calc(100vw - 3rem)' }}
-        >
-          <div
-            className="rounded-2xl px-6 py-5"
-            style={{
-              backgroundColor: '#1E293B',
-              border: '1px solid rgba(0, 229, 255, 0.2)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-            }}
-          >
-            {/* Title */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">💡</span>
-              <span className="text-white font-bold text-base">
-                {knowledgeCardData.title}
-              </span>
-            </div>
-
-            {/* Body */}
-            <div
-              className="text-sm leading-relaxed mb-3"
-              style={{ color: 'rgba(226, 232, 240, 0.85)' }}
-            >
-              {knowledgeCardData.body}
-            </div>
-
-            {/* Misconception (if present) */}
-            {knowledgeCardData.misconception && (
-              <div
-                className="text-xs leading-relaxed mb-3 p-3 rounded-lg"
-                style={{
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  color: '#fca5a5',
-                }}
-              >
-                ⚠️ {knowledgeCardData.misconception}
-              </div>
-            )}
-
-            {/* Tag */}
-            <div
-              className="text-xs leading-relaxed mb-4 italic"
-              style={{ color: '#fbbf24' }}
-            >
-              {knowledgeCardData.tag}
-            </div>
-
-            {/* Dismiss */}
-            <button
-              onClick={onDismissCard}
-              className="w-full text-black font-bold text-xs uppercase tracking-widest py-2.5 rounded-lg transition-all duration-200"
-              style={{ backgroundColor: '#22c55e' }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  '#4ade80')
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  '#22c55e')
-              }
-            >
-              Got it →
-            </button>
-          </div>
+        <div style={{ pointerEvents: 'auto' }}>
+          <KnowledgeCardModal
+            card={knowledgeCardData}
+            onDismiss={onDismissCard}
+          />
         </div>
       )}
 
-      {/* ─── NPC CHAT OVERLAY ─── */}
-      {npcName && npcChatOpen && (
+      {/* ── Complete Screen ── */}
+      {isComplete && (
+        <CompleteScreen
+          phase={currentPhase}
+          config={config}
+          score={score}
+          onPlayAgain={onContinue}
+        />
+      )}
+
+      {/* ── NPC Chat ── */}
+      {npcName && (
         <NPCChatOverlay
           npcName={npcName}
           isOpen={!!npcChatOpen}
@@ -668,122 +1409,27 @@ export function PlayOverlayUI({
         />
       )}
 
-      {/* ─── AUTO-HINT BUBBLE ─── */}
+      {/* ── Auto-Hint Bubble ── */}
       {autoHint && (
-        <div
-          className="fixed pointer-events-none"
-          style={{
-            bottom: npcChatOpen ? '420px' : '310px',
-            right: '24px',
-            zIndex: 10002,
-            width: '260px',
-            transition: 'bottom 0.3s ease',
-          }}
-        >
-          <div
-            className="rounded-xl px-4 py-3 text-xs leading-relaxed"
-            style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              color: '#6ee7b7',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <span className="font-bold" style={{ color: '#34d399' }}>
-              💡 Hint:{' '}
-            </span>
+        <div style={{
+          position: 'fixed',
+          bottom: npcChatOpen ? '420px' : '310px',
+          right: '20px',
+          zIndex: 10002,
+          width: '260px',
+          transition: 'bottom 0.3s ease',
+        }}>
+          <div style={{
+            borderRadius: '12px', padding: '12px 14px',
+            fontSize: '12px', lineHeight: 1.5,
+            backgroundColor: 'rgba(16,185,129,0.1)',
+            border: '1px solid rgba(16,185,129,0.3)',
+            color: '#6ee7b7',
+            backdropFilter: 'blur(8px)',
+            fontFamily: DM,
+          }}>
+            <span style={{ fontWeight: 700, color: '#34d399' }}>💡 Hint: </span>
             {autoHint}
-          </div>
-        </div>
-      )}
-
-      {/* ─── COMPLETE SCREEN ─── */}
-      {currentPhase.type === 'complete' && (
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{ zIndex: 99999 }}
-        >
-          {/* Confetti */}
-          {Array.from({ length: 50 }).map((_, i) => (
-            <div
-              key={i}
-              className="confetti"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${3 + Math.random() * 2}s`,
-                backgroundColor: ['#22c55e', '#4ade80', '#86efac', '#00e5ff', '#fbbf24'][
-                  Math.floor(Math.random() * 5)
-                ],
-                width: `${6 + Math.random() * 8}px`,
-                height: `${6 + Math.random() * 8}px`,
-                borderRadius: Math.random() > 0.5 ? '50%' : '0%',
-              }}
-            />
-          ))}
-
-          {/* Celebration message */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-auto">
-            <div
-              className="rounded-3xl px-12 py-10 animate-[bounceIn_0.6s_ease-out]"
-              style={{
-                backgroundColor: 'rgba(15, 23, 42, 0.96)',
-                border: '2px solid rgba(34, 197, 94, 0.5)',
-                boxShadow: '0 0 60px rgba(34,197,94,0.15)',
-                minWidth: '320px',
-              }}
-            >
-              <div className="text-5xl mb-3 animate-bounce">🎉</div>
-              <div
-                className="text-3xl font-black mb-2"
-                style={{ color: '#22c55e' }}
-              >
-                {currentPhase.title}
-              </div>
-
-              {/* Score */}
-              <div className="text-white text-lg mb-1">
-                Final Score:{' '}
-                <span className="font-black" style={{ color: '#22c55e' }}>
-                  {score}
-                </span>{' '}
-                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  / {config.scoring.max_possible}
-                </span>
-              </div>
-
-              {/* Passed / Failed badge */}
-              {score >= config.scoring.passing_threshold ? (
-                <div
-                  className="inline-block mt-2 mb-3 px-4 py-1 rounded-full text-sm font-bold"
-                  style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.4)' }}
-                >
-                  ✓ Passed
-                </div>
-              ) : (
-                <div
-                  className="inline-block mt-2 mb-3 px-4 py-1 rounded-full text-sm font-bold"
-                  style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
-                >
-                  Keep practicing
-                </div>
-              )}
-
-              <div className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                {currentPhase.instruction}
-              </div>
-
-              {/* Play Again button — primary CTA directly in celebration card */}
-              <button
-                onClick={onContinue}
-                className="w-full font-bold text-sm uppercase tracking-widest py-3.5 rounded-xl transition-all duration-200"
-                style={{ backgroundColor: '#22c55e', color: '#000', boxShadow: '0 0 20px rgba(34,197,94,0.3)' }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = '#4ade80')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = '#22c55e')}
-              >
-                🔄 Play Again
-              </button>
-            </div>
           </div>
         </div>
       )}

@@ -98,6 +98,9 @@ export function resolveAssetPaths(config: GameConfig): ResolvedGameConfig {
   const environment: ResolvedEnvironment = {
     ...config.environment,
     skybox_url: config.environment.skybox_url ?? '',
+    map_model_url: config.environment.map_model
+      ? `${SUPABASE_STORAGE_BASE}/${config.environment.map_model}`
+      : undefined,
   };
 
   const assets: ResolvedAsset[] = config.assets.map((asset) => {

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const d=require\\(''/Users/deadpool/Desktop/XRbioquest/data/experiences/voyage-inside-cell.json''\\); console.log\\(''NPC:'', d.npc?.spawn_position\\); console.log\\(''Camera default: CameraRig position=0 0 2, head at y=1.6''\\); console.log\\(''Asset y range:'', d.assets.map\\(a=>a.position[1]\\)\\); console.log\\(''Asset z range:'', d.assets.map\\(a=>a.position[2]\\)\\)\")",
+      "Bash(node -e \"const d=require\\(''/Users/deadpool/Desktop/XRbioquest/data/experiences/voyage-inside-cell.json''\\); d.phases.forEach\\(p=>{if\\(p.type===''drag''||p.type===''drag-multi''||p.type===''drag-chain''\\){console.log\\(p.id,p.type,JSON.stringify\\(p.snap_distance??''none''\\),p.steps?p.steps.map\\(s=>s.snap_distance??''none''\\):''''\\)}}\\);console.log\\(''---assets---''\\);d.assets.forEach\\(a=>{if\\(a.snap_distance\\)console.log\\(a.id,''snap_distance:'',a.snap_distance\\)}\\)\")",
+      "Bash(node -e \"const d=require\\(''/Users/deadpool/Desktop/XRbioquest/data/experiences/voyage-inside-cell.json''\\); const drag=d.phases.filter\\(p=>[''drag'',''drag-multi'',''drag-chain''].includes\\(p.type\\)\\); console.log\\(JSON.stringify\\(drag,null,2\\)\\)\")"
+    ]
+  }
+}

@@ -85,8 +85,9 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
     if (step) draggableIds.add(step.drag_item);
   }
 
-  // ── Active snap target for highlighting ──────────────────────────────────
+  // ── Active delivery target for highlighting ─────────────────────────────
   const snapTargetId = getDragTargetAssetId(phase, chainStep);
+  const isDeliveryPhase = phase.type === 'drag' || phase.type === 'drag-multi' || phase.type === 'drag-chain';
 
   // ── Click target for highlighting ────────────────────────────────────────
   const clickTargetId = phase.type === 'click' ? phase.target_asset : null;
@@ -130,10 +131,14 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
         const posStr = `${asset.position[0]} ${asset.position[1]} ${asset.position[2]}`;
         const proxiedUrl = hasModel ? proxyModelUrl(asset.model_url) : '';
 
+        const isDeliveryTarget = isDeliveryPhase && asset.id === snapTargetId;
+
         return (
           <a-entity
             key={asset.id}
             data-asset-id={asset.id}
+            data-base-y={String(asset.position[1])}
+            data-asset-name={asset.name}
             position={posStr}
             rotation={
               asset.rotation
@@ -145,7 +150,7 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
                 ? `${asset.scale} ${asset.scale} ${asset.scale}`
                 : '1 1 1'
             }
-            // Invisible bounding box for raycasting (draggables use sphere, targets use box)
+            // Invisible bounding box for raycasting
             geometry={
               isDraggable
                 ? 'primitive: sphere; radius: 0.4'
@@ -157,19 +162,23 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
                 : 'visible: false'
             }
             class={`clickable grabbable cursor-listener`}
-            // Config-driven click component (active for all non-draggable assets)
-            {...(!isDraggable && { 'config-clickable': '' })}
-            // Config-driven drag component (active for draggable assets)
+            // Config-driven click component (active for non-draggable assets)
+            {...(!isDraggable && {
+              'config-clickable': '',
+              'config-delivery-point': ''
+            })}
+            // Collect-to-inventory component (active for draggable/collectible assets)
             {...(isDraggable && {
-              'config-draggable': `snapDistance: ${asset.snap_distance ?? 2.0}`
+              'config-collectible': '',
+              'config-collectible-beacon': ''
             })}
           >
             {/* ── GLTF model (if URL is resolved) ── */}
             {hasModel && (
               <a-gltf-model
                 src={proxiedUrl}
-                config-auto-scale="target: 0.6"
-                position="0 -0.3 0"
+                config-auto-scale="target: 3.0"
+                position="0 0 0"
                 crossorigin="anonymous"
                 shadow="cast: true; receive: true"
               ></a-gltf-model>

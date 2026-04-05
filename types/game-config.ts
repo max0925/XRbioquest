@@ -59,6 +59,9 @@ export interface EnvironmentConfig {
   preset?: AFrameEnvironmentPreset;
   /** Lighting mood applied to the scene */
   lighting: 'warm' | 'cool' | 'neutral' | 'dramatic' | 'bioluminescent';
+  /** Filename of a .glb environment map model in Supabase assets storage.
+   *  When set, this replaces the flat ground plane with the 3D environment. */
+  map_model?: string;
 }
 
 // ─── Assets ──────────────────────────────────────────────────────────────
@@ -289,6 +292,8 @@ export interface GameConfig {
 
 export interface ResolvedEnvironment extends EnvironmentConfig {
   skybox_url: string;
+  /** Fully-qualified URL to the environment .glb model (resolved from map_model filename) */
+  map_model_url?: string;
 }
 
 export interface ResolvedAsset extends Omit<AssetConfig, 'model_path'> {

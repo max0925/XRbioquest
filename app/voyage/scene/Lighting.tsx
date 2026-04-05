@@ -4,16 +4,12 @@
 export function Lighting() {
     return (
         <>
-            <a-entity light="type: ambient; color: #ffffff; intensity: 0.6"></a-entity>
+            <a-entity light="type: ambient; color: #4466aa; intensity: 1.0"></a-entity>
             <a-entity
-                light="type: directional; color: #ffffff; intensity: 0.8; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048"
-                position="2 4 2"
+                light="type: directional; color: #ffffff; intensity: 1.2; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048"
+                position="5 10 5"
             ></a-entity>
-            <a-entity
-                light="type: directional; color: #b4c6e0; intensity: 0.3"
-                position="-2 2 -2"
-            ></a-entity>
-            <a-entity light="type: hemisphere; color: #ffffff; groundColor: #444444; intensity: 0.4"></a-entity>
+            <a-entity light="type: hemisphere; color: #6688cc; groundColor: #1a3a2a; intensity: 0.3"></a-entity>
         </>
     );
 }

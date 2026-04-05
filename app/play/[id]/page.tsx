@@ -64,6 +64,7 @@ export default function PlayPage() {
   const [knowledgeCardData, setKnowledgeCardData] = useState<KnowledgeCardConfig | null>(null);
   const [showContinue, setShowContinue] = useState(false);
   const [wrongClickHint, setWrongClickHint] = useState<string | null>(null);
+  const [quizAnswered, setQuizAnswered] = useState(false);
 
   // ── Timing (for drag time bonus) ──
   const phaseStartTime = useRef<number>(0);
@@ -73,6 +74,11 @@ export default function PlayPage() {
   // event handlers so side effects never run inside setState updater functions.
   const dragMultiCountRef = useRef(0);
   const dragChainStepRef = useRef(0);
+
+  // ── Inventory state (collect + deliver mechanic) ──
+  const [inventory, setInventory] = useState<string[]>([]);
+  const [showDeliveryPrompt, setShowDeliveryPrompt] = useState(false);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<string | null>(null);
 
   // ── NPC state ──
   const [npcChatOpen, setNpcChatOpen] = useState(false);
@@ -140,13 +146,8 @@ export default function PlayPage() {
       // T → toggle NPC chat (only when not typing)
       if (key === 't') {
         setNpcChatOpen((open) => !open);
-        return;
       }
-      const rig = document.getElementById('camera-rig');
-      if (!rig) return;
-      const pos = rig.getAttribute('position') as any;
-      if (key === 'q') rig.setAttribute('position', { x: pos.x, y: pos.y - 0.5, z: pos.z });
-      if (key === 'e') rig.setAttribute('position', { x: pos.x, y: pos.y + 0.5, z: pos.z });
+      // Q/E vertical movement removed — gravity keeps the player grounded
     };
     window.addEventListener('keydown', handleQE);
 
@@ -173,43 +174,33 @@ export default function PlayPage() {
     window.currentPlayPhaseId = phase.id;
     window.currentPlayClickTarget = isClickPhase(phase) ? phase.target_asset : '';
 
-    const dragItems = new Set<string>();
+    // Collect/deliver globals (replace old drag globals)
+    const collectibleItems = new Set<string>();
     if (isDragPhase(phase)) {
-      dragItems.add(phase.drag_item);
+      collectibleItems.add(phase.drag_item);
     } else if (isDragMultiPhase(phase)) {
       for (const asset of config.assets) {
         if (asset.quest_phase_id === phase.id && asset.role === 'draggable') {
-          dragItems.add(asset.id);
+          collectibleItems.add(asset.id);
         }
       }
     } else if (isDragChainPhase(phase)) {
       const step = phase.steps[chainStep];
-      if (step) dragItems.add(step.drag_item);
+      if (step) collectibleItems.add(step.drag_item);
     }
-    window.currentPlayDragItems = dragItems;
+    window.currentPlayCollectibleItems = collectibleItems;
+    window.currentPlayDeliverableItems = collectibleItems;
 
-    let snapTargetId = '';
-    let snapDistance = 2.0;
-    let isLastChainStep = false;
-
+    let deliveryTargetId = '';
     if (isDragPhase(phase)) {
-      snapTargetId = phase.drag_target;
-      snapDistance = phase.snap_distance ?? 3.0;
+      deliveryTargetId = phase.drag_target;
     } else if (isDragMultiPhase(phase)) {
-      snapTargetId = phase.drag_target;
-      snapDistance = phase.snap_distance ?? 4.0;
+      deliveryTargetId = phase.drag_target;
     } else if (isDragChainPhase(phase)) {
       const step = phase.steps[chainStep];
-      if (step) {
-        snapTargetId = step.drag_target;
-        snapDistance = step.snap_distance ?? 2.0;
-      }
-      isLastChainStep = chainStep === phase.steps.length - 1;
+      if (step) deliveryTargetId = step.drag_target;
     }
-
-    window.currentPlaySnapTargetId = snapTargetId;
-    window.currentPlaySnapDistance = snapDistance;
-    window.currentPlayChainIsLastStep = isLastChainStep;
+    window.currentPlayDeliveryTargetId = deliveryTargetId;
 
     // ExplorePhase: pass target + radius to proximity-trigger component
     if (isExplorePhase(phase)) {
@@ -221,6 +212,16 @@ export default function PlayPage() {
     }
   }, [config, phase, phaseProgress]);
 
+  // ─── Sync inventory to window global ──────────────────────────────────────
+
+  useEffect(() => {
+    window.currentPlayInventory = inventory;
+  }, [inventory]);
+
+  useEffect(() => {
+    window.playSelectedItem = selectedInventoryItem;
+  }, [selectedInventoryItem]);
+
   // ─── Phase start: reset progress / continue button ───────────────────────
 
   useEffect(() => {
@@ -229,9 +230,13 @@ export default function PlayPage() {
     phaseStartTime.current = Date.now();
     setShowContinue(phase.type === 'intro' || phase.type === 'complete');
     setWrongClickHint(null);
+    setQuizAnswered(false);
     setNpcMessages([]);
     setAutoHint(null);
     autoHintShownRef.current = false;
+    setInventory([]);
+    setShowDeliveryPrompt(false);
+    setSelectedInventoryItem(null);
 
     if (isDragMultiPhase(phase)) {
       dragMultiCountRef.current = 0;
@@ -317,6 +322,18 @@ export default function PlayPage() {
       const { phaseId } = e.detail ?? {};
       if (phaseId !== phase.id) return;
 
+      const deliveredAssetId = e.detail?.assetId;
+
+      // Remove delivered item from inventory and clear selection
+      if (deliveredAssetId) {
+        setInventory((prev) => {
+          const idx = prev.indexOf(deliveredAssetId);
+          if (idx === -1) return prev;
+          return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
+        });
+        setSelectedInventoryItem(null);
+      }
+
       if (isDragPhase(phase)) {
         const elapsed = (Date.now() - phaseStartTime.current) / 1000;
         const bonus =
@@ -324,15 +341,12 @@ export default function PlayPage() {
             ? phase.time_bonus.bonus_points
             : 0;
         const pts = (phase.points ?? 0) + bonus;
-        if (bonus > 0) console.log('[PLAY] ⚡ Speed bonus! +' + bonus);
+        if (bonus > 0) console.log('[PLAY] Speed bonus! +' + bonus);
         setPrevScore((s) => s);
         setScore((s) => s + pts);
         showCard(phase.id);
         advancePhase();
       } else if (isDragMultiPhase(phase)) {
-        // Use an imperative ref so side effects never fire inside a setState
-        // updater (which React may call multiple times in strict mode / future
-        // concurrent features).
         dragMultiCountRef.current += 1;
         const count = dragMultiCountRef.current;
         setPhaseProgress((prev) => (prev ? { ...prev, count } : prev));
@@ -352,12 +366,56 @@ export default function PlayPage() {
           setScore((s) => s + (phase.points ?? 0));
           showCard(phase.id);
           advancePhase();
+        } else {
+          // Reappear the collectible at the next target's position for the next step
+          const nextStepConfig = phase.steps[nextStep];
+          if (nextStepConfig && deliveredAssetId) {
+            const targetAsset = config.assets.find((a) => a.id === nextStepConfig.drag_target);
+            if (targetAsset) {
+              window.dispatchEvent(new CustomEvent('play-item-reappear', {
+                detail: {
+                  assetId: deliveredAssetId,
+                  targetPosition: [targetAsset.position[0] + 2, targetAsset.position[1], targetAsset.position[2]]
+                }
+              }));
+            }
+          }
         }
       }
     };
     window.addEventListener('play-drag-success', handler as EventListener);
     return () => window.removeEventListener('play-drag-success', handler as EventListener);
   }, [config, phase, advancePhase, showCard]);
+
+  // ─── Event: play-item-collected ──────────────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      const { assetId } = e.detail ?? {};
+      if (!assetId) return;
+      setInventory((prev) => [...prev, assetId]);
+    };
+    window.addEventListener('play-item-collected', handler as EventListener);
+    return () => window.removeEventListener('play-item-collected', handler as EventListener);
+  }, []);
+
+  // ─── Event: play-item-reappear (drag-chain: reposition collectible) ─────
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      const { assetId, targetPosition } = e.detail ?? {};
+      if (!assetId || !targetPosition) return;
+      const el = document.querySelector(`[data-asset-id="${assetId}"]`) as any;
+      if (!el) return;
+      el.setAttribute('position', `${targetPosition[0]} ${targetPosition[1]} ${targetPosition[2]}`);
+      el.setAttribute('visible', 'true');
+      // Reset collectible state so it can be collected again
+      const comp = el.components?.['config-collectible'];
+      if (comp) comp._collected = false;
+    };
+    window.addEventListener('play-item-reappear', handler as EventListener);
+    return () => window.removeEventListener('play-item-reappear', handler as EventListener);
+  }, []);
 
   // ─── Event: show-knowledge ────────────────────────────────────────────────
 
@@ -385,6 +443,7 @@ export default function PlayPage() {
   const handleQuizAnswer = useCallback(
     (optionId: string, isCorrect: boolean) => {
       if (!config || !phase || !isQuizPhase(phase) || !isCorrect) return;
+      setQuizAnswered(true);
       const pts = phase.points ?? 0;
       setPrevScore((s) => s);
       setScore((s) => s + pts);
@@ -584,6 +643,7 @@ export default function PlayPage() {
   const chainStep = phaseProgress?.step ?? 0;
   const skyboxUrl = config.environment.skybox_url || '';
   const envPreset = config.environment.preset ?? 'starry';
+  // map_model_url no longer used — environment built with A-Frame primitives
 
   return (
     <div className="h-screen w-screen bg-transparent">
@@ -592,20 +652,22 @@ export default function PlayPage() {
           embedded
           vr-mode-ui="enabled: false"
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+          fog="type: exponential; color: #0a1628; density: 0.008"
         >
-          {skyboxUrl ? (
-            // Generated skybox image (Blockade Labs or pre-baked URL)
-            <a-sky src={skyboxUrl} rotation="0 -130 0"></a-sky>
-          ) : (
-            // No skybox yet — use A-Frame environment preset from config (fallback: starry)
-            <a-entity environment={`preset: ${envPreset}; ground: none; fog: 0`}></a-entity>
-          )}
+          {/* Environment — built-in A-Frame component: sky, ground, trees, fog */}
+          <a-entity environment="preset: default; skyType: gradient; skyColor: #87CEEB; horizonColor: #c8e6f0; groundColor: #4a8c5c; groundColor2: #3a7c4c; grid: 1x1; gridColor: #5a9c6c; dressing: trees; dressingAmount: 15; fog: 0.3"></a-entity>
+
+          {/* Boundary walls (invisible) */}
+          <a-box position="0 2 -40" width="80" height="5" depth="1" visible="false"></a-box>
+          <a-box position="0 2 5" width="80" height="5" depth="1" visible="false"></a-box>
+          <a-box position="40 2 -20" width="1" height="5" depth="80" visible="false"></a-box>
+          <a-box position="-40 2 -20" width="1" height="5" depth="80" visible="false"></a-box>
 
           {/* Mouse cursor entity — rayOrigin: mouse shoots from the active camera
               using mouse NDC position, regardless of this entity's world position. */}
           <a-entity
             cursor="rayOrigin: mouse; fuse: false"
-            raycaster="objects: [config-clickable], [config-draggable], [config-npc-entity]; far: 100"
+            raycaster="objects: [config-clickable], [config-collectible], [config-delivery-point], [config-npc-entity]; far: 100"
           ></a-entity>
 
           {/* Proximity trigger — always in scene, self-manages indicator/detection */}
@@ -613,7 +675,8 @@ export default function PlayPage() {
 
           <GameAssets config={config} currentPhase={phase} chainStep={chainStep} />
           <Lighting />
-          <CameraRig phaseTitle={phase.title} phaseInstruction={phase.instruction} />
+          {/* gravity pulls rig to y=0; camera child at y=1.6 gives eye height */}
+          <CameraRig phaseTitle={phase.title} phaseInstruction={phase.instruction} spawnPosition="0 2 0" gravity={true} />
 
           <a-plane
             class="teleport-floor"
@@ -650,6 +713,17 @@ export default function PlayPage() {
       {typeof window !== 'undefined' &&
         createPortal(
           <>
+            {/* Vignette — dark edges for immersive game feel */}
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                pointerEvents: 'none',
+                zIndex: 9997,
+                background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.45) 100%)',
+              }}
+            />
+
             <PlayOverlayUI
               config={config}
               currentPhase={phase}
@@ -664,6 +738,7 @@ export default function PlayPage() {
               onDismissCard={dismissCard}
               onContinue={handleContinue}
               onQuizAnswer={handleQuizAnswer}
+              quizAnswered={quizAnswered}
               npcName={config.npc?.name}
               npcChatOpen={npcChatOpen}
               npcMessages={npcMessages}
@@ -671,6 +746,10 @@ export default function PlayPage() {
               autoHint={autoHint}
               onNpcChatClose={() => setNpcChatOpen(false)}
               onNpcSendMessage={handleNpcSendMessage}
+              inventory={inventory}
+              showDeliveryPrompt={showDeliveryPrompt}
+              selectedInventoryItem={selectedInventoryItem}
+              onSelectInventoryItem={(id) => setSelectedInventoryItem((prev) => prev === id ? null : id)}
             />
             {wrongClickHint && (
               <div

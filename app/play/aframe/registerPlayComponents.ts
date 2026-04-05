@@ -8,14 +8,14 @@
 //
 // ── Window globals set by app/play/page.tsx ─────────────────────────────
 //
-//   window.playAssetPositions        Record<assetId, [x,y,z]>
-//   window.currentPlayPhaseType      'intro'|'click'|'drag'|'drag-multi'|'drag-chain'|'complete'
-//   window.currentPlayPhaseId        string  e.g. "find-mito"
-//   window.currentPlayClickTarget    string  asset ID (ClickPhase only)
-//   window.currentPlayDragItems      Set<string>  asset IDs that can be dragged right now
-//   window.currentPlaySnapTargetId   string  asset ID to snap to (updated per chain step)
-//   window.currentPlaySnapDistance   number  world-units snap radius
-//   window.currentPlayChainIsLastStep boolean  true when drag-chain is on its final step
+//   window.playAssetPositions            Record<assetId, [x,y,z]>
+//   window.currentPlayPhaseType          'intro'|'click'|'drag'|'drag-multi'|'drag-chain'|'complete'
+//   window.currentPlayPhaseId            string  e.g. "find-mito"
+//   window.currentPlayClickTarget        string  asset ID (ClickPhase only)
+//   window.currentPlayCollectibleItems   Set<string>  asset IDs that can be collected right now
+//   window.currentPlayInventory          string[]  collected item IDs (mirrors React state)
+//   window.currentPlayDeliveryTargetId   string  asset ID to deliver to
+//   window.currentPlayDeliverableItems   Set<string>  items that can be delivered to current target
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -73,64 +73,94 @@ export function registerPlayComponents() {
     });
   }
 
-  // ─── 2. CONFIG-DRAGGABLE ─────────────────────────────────────────────
-  // 3D drag with config-driven snap targets and spring-return.
-  //
-  // On drag end:
-  //   • Checks if this asset is in window.currentPlayDragItems
-  //   • Looks up snap target position from window.playAssetPositions
-  //   • Success → snap (or re-allow for intermediate chain steps)
-  //   • Fail    → spring-return to original position
-  //
-  if (!window.AFRAME.components['config-draggable']) {
-    window.AFRAME.registerComponent('config-draggable', {
-      schema: {
-        snapDistance: { type: 'number', default: 2.0 }
-      },
+  // ─── 2. CONFIG-COLLECTIBLE ───────────────────────────────────────────
+  // Click-to-collect: player walks up and clicks within range.
+  // Hides the entity and dispatches 'play-item-collected'.
+  // Bobbing animation while active. Hover pulse on mouseenter.
+  if (!window.AFRAME.components['config-collectible']) {
+    window.AFRAME.registerComponent('config-collectible', {
+      schema: {},
 
       init: function () {
         var self = this;
-        self.isDragging = false;
-        self.dragStarted = false;
-        self.originalPosition = null;
-        var snapped = false;
+        self._collected = false;
+        self._bobOffset = Math.random() * Math.PI * 2;
 
-        // ── Store original position on entity load ──
-        self.el.addEventListener('loaded', function () {
-          var pos = self.el.getAttribute('position');
-          self.originalPosition = {
-            x: parseFloat(pos.x) || 0,
-            y: parseFloat(pos.y) || 0,
-            z: parseFloat(pos.z) || 0
-          };
+        var handleClick = function () {
+          var assetId = self.el.getAttribute('data-asset-id');
+          if (self._collected) return;
+          var items = window.currentPlayCollectibleItems;
+          if (!items || !items.has(assetId)) return;
+
+          // No distance check — raycaster click means player can see it
+          self._collected = true;
+
+          // Brief white flash
+          var flash = document.createElement('a-entity');
+          flash.setAttribute('geometry', 'primitive: sphere; radius: 0.6');
+          flash.setAttribute('material', 'color: #ffffff; emissive: #ffffff; emissiveIntensity: 1; transparent: true; opacity: 0.8; shader: flat');
+          flash.setAttribute('position', '0 0 0');
+          flash.setAttribute('animation__fade', 'property: material.opacity; from: 0.8; to: 0; dur: 300; easing: easeOutQuad');
+          flash.setAttribute('animation__grow', 'property: scale; from: 1 1 1; to: 2 2 2; dur: 300; easing: easeOutQuad');
+          self.el.appendChild(flash);
+          setTimeout(function () { try { self.el.removeChild(flash); } catch (_) {} }, 400);
+
+          // Hide entity
+          self.el.setAttribute('visible', 'false');
+
+          window.dispatchEvent(new CustomEvent('play-item-collected', {
+            detail: {
+              assetId: assetId,
+              assetName: self.el.getAttribute('data-asset-name') || assetId,
+              phaseId: window.currentPlayPhaseId
+            }
+          }));
+        };
+
+        self.el.addEventListener('click', handleClick);
+        self.el.addEventListener('triggerdown', handleClick);
+
+        // Hover pulse
+        self.el.addEventListener('mouseenter', function () {
+          if (self._collected) return;
+          var assetId = self.el.getAttribute('data-asset-id');
+          var items = window.currentPlayCollectibleItems;
+          if (!items || !items.has(assetId)) return;
+          self.el.setAttribute('animation__hover', {
+            property: 'scale', to: '1.15 1.15 1.15', dur: 200, easing: 'easeOutQuad'
+          });
         });
+        self.el.addEventListener('mouseleave', function () {
+          self.el.setAttribute('animation__hover', {
+            property: 'scale', to: '1 1 1', dur: 200, easing: 'easeOutQuad'
+          });
+        });
+      },
 
-        // ── Helpers ──
-        function getMyAssetId() {
-          return self.el.getAttribute('data-asset-id') || '';
-        }
+      // Bobbing when active
+      tick: function (time) {
+        if (this._collected) return;
+        var assetId = this.el.getAttribute('data-asset-id');
+        var items = window.currentPlayCollectibleItems;
+        if (!items || !items.has(assetId)) return;
+        var baseY = parseFloat(this.el.getAttribute('data-base-y') || '0');
+        this.el.object3D.position.y = baseY + Math.sin(time / 1000 + this._bobOffset) * 0.15;
+      }
+    });
+  }
 
-        function amIDraggableNow() {
-          var id = getMyAssetId();
-          var items = window.currentPlayDragItems;
-          return items && items.has(id);
-        }
+  // ─── 2b. CONFIG-DELIVERY-POINT ──────────────────────────────────────
+  // On target assets. Click-to-deliver: player selects item in hotbar,
+  // then clicks the target in 3D. No distance check, no E key.
+  if (!window.AFRAME.components['config-delivery-point']) {
+    window.AFRAME.registerComponent('config-delivery-point', {
+      schema: {},
 
-        function getSnapTargetPosition() {
-          var targetId = window.currentPlaySnapTargetId;
-          if (!targetId) return null;
-          var positions = window.playAssetPositions;
-          if (!positions) return null;
-          var pos = positions[targetId];
-          if (!pos) return null;
-          return { x: pos[0], y: pos[1], z: pos[2] };
-        }
+      init: function () {
+        var self = this;
+        self._pulseActive = false;
 
-        function getSnapDistance() {
-          return window.currentPlaySnapDistance || self.data.snapDistance;
-        }
-
-        function spawnParticleBurst(targetPos) {
+        function spawnParticleBurst(pos) {
           var sceneEl = self.el.sceneEl;
           for (var i = 0; i < 8; i++) {
             var angle = (i / 8) * Math.PI * 2;
@@ -138,175 +168,107 @@ export function registerPlayComponents() {
             var particle = document.createElement('a-entity');
             particle.setAttribute('geometry', { primitive: 'sphere', radius: 0.05 });
             particle.setAttribute('material', { color: '#22c55e', emissive: '#22c55e', emissiveIntensity: 0.8 });
-            particle.setAttribute('position', targetPos.x + ' ' + targetPos.y + ' ' + targetPos.z);
+            particle.setAttribute('position', pos.x + ' ' + pos.y + ' ' + pos.z);
             particle.setAttribute('animation', {
               property: 'position',
-              to: (targetPos.x + Math.cos(angle) * r) + ' ' + (targetPos.y + 0.3) + ' ' + (targetPos.z + Math.sin(angle) * r),
-              dur: 800,
-              easing: 'easeOutQuad'
+              to: (pos.x + Math.cos(angle) * r) + ' ' + (pos.y + 0.3) + ' ' + (pos.z + Math.sin(angle) * r),
+              dur: 800, easing: 'easeOutQuad'
             });
             particle.setAttribute('animation__fade', { property: 'material.opacity', from: 1, to: 0, dur: 800 });
             sceneEl.appendChild(particle);
-            setTimeout(function (p) { try { sceneEl.removeChild(p); } catch (_) { } }, 1000, particle);
+            setTimeout(function (p) { try { sceneEl.removeChild(p); } catch (_) {} }, 1000, particle);
           }
         }
 
-        // ── Start drag ──
-        var startDrag = function () {
-          if (snapped) return;
-          if (!amIDraggableNow()) return;
-
-          self.isDragging = true;
-          self.dragStarted = true;
-
-          var worldPos = new window.THREE.Vector3();
-          self.el.object3D.getWorldPosition(worldPos);
-          self.originalPosition = { x: worldPos.x, y: worldPos.y, z: worldPos.z };
-
-          // Disable camera look while dragging
-          var scene = self.el.sceneEl;
-          if (scene.camera && scene.camera.el) {
-            scene.camera.el.setAttribute('look-controls', 'enabled', false);
-          }
-        };
-
-        self.el.addEventListener('mousedown', startDrag);
-        self.el.addEventListener('triggerdown', startDrag);
-
-        // ── Mouse move ──
-        window.addEventListener('mousemove', function (evt) {
-          if (!self.isDragging || !self.dragStarted) return;
-          var scene = self.el.sceneEl;
-          if (!scene || !scene.canvas || !scene.camera) return;
-
-          var rect = scene.canvas.getBoundingClientRect();
-          var mx = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
-          var my = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
-
-          var rc = new window.THREE.Raycaster();
-          rc.setFromCamera(new window.THREE.Vector2(mx, my), scene.camera);
-
-          var planeZ = self.originalPosition ? self.originalPosition.z : -3;
-          var pl = new window.THREE.Plane(new window.THREE.Vector3(0, 0, 1), -planeZ);
-          var pt = new window.THREE.Vector3();
-          rc.ray.intersectPlane(pl, pt);
-          if (pt) self.el.setAttribute('position', { x: pt.x, y: pt.y, z: planeZ });
-        });
-
-        // ── End drag ──
-        var endDrag = function () {
-          if (!self.isDragging) return;
-          self.isDragging = false;
-
-          var scene = self.el.sceneEl;
-          if (scene.camera && scene.camera.el) {
-            scene.camera.el.setAttribute('look-controls', 'enabled', true);
-          }
-
-          if (!self.dragStarted) return;
-
+        // Click handler — delivers if this is the right target and an item is selected
+        var handleClick = function () {
+          var targetId = self.el.getAttribute('data-asset-id');
           var phaseType = window.currentPlayPhaseType;
-          var isDragMulti = phaseType === 'drag-multi';
-          var isDragChain = phaseType === 'drag-chain';
+          var isDeliveryPhase = phaseType === 'drag' || phaseType === 'drag-multi' || phaseType === 'drag-chain';
 
-          var targetPos = getSnapTargetPosition();
-          if (!targetPos) {
-            if (!isDragMulti && self.originalPosition) {
-              self.el.setAttribute('position', self.originalPosition);
+          console.log('[delivery-click]', targetId, 'phase:', phaseType, 'expected:', window.currentPlayDeliveryTargetId,
+            'selected:', window.playSelectedItem, 'inventory:', window.currentPlayInventory);
+
+          if (!isDeliveryPhase) return;
+          if (targetId !== window.currentPlayDeliveryTargetId) return;
+
+          // Check selected item from hotbar
+          var selectedItem = window.playSelectedItem;
+          if (!selectedItem) return;
+
+          // Verify selected item is deliverable
+          var deliverableItems = window.currentPlayDeliverableItems;
+          if (!deliverableItems || !deliverableItems.has(selectedItem)) return;
+
+          // Verify item is in inventory
+          var inventory = window.currentPlayInventory;
+          if (!inventory || inventory.indexOf(selectedItem) === -1) return;
+
+          // Success — deliver
+          var entityPos = new window.THREE.Vector3();
+          self.el.object3D.getWorldPosition(entityPos);
+          spawnParticleBurst(entityPos);
+
+          window.dispatchEvent(new CustomEvent('play-drag-success', {
+            detail: {
+              phaseId: window.currentPlayPhaseId,
+              assetId: selectedItem,
+              phaseType: window.currentPlayPhaseType,
+              delivered: true
             }
-            self.dragStarted = false;
-            return;
-          }
-
-          // World position for distance check
-          var worldPos = new window.THREE.Vector3();
-          self.el.object3D.getWorldPosition(worldPos);
-          var dx = worldPos.x - targetPos.x;
-          var dy = worldPos.y - targetPos.y;
-          var dz = worldPos.z - targetPos.z;
-          var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-          var snapDist = getSnapDistance();
-
-          console.log('[CONFIG-DRAG] dist to snap target:', dist.toFixed(2), 'threshold:', snapDist);
-
-          if (dist <= snapDist) {
-            // ── SUCCESS ──
-            spawnParticleBurst(targetPos);
-
-            var isChain = isDragChain;
-            var isLastChainStep = window.currentPlayChainIsLastStep;
-
-            if (isChain && !isLastChainStep) {
-              // Intermediate chain step: snap entity to target but DON'T lock it
-              // (user needs to pick it up again for the next step)
-              self.el.setAttribute('position', targetPos);
-              self.originalPosition = { x: targetPos.x, y: targetPos.y, z: targetPos.z };
-              // snapped stays false — entity remains draggable for next step
-            } else {
-              // Final snap: lock the entity
-              snapped = true;
-            }
-
-            window.dispatchEvent(new CustomEvent('play-drag-success', {
-              detail: {
-                phaseId: window.currentPlayPhaseId,
-                assetId: getMyAssetId(),
-                phaseType: phaseType
-              }
-            }));
-          } else {
-            // ── FAIL — return to original (drag-multi items stay where dropped) ──
-            if (!isDragMulti && self.originalPosition) {
-              self.el.setAttribute('position', self.originalPosition);
-            }
-          }
-
-          self.dragStarted = false;
+          }));
         };
 
-        window.addEventListener('mouseup', endDrag);
-        window.addEventListener('triggerup', endDrag);
-
-        // ── Pull-to-hand release (VR) ──
-        window.addEventListener('pull-release', function (evt) {
-          if (!evt.detail || evt.detail.target !== self.el) return;
-          if (!amIDraggableNow() || snapped) return;
-
-          self.dragStarted = true;
-          // Reuse endDrag logic after a tick so position is updated
-          setTimeout(endDrag, 16);
-        });
+        self.el.addEventListener('click', handleClick);
+        self.el.addEventListener('triggerdown', handleClick);
       },
 
-      // ── Tick: VR controller drag movement ──
       tick: function () {
-        if (!this.isDragging || !this.dragStarted) return;
+        var targetId = this.el.getAttribute('data-asset-id');
+        var phaseType = window.currentPlayPhaseType;
+        var isDeliveryPhase = phaseType === 'drag' || phaseType === 'drag-multi' || phaseType === 'drag-chain';
+        var isActive = isDeliveryPhase && targetId === window.currentPlayDeliveryTargetId;
 
-        var leftHand = document.getElementById('leftHand');
-        var rightHand = document.getElementById('rightHand');
-        if (!leftHand || !rightHand) return;
+        // Pulse animation when player has a selected item and this is the target
+        var shouldPulse = isActive && !!window.playSelectedItem;
 
-        var intersection = null;
-        var activeController = null;
-
-        if (leftHand.components && leftHand.components.raycaster) {
-          var li = leftHand.components.raycaster.getIntersection(this.el);
-          if (li) { activeController = leftHand; intersection = li; }
+        if (shouldPulse && !this._pulseActive) {
+          this._pulseActive = true;
+          this.el.setAttribute('animation__deliverypulse', {
+            property: 'scale', to: '1.15 1.15 1.15',
+            dir: 'alternate', loop: true, dur: 800, easing: 'easeInOutSine'
+          });
+        } else if (!shouldPulse && this._pulseActive) {
+          this.el.removeAttribute('animation__deliverypulse');
+          this._pulseActive = false;
         }
-        if (!intersection && rightHand.components && rightHand.components.raycaster) {
-          var ri = rightHand.components.raycaster.getIntersection(this.el);
-          if (ri) { activeController = rightHand; intersection = ri; }
-        }
+      },
 
-        if (activeController && activeController.components.raycaster) {
-          var rc = activeController.components.raycaster.raycaster;
-          var planeZ = this.originalPosition ? this.originalPosition.z : -3;
-          var pl = new window.THREE.Plane(new window.THREE.Vector3(0, 0, 1), -planeZ);
-          var pt = new window.THREE.Vector3();
-          var hit = rc.ray.intersectPlane(pl, pt);
-          if (hit && pt) {
-            this.el.setAttribute('position', { x: pt.x, y: pt.y, z: planeZ });
-          }
+      remove: function () {}
+    });
+  }
+
+  // ─── 2c. CONFIG-COLLECTIBLE-BEACON ──────────────────────────────────
+  // Vertical light beam above collectible items for long-range visibility.
+  if (!window.AFRAME.components['config-collectible-beacon']) {
+    window.AFRAME.registerComponent('config-collectible-beacon', {
+      init: function () { this._beamEl = null; },
+      tick: function () {
+        var assetId = this.el.getAttribute('data-asset-id');
+        var items = window.currentPlayCollectibleItems;
+        var shouldShow = items && items.has(assetId) && this.el.getAttribute('visible') !== 'false';
+
+        if (shouldShow && !this._beamEl) {
+          var beam = document.createElement('a-entity');
+          beam.setAttribute('geometry', 'primitive: cylinder; radius: 0.03; height: 8');
+          beam.setAttribute('material', 'color: #F59E0B; emissive: #F59E0B; emissiveIntensity: 0.6; transparent: true; opacity: 0.3; shader: flat');
+          beam.setAttribute('position', '0 4 0');
+          beam.setAttribute('animation', 'property: material.opacity; from: 0.3; to: 0.1; dir: alternate; loop: true; dur: 1500');
+          this.el.appendChild(beam);
+          this._beamEl = beam;
+        } else if (!shouldShow && this._beamEl) {
+          try { this.el.removeChild(this._beamEl); } catch (_) {}
+          this._beamEl = null;
         }
       }
     });
@@ -460,7 +422,38 @@ export function registerPlayComponents() {
     });
   }
 
-  // ─── 5. CONFIG-AUTO-SCALE ─────────────────────────────────────────────
+  // ─── 5. PLAY-GRAVITY ──────────────────────────────────────────────────
+  // Pulls the camera rig down to y=1.6 (eye height at ground level).
+  // Uses object3D.position directly — no schema, no attribute parsing issues.
+  if (!window.AFRAME.components['play-gravity']) {
+    window.AFRAME.registerComponent('play-gravity', {
+      init: function () {
+        this.velocity = 0;
+        this.grounded = false;
+      },
+      tick: function (time, delta) {
+        if (!delta) return;
+        var pos = this.el.object3D.position;
+        var groundY = 0;
+
+        if (pos.y > groundY) {
+          this.velocity += 9.8 * (delta / 1000);
+          pos.y -= this.velocity * (delta / 1000);
+          if (pos.y <= groundY) {
+            pos.y = groundY;
+            this.velocity = 0;
+            this.grounded = true;
+          }
+        } else {
+          pos.y = groundY;
+          this.velocity = 0;
+          this.grounded = true;
+        }
+      }
+    });
+  }
+
+  // ─── 6. CONFIG-AUTO-SCALE ─────────────────────────────────────────────
   // Same as voyage auto-scale — normalizes GLB to target unit size.
   if (!window.AFRAME.components['config-auto-scale']) {
     window.AFRAME.registerComponent('config-auto-scale', {

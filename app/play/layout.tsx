@@ -6,5 +6,11 @@ export const metadata: Metadata = {
 };
 
 export default function PlayLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  // Cover the root layout's Navigation with a fixed fullscreen container.
+  // This keeps the root layout untouched while making /play routes fully immersive.
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9990, background: '#000' }}>
+      {children}
+    </div>
+  );
 }
