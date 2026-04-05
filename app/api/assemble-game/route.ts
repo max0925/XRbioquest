@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { validateGameConfig } from '@/lib/game-config-loader';
-import { buildAssetTableForPrompt } from '@/lib/asset-registry';
+import { buildAssetTableForPrompt, getAvailableAssets } from '@/lib/asset-registry';
 import { searchNGSSAssetsServer } from '@/lib/ngssAssetsServer';
 import type { GameConfig } from '@/types/game-config';
 
@@ -10,7 +10,6 @@ export const maxDuration = 60;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-// Built as a function so it always reflects the current asset registry.
 
 function buildSystemPrompt(): string {
   return `
@@ -18,13 +17,22 @@ You are an expert VR biology game designer and curriculum specialist.
 Your task: output a single valid GameConfig JSON object for a 3D VR biology game.
 
 ════════════════════════════════════════
-AVAILABLE LIBRARY ASSETS
-(model_source: "library" — confirmed in ngss_assets table)
+⚠️  CRITICAL ASSET RULES — READ FIRST
+════════════════════════════════════════
+1. You may ONLY use assets from the AVAILABLE ASSETS table below.
+2. Do NOT invent or create assets that are not in this list.
+3. model_source: "meshy" is DISABLED. Do not use it.
+4. Every asset in your config MUST have model_source: "library" and MUST use
+   an id and search_keyword EXACTLY as listed in the AVAILABLE ASSETS table.
+5. If the requested topic cannot be taught with the available assets, adapt the
+   lesson to use the closest relevant assets from the table.
+   Example: an ecology topic → use glucose + mitochondria to teach cellular energy flow.
+
+════════════════════════════════════════
+AVAILABLE ASSETS
+(ONLY these 14 models exist — no others)
 ════════════════════════════════════════
 ${buildAssetTableForPrompt()}
-
-PREFERRED: Use model_source: "library" + search_keyword from the table above.
-FALLBACK:  model_source: "meshy" + generate_prompt: "<vivid description>" for anything not listed.
 
 ════════════════════════════════════════
 AVAILABLE PHASE TYPES
@@ -130,9 +138,8 @@ OUTPUT JSON SCHEMA (exact shape required)
     {
       "id": "kebab-case-asset-id",
       "name": "Display Name",
-      "model_source": "library" | "meshy",
-      "search_keyword": "...",              // library: exact keyword from table above
-      "generate_prompt": "...",              // meshy only
+      "model_source": "library",
+      "search_keyword": "...",              // MUST match a search_keyword from the AVAILABLE ASSETS table
       "position": [x, y, z],
       "rotation": [rx, ry, rz],             // optional
       "scale": 1.0,                         // optional
@@ -219,7 +226,103 @@ STRICT OUTPUT RULES
 - Use kebab-case for all id fields.
 - environment.preset is REQUIRED — choose from the preset guide above.
 - The "npc" field is optional but encouraged.
+- model_source MUST be "library" for every asset. "meshy" is NOT allowed.
 `.trim();
+}
+
+// ─── Asset ids from the registry (available only) ─────────────────────────────
+
+const AVAILABLE_ASSET_IDS = new Set(getAvailableAssets().map((a) => a.id));
+
+// ─── Returns all asset ids referenced by a phase ──────────────────────────────
+
+function getPhaseAssetRefs(phase: any): string[] {
+  const refs: string[] = [];
+  switch (phase.type) {
+    case 'click':
+      if (phase.target_asset) refs.push(phase.target_asset);
+      break;
+    case 'drag':
+      if (phase.drag_item) refs.push(phase.drag_item);
+      if (phase.drag_target) refs.push(phase.drag_target);
+      break;
+    case 'drag-multi':
+      if (phase.drag_item) refs.push(phase.drag_item);
+      if (phase.drag_target) refs.push(phase.drag_target);
+      break;
+    case 'drag-chain':
+      if (Array.isArray(phase.steps)) {
+        for (const step of phase.steps) {
+          if (step.drag_item) refs.push(step.drag_item);
+          if (step.drag_target) refs.push(step.drag_target);
+        }
+      }
+      break;
+    case 'explore':
+      if (phase.target_asset) refs.push(phase.target_asset);
+      break;
+  }
+  return refs;
+}
+
+// ─── Post-generation registry validation ──────────────────────────────────────
+
+function enforceRegistryAssets(cfg: any): { config: any; removedAssets: string[]; removedPhases: string[] } {
+  const removedAssets: string[] = [];
+  const removedPhases: string[] = [];
+
+  // 1. Remove assets not in the available registry
+  const originalAssets: any[] = cfg.assets ?? [];
+  const validAssets = originalAssets.filter((asset: any) => {
+    const valid = asset.model_source === 'library' && AVAILABLE_ASSET_IDS.has(asset.id);
+    if (!valid) {
+      console.warn(`[assemble-game] Removing invalid asset "${asset.id}" (source: ${asset.model_source})`);
+      removedAssets.push(asset.id);
+    }
+    return valid;
+  });
+
+  const validAssetIds = new Set(validAssets.map((a: any) => a.id));
+
+  // 2. Remove phases that reference any removed asset
+  const originalPhases: any[] = cfg.phases ?? [];
+  const validPhases = originalPhases.filter((phase: any) => {
+    if (phase.type === 'intro' || phase.type === 'complete' || phase.type === 'quiz') {
+      return true; // these don't reference 3D assets
+    }
+    const refs = getPhaseAssetRefs(phase);
+    const missingRef = refs.find((id) => !validAssetIds.has(id));
+    if (missingRef) {
+      console.warn(`[assemble-game] Removing phase "${phase.id}" (references missing asset "${missingRef}")`);
+      removedPhases.push(phase.id);
+      return false;
+    }
+    return true;
+  });
+
+  // 3. Recalculate scoring
+  const interactiveTypes = new Set(['click', 'drag', 'drag-multi', 'drag-chain', 'quiz', 'explore']);
+  let maxPossible = 0;
+  for (const phase of validPhases) {
+    if (!interactiveTypes.has(phase.type)) continue;
+    const pts = phase.points ?? 0;
+    maxPossible += pts;
+    if (phase.time_bonus?.bonus_points) maxPossible += phase.time_bonus.bonus_points;
+  }
+
+  return {
+    config: {
+      ...cfg,
+      assets: validAssets,
+      phases: validPhases,
+      scoring: {
+        max_possible: maxPossible,
+        passing_threshold: Math.round(maxPossible * 0.6),
+      },
+    },
+    removedAssets,
+    removedPhases,
+  };
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -272,7 +375,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Parse JSON ──
-  let parsed: unknown;
+  let parsed: any;
   try {
     parsed = JSON.parse(rawContent);
   } catch (err: any) {
@@ -283,14 +386,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Enforce registry: strip invalid assets + dependent phases ──
+  const { config: cleaned, removedAssets, removedPhases } = enforceRegistryAssets(parsed);
+
+  // ── Check minimum viable game (at least 2 interactive phases remain) ──
+  const interactiveTypes = new Set(['click', 'drag', 'drag-multi', 'drag-chain', 'quiz', 'explore']);
+  const interactiveCount = (cleaned.phases as any[]).filter((p: any) =>
+    interactiveTypes.has(p.type)
+  ).length;
+
+  if (interactiveCount < 2) {
+    console.warn('[assemble-game] Too few interactive phases after registry validation:', interactiveCount);
+    return NextResponse.json(
+      {
+        error:
+          'Not enough models available for this topic. ' +
+          'Available categories: cell-biology, genetics, human-body, molecules. ' +
+          'Try a topic in these areas.',
+        removed_assets: removedAssets,
+        removed_phases: removedPhases,
+      },
+      { status: 422 }
+    );
+  }
+
   // ── Resolve library asset model_urls before validation ──
-  // For each library asset, look up the ngss_assets table to get the real model_url.
-  // This ensures the saved GameConfig has fully-resolved URLs and doesn't need
-  // runtime DB calls.
-  if (parsed && typeof parsed === 'object' && Array.isArray((parsed as any).assets)) {
-    const assets = (parsed as any).assets as any[];
+  if (Array.isArray(cleaned.assets)) {
     await Promise.all(
-      assets.map(async (asset) => {
+      cleaned.assets.map(async (asset: any) => {
         if (asset.model_source === 'library' && asset.search_keyword && !asset.model_path) {
           try {
             const result = await searchNGSSAssetsServer({
@@ -313,21 +436,20 @@ export async function POST(req: NextRequest) {
 
   // ── Validate against GameConfig shape ──
   try {
-    validateGameConfig(parsed);
+    validateGameConfig(cleaned);
   } catch (err: any) {
     console.error('[assemble-game] Validation failed:', err.message);
     return NextResponse.json(
       {
         error: 'Generated config failed validation',
         details: err.message,
-        // Return raw config so caller can inspect/repair
-        raw: parsed,
+        raw: cleaned,
       },
       { status: 422 }
     );
   }
 
-  const config = parsed as GameConfig;
+  const config = cleaned as GameConfig;
 
   return NextResponse.json(
     {
@@ -339,6 +461,8 @@ export async function POST(req: NextRequest) {
         model: 'gpt-4o',
         phase_count: config.phases.length,
         asset_count: config.assets.length,
+        removed_assets: removedAssets,
+        removed_phases: removedPhases,
       },
     },
     { status: 200 }
