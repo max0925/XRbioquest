@@ -177,7 +177,7 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
             {hasModel && (
               <a-gltf-model
                 src={proxiedUrl}
-                config-auto-scale="target: 3.0"
+                config-auto-scale="target: 1.0"
                 position="0 0 0"
                 crossorigin="anonymous"
                 shadow="cast: true; receive: true"

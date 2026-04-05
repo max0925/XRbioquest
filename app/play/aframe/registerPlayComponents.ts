@@ -428,27 +428,79 @@ export function registerPlayComponents() {
   if (!window.AFRAME.components['play-gravity']) {
     window.AFRAME.registerComponent('play-gravity', {
       init: function () {
+        this.raycaster = new window.THREE.Raycaster();
+        this.downDir = new window.THREE.Vector3(0, -1, 0);
+        this.groundY = 0;
         this.velocity = 0;
-        this.grounded = false;
+        this.hasGround = false;
+        this._prevPos = new window.THREE.Vector3();
+        this._directions = [
+          new window.THREE.Vector3(1, 0, 0),
+          new window.THREE.Vector3(-1, 0, 0),
+          new window.THREE.Vector3(0, 0, 1),
+          new window.THREE.Vector3(0, 0, -1),
+        ];
       },
       tick: function (time, delta) {
         if (!delta) return;
-        var pos = this.el.object3D.position;
-        var groundY = 0;
+        var rig = this.el;
+        var pos = rig.object3D.position;
 
-        if (pos.y > groundY) {
-          this.velocity += 9.8 * (delta / 1000);
+        // Horizontal collision check — cast 4 rays at knee height
+        var mapEl = document.getElementById('map-model');
+        if (mapEl && mapEl.getObject3D('mesh')) {
+          var mesh = mapEl.getObject3D('mesh');
+          var playerPos = new window.THREE.Vector3(pos.x, pos.y + 0.5, pos.z);
+
+          for (var d = 0; d < this._directions.length; d++) {
+            this.raycaster.set(playerPos, this._directions[d]);
+            this.raycaster.far = 0.3;
+            var hits = this.raycaster.intersectObject(mesh, true);
+            if (hits.length > 0) {
+              if (d < 2) pos.x = this._prevPos.x;
+              else pos.z = this._prevPos.z;
+            }
+          }
+
+          // Vertical: raycast down for ground height (highest Y)
+          var origin = new window.THREE.Vector3(pos.x, pos.y + 5, pos.z);
+          this.raycaster.set(origin, this.downDir);
+          this.raycaster.far = 50;
+          var intersects = this.raycaster.intersectObject(mesh, true);
+
+          if (intersects.length > 0) {
+            var highestY = -Infinity;
+            for (var i = 0; i < intersects.length; i++) {
+              if (intersects[i].point.y > highestY) {
+                highestY = intersects[i].point.y;
+              }
+            }
+            this.groundY = highestY;
+            this.hasGround = true;
+          }
+        }
+
+        // Apply gravity toward ground
+        var targetY = this.hasGround ? this.groundY : 0;
+        var eyeHeight = 1.6;
+        var targetRigY = targetY + eyeHeight;
+
+        if (pos.y > targetRigY + 0.1) {
+          // Falling
+          this.velocity += 15 * (delta / 1000);
           pos.y -= this.velocity * (delta / 1000);
-          if (pos.y <= groundY) {
-            pos.y = groundY;
+          if (pos.y <= targetRigY) {
+            pos.y = targetRigY;
             this.velocity = 0;
-            this.grounded = true;
           }
         } else {
-          pos.y = groundY;
+          // On ground — snap to terrain height
+          pos.y = targetRigY;
           this.velocity = 0;
-          this.grounded = true;
         }
+
+        // Save current position for next frame
+        this._prevPos.copy(pos);
       }
     });
   }

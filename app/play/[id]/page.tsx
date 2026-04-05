@@ -641,9 +641,6 @@ export default function PlayPage() {
   if (!phase) return null;
 
   const chainStep = phaseProgress?.step ?? 0;
-  const skyboxUrl = config.environment.skybox_url || '';
-  const envPreset = config.environment.preset ?? 'starry';
-  // map_model_url no longer used — environment built with A-Frame primitives
 
   return (
     <div className="h-screen w-screen bg-transparent">
@@ -654,8 +651,9 @@ export default function PlayPage() {
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
           fog="type: exponential; color: #0a1628; density: 0.008"
         >
-          {/* Environment — built-in A-Frame component: sky, ground, trees, fog */}
-          <a-entity environment="preset: default; skyType: gradient; skyColor: #87CEEB; horizonColor: #c8e6f0; groundColor: #4a8c5c; groundColor2: #3a7c4c; grid: 1x1; gridColor: #5a9c6c; dressing: trees; dressingAmount: 15; fog: 0.3"></a-entity>
+          {/* Environment — A-Frame built-in with flat ground */}
+          <a-entity environment="preset: forest; skyType: gradient; skyColor: #87CEEB; horizonColor: #c8e6f0; groundColor: #4a8c5c; groundColor2: #3a7c4c; dressing: mushrooms; dressingAmount: 30; dressingScale: 3; ground: flat; fog: 0.3; gridColor: #5a9c6c; grid: none"></a-entity>
+          <a-sky color="#87CEEB"></a-sky>
 
           {/* Boundary walls (invisible) */}
           <a-box position="0 2 -40" width="80" height="5" depth="1" visible="false"></a-box>

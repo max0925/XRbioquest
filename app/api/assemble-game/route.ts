@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { validateGameConfig } from '@/lib/game-config-loader';
-import { buildAssetTableForPrompt, getAvailableAssets } from '@/lib/asset-registry';
+import { buildAssetTableForPrompt, buildMapTableForPrompt, getAvailableAssets } from '@/lib/asset-registry';
 import { searchNGSSAssetsServer } from '@/lib/ngssAssetsServer';
 import type { GameConfig } from '@/types/game-config';
 
@@ -214,6 +214,15 @@ Topic → recommended preset:
   General biology             → "contact" (sci-fi research station)
   Ocean / marine biology      → "dream"   (surreal, underwater-like)
   Middle school               → "japan"   (calm, approachable aesthetic)
+
+════════════════════════════════════════
+MAP TEMPLATE GUIDE
+════════════════════════════════════════
+Pick a 3D map template to replace the flat ground. Set environment.map_template to one of these ids:
+
+${buildMapTableForPrompt()}
+
+If no map fits the topic, omit map_template — the A-Frame environment preset will be used as fallback.
 
 ════════════════════════════════════════
 STRICT OUTPUT RULES

@@ -17,7 +17,8 @@
   "environment": {
     "skybox_prompt": "interior of a living cell, bioluminescent organelles floating in cytoplasm, deep blue and purple glow, scientific visualization, immersive VR educational environment, microscopic world",
     "preset": "tron",
-    "lighting": "bioluminescent"
+    "lighting": "bioluminescent",
+    "map_template": "lake-low-poly"
   },
 
   "assets": [
