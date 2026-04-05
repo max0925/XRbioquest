@@ -1,38 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { ExperienceLibrarySection } from '@/components/ExperienceLibrarySection';
 
-// ─── Typewriter: types text letter by letter on load ─────────────────────────
-function TypewriterText({ text, startDelay = 500 }: { text: string; startDelay?: number }) {
-  const [displayText, setDisplayText] = useState("");
-  const [started, setStarted] = useState(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setStarted(true), startDelay);
-    return () => clearTimeout(t);
-  }, [startDelay]);
-
-  useEffect(() => {
-    if (!started) return;
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < text.length) { setDisplayText(text.slice(0, i + 1)); i++; }
-      else { setDone(true); clearInterval(interval); }
-    }, 72);
-    return () => clearInterval(interval);
-  }, [started, text]);
-
-  return (
-    <span style={{ background: "linear-gradient(135deg, #34d399 0%, #22d3ee 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-      {displayText}
-      {!done && (
-        <span className="animate-pulse" style={{ display: "inline-block", width: "3px", height: "0.82em", background: "#34d399", marginLeft: "3px", verticalAlign: "middle", WebkitTextFillColor: "initial", borderRadius: "1px" }} />
-      )}
-    </span>
-  );
-}
+const CATEGORY_TABS = [
+  { label: '🧬 Cell Biology', prompt: 'Create a cell biology game about organelle functions for high school students' },
+  { label: '🧪 Genetics', prompt: 'Create a genetics game about DNA replication and transcription for AP Biology' },
+  { label: '🌿 Ecology', prompt: 'Create an ecology game about food webs and energy flow for middle school' },
+  { label: '🫀 Human Body', prompt: 'Create a human body game about the cardiovascular and respiratory systems' },
+  { label: '☀️ Photosynthesis', prompt: 'Create a photosynthesis game about the light reactions and Calvin cycle for AP Biology' },
+];
 
 // ─── Sector icons ────────────────────────────────────────────────────────────
 function SectorSchoolIcon({ className }: { className?: string }) {
@@ -72,6 +50,14 @@ const EMERALD_CLIP  = `polygon(0 ${SLANT}px, 100% 0, 100% calc(100% - ${SLANT}px
 const EMERALD_CLIP_LAST = `polygon(0 ${SLANT}px, 100% 0, 100% 100%, 0 100%)`; // flat bottom for final section
 
 export default function Home() {
+  const router = useRouter();
+  const [heroPrompt, setHeroPrompt] = useState("");
+
+  const handleHeroGenerate = () => {
+    const val = heroPrompt.trim();
+    if (val) router.push(`/create?prompt=${encodeURIComponent(val)}`);
+  };
+
   const sectorsRef   = useRef<HTMLElement>(null);
   const demoRef      = useRef<HTMLElement>(null);
   const featuresRef  = useRef<HTMLElement>(null);
@@ -98,118 +84,194 @@ export default function Home() {
         {/* Background video */}
         <video
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: "blur(3px) brightness(0.35)", zIndex: 0 }}
+          style={{ filter: "blur(2px) brightness(0.55)", zIndex: 0 }}
           autoPlay muted loop playsInline
         >
           <source src="/0211-small.mp4" type="video/mp4" />
         </video>
 
-        {/* Vignette */}
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, background: "radial-gradient(ellipse at 50% 60%, transparent 25%, rgba(0,0,0,0.55) 100%)" }} />
+        {/* Overlay gradient */}
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, background: "linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.65) 50%, rgba(0,0,0,0.7) 100%)" }} />
 
-        {/* Scroll-down arrow */}
+        {/* Scroll-down indicator */}
         <div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 scroll-arrow-fade"
-          style={{ zIndex: 4 }}
+          className="absolute left-1/2 -translate-x-1/2 scroll-arrow-fade"
+          style={{ zIndex: 4, bottom: "24px" }}
           aria-hidden="true"
         >
           <div className="scroll-bounce flex flex-col items-center gap-1">
             <svg
               width="22" height="22" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="text-white/70"
+              style={{ color: "rgba(255,255,255,0.25)" }}
             >
               <path d="M6 9l6 6 6-6" />
             </svg>
             <svg
               width="22" height="22" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="text-white/35"
+              style={{ color: "rgba(255,255,255,0.25)" }}
             >
               <path d="M6 9l6 6 6-6" />
             </svg>
           </div>
         </div>
 
-        {/* Clean bottom edge */}
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ zIndex: 3, height: "1px", background: "rgba(6,78,59,0.18)" }} />
 
         {/* Content */}
         <div className="max-w-5xl mx-auto relative text-center" style={{ zIndex: 2 }}>
 
           {/* Label pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full border border-white/20 backdrop-blur-sm fade-in-up" style={{ background: "rgba(255,255,255,0.07)", animationDelay: "0s" }}>
+          <div
+            className="inline-flex items-center gap-2 rounded-full fade-in-up"
+            style={{
+              animationDelay: "0s",
+              background: "rgba(255,255,255,0.08)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              padding: "8px 20px",
+              marginBottom: "40px",
+            }}
+          >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-semibold text-white/80 tracking-widest uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-              For Educators & Designers
+            <span
+              style={{
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.8)",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+              }}
+            >
+              For Educators &amp; Designers
             </span>
           </div>
 
-          {/* Headline */}
+          {/* Heading */}
           <h1
-            className="text-4xl md:text-5xl lg:text-[3.75rem] xl:text-6xl font-semibold tracking-tight text-white mb-6 leading-[1.08] fade-in-up"
-            style={{ fontFamily: '"Syne", system-ui, sans-serif', animationDelay: "0.1s" }}
+            className="text-white fade-in-up"
+            style={{
+              fontFamily: '"DM Sans", system-ui, sans-serif',
+              fontWeight: 700,
+              fontSize: "clamp(40px, 5.5vw, 64px)",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.15,
+              textShadow: "0 2px 30px rgba(0,0,0,0.3)",
+              marginBottom: "20px",
+              animationDelay: "0.1s",
+            }}
           >
-            Design Immersive STEM Lessons
-            <br />
-            <span className="whitespace-nowrap">
-              <span className="text-white/55">in Minutes,</span>{" "}
-              <TypewriterText text="No Code Required" startDelay={520} />
-            </span>
+            What should your students<br />
+            <span style={{
+              background: "linear-gradient(135deg, #34d399, #6ee7b7, #a7f3d0)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>explore</span> today?
           </h1>
 
           {/* Subtitle */}
           <p
-            className="text-lg md:text-xl text-white/70 mb-10 max-w-2xl mx-auto leading-relaxed fade-in-up"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', animationDelay: "0.2s" }}
+            className="mx-auto fade-in-up"
+            style={{
+              fontFamily: '"DM Sans", system-ui, sans-serif',
+              fontSize: "17px",
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.6)",
+              lineHeight: 1.65,
+              maxWidth: "560px",
+              marginBottom: "36px",
+              animationDelay: "0.2s",
+            }}
           >
-            AI-powered tools that turn lesson goals into interactive 3D experiences — playable on{" "}
-            <span className="text-emerald-500 font-semibold">Web</span> and{" "}
-            <span className="text-emerald-500 font-semibold">VR</span>.
+            AI generates a playable biology game with quests, scoring, and
+            NGSS-aligned content —{" "}
+            <span style={{ color: "rgba(255,255,255,0.9)" }}>no code required</span>
+            , playable on both{" "}
+            <span style={{ color: "rgba(255,255,255,0.9)" }}>Web and VR</span>.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-12 fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <Link
-              href="/environment-design"
-              className="group relative px-7 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-semibold text-base transition-all duration-300 flex items-center gap-2 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/35 hover:scale-[1.02]"
-              style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          {/* Prompt input — glassmorphism */}
+          <div
+            className="hero-input-container relative flex items-center mb-5 fade-in-up mx-auto"
+            style={{
+              animationDelay: "0.3s",
+              background: "rgba(255,255,255,0.07)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: "16px",
+              padding: "6px 6px 6px 24px",
+              maxWidth: "580px",
+            }}
+          >
+            <input
+              type="text"
+              value={heroPrompt}
+              onChange={(e) => setHeroPrompt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleHeroGenerate()}
+              placeholder="e.g. Mitosis and cell division for AP Biology..."
+              className="hero-glass-input flex-1 bg-transparent outline-none"
+              style={{
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontSize: "15px",
+                color: "white",
+              }}
+            />
+            <button
+              onClick={handleHeroGenerate}
+              className="hero-generate-btn whitespace-nowrap transition-all duration-200 cursor-pointer active:scale-95"
+              style={{
+                backgroundColor: "#10b981",
+                color: "white",
+                padding: "12px 24px",
+                borderRadius: "12px",
+                fontSize: "14px",
+                fontWeight: 600,
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                border: "none",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#059669"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#10b981"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
             >
-              <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <span className="relative">Start Creating</span>
-              <svg className="relative w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
-
-            <Link
-              href="/#demo"
-              className="group px-7 py-3.5 text-white rounded-xl font-medium text-base border border-white/25 hover:border-white/40 backdrop-blur-sm transition-all duration-300 flex items-center gap-2"
-              style={{ fontFamily: '"DM Sans", system-ui, sans-serif', background: "rgba(255,255,255,0.09)" }}
-            >
-              <svg className="w-4 h-4 text-white/75" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>See Demo</span>
-            </Link>
+              Generate Experience →
+            </button>
           </div>
 
-          {/* Feature badges */}
-          <div className="flex flex-wrap justify-center gap-3 fade-in-up" style={{ animationDelay: "0.4s" }}>
-            {["AI-Powered", "Web + VR", "No Code"].map((feature) => (
-              <div
-                key={feature}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full backdrop-blur-sm border border-white/20 hover:border-white/35 transition-colors duration-200"
-                style={{ background: "rgba(255,255,255,0.09)" }}
+          {/* Category pills */}
+          <div className="flex flex-wrap justify-center gap-2 fade-in-up" style={{ animationDelay: "0.4s" }}>
+            {CATEGORY_TABS.map((tab) => (
+              <button
+                key={tab.label}
+                onClick={() => router.push(`/create?prompt=${encodeURIComponent(tab.prompt)}`)}
+                className="transition-all duration-200 cursor-pointer"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "100px",
+                  padding: "8px 18px",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.7)",
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+                  e.currentTarget.style.color = "white";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                  e.currentTarget.style.color = "rgba(255,255,255,0.7)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                }}
               >
-                <svg className="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-xs font-medium text-white/80" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                  {feature}
-                </span>
-              </div>
+                {tab.label}
+              </button>
             ))}
           </div>
         </div>
@@ -379,42 +441,34 @@ export default function Home() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          TESTIMONIALS — white
+          TRACTION — white, 4 metric cards
       ══════════════════════════════════════════════════════════════════════ */}
       <section ref={socialRef} className="py-20 px-6 bg-white scroll-fade">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10 stagger-title">
-            <p className="text-xs font-semibold text-emerald-600 mb-2 tracking-wider uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Testimonials</p>
-            <h2 className="text-3xl md:text-4xl font-semibold text-gray-900 mb-3" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>Trusted by educators</h2>
-            <p className="text-base text-gray-500" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-              Join 500+ STEM teachers transforming their classrooms
-            </p>
+            <p className="text-xs font-semibold text-emerald-600 mb-2 tracking-wider uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Traction</p>
+            <h2 className="text-3xl md:text-4xl font-semibold text-gray-900" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>Early momentum</h2>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-6 stagger-content">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-content">
             {[
-              { quote: "This platform has completely transformed how I teach molecular biology. My students are now excited about chemistry.", name: "Dr. Sarah Chen", role: "Chemistry Teacher, Lincoln HS" },
-              { quote: "As someone with zero coding experience, I was amazed at how quickly I could create immersive physics simulations.", name: "Michael Torres", role: "Physics Teacher, Riverside Academy" },
-            ].map((testimonial, i) => (
-              <div key={i} className="p-6 bg-white rounded-xl border border-gray-200 hover:border-emerald-200 hover:shadow-md transition-all duration-300">
-                <div className="flex gap-0.5 mb-3">
-                  {[...Array(5)].map((_, j) => (
-                    <svg key={j} className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
+              { value: "6", label: "Letters of Intent" },
+              { value: "90%", label: "Student Engagement" },
+              { value: "3", label: "Active Pilots" },
+              { value: "60s", label: "Generation Time" },
+            ].map((metric, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl p-6 text-center border border-gray-100"
+                style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.05)", transitionDelay: `${i * 60}ms` }}
+              >
+                <div
+                  className="text-4xl font-black leading-none mb-2"
+                  style={{ fontFamily: '"Syne", system-ui, sans-serif', color: "#059669" }}
+                >
+                  {metric.value}
                 </div>
-                <p className="text-sm text-gray-700 mb-4 leading-relaxed" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                  &ldquo;{testimonial.quote}&rdquo;
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-emerald-700">{testimonial.name.split(" ").map(n => n[0]).join("").slice(0,2)}</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900" style={{ fontFamily: '"Syne", system-ui, sans-serif' }}>{testimonial.name}</div>
-                    <div className="text-xs text-gray-500" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{testimonial.role}</div>
-                  </div>
+                <div className="text-sm text-gray-500" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                  {metric.label}
                 </div>
               </div>
             ))}
@@ -529,7 +583,7 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-6 stagger-cta">
             <Link
-              href="/environment-design"
+              href="/create"
               className="group px-7 py-3.5 bg-white hover:bg-emerald-50 text-emerald-900 rounded-xl font-semibold text-base transition-all duration-300 flex items-center gap-2 shadow-lg shadow-black/20 hover:shadow-xl hover:scale-[1.02]"
               style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
@@ -562,7 +616,7 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-xs text-gray-400" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>© 2025 BioQuest. All rights reserved.</div>
             <div className="flex gap-6">
-              <Link href="/environment-design" className="text-xs text-gray-500 hover:text-emerald-600 transition-colors" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Create Lesson</Link>
+              <Link href="/create" className="text-xs text-gray-500 hover:text-emerald-600 transition-colors" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Create</Link>
               <Link href="/community" className="text-xs text-gray-500 hover:text-emerald-600 transition-colors" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Community</Link>
             </div>
           </div>
@@ -607,6 +661,15 @@ export default function Home() {
         .animate-in .stagger-cta     { opacity: 1; transform: translateY(0); transition-delay: 0.38s; }
 
         a, button { transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Hero glass input placeholder */
+        .hero-glass-input::placeholder { color: rgba(255,255,255,0.35); }
+
+        /* Hero input container focus-within ring */
+        .hero-input-container:focus-within {
+          border-color: rgba(110,231,183,0.4);
+          box-shadow: 0 0 0 4px rgba(110,231,183,0.08);
+        }
 
         /* Scroll-down arrow */
         .scroll-arrow-fade {

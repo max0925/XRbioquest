@@ -11,7 +11,7 @@ const EXPERIENCES = [
     duration: "5 min",
     description: "A 6-phase VR biology game: identify organelles, power up mitochondria, recycle damaged proteins, and run the full secretory pathway — earning points and unlocking AP/IB-aligned knowledge cards.",
     tags: ["VR Ready", "AI Generated"],
-    href: "/experiences/voyage-inside-cell",
+    href: "/play/voyage-inside-cell",
     icon: "🧬",
     thumbnail: "/Voyage.png",
     gradientFrom: "#10b981",
