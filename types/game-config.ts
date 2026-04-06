@@ -62,8 +62,6 @@ export interface EnvironmentConfig {
   /** Filename of a .glb environment map model in Supabase assets storage.
    *  When set, this replaces the flat ground plane with the 3D environment. */
   map_model?: string;
-  /** Map template id from MAP_TEMPLATES registry — resolved to map_model filename at runtime */
-  map_template?: string;
 }
 
 // ─── Assets ──────────────────────────────────────────────────────────────
