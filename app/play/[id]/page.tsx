@@ -650,6 +650,7 @@ export default function PlayPage() {
           vr-mode-ui="enabled: false"
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
           fog="type: exponential; color: #0a1628; density: 0.008"
+          play-native-click-handler
         >
           {/* Environment — A-Frame built-in with flat ground, preset from config */}
           <a-entity environment={`preset: ${config.environment.preset || 'default'}; ground: flat; fog: 0.3; grid: none`}></a-entity>
@@ -664,7 +665,7 @@ export default function PlayPage() {
               using mouse NDC position, regardless of this entity's world position. */}
           <a-entity
             cursor="rayOrigin: mouse; fuse: false"
-            raycaster="objects: [config-clickable], [config-collectible], [config-delivery-point], [config-npc-entity]; far: 100"
+            raycaster="objects: .clickable; far: 100"
           ></a-entity>
 
           {/* Proximity trigger — always in scene, self-manages indicator/detection */}

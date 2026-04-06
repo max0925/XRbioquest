@@ -339,12 +339,13 @@ export function registerPlayComponents() {
         var radius = window.currentPlayExploreTriggerRadius || 2.0;
         if (!target) return;
 
-        var rig = document.getElementById('camera-rig');
-        if (!rig) return;
+        var head = document.getElementById('head');
+        if (!head) return;
 
-        var rigPos = rig.getAttribute('position');
-        var dx = (rigPos.x || 0) - target[0];
-        var dz = (rigPos.z || 0) - target[2];
+        var worldPos = new window.THREE.Vector3();
+        head.object3D.getWorldPosition(worldPos);
+        var dx = worldPos.x - target[0];
+        var dz = worldPos.z - target[2];
         var dist = Math.sqrt(dx * dx + dz * dz);
 
         if (dist <= radius) {
@@ -404,13 +405,14 @@ export function registerPlayComponents() {
       },
 
       tick: function () {
-        var rig = document.getElementById('camera-rig');
-        if (!rig || !this._hintEl) return;
+        var head = document.getElementById('head');
+        if (!head || !this._hintEl) return;
 
-        var rigPos = rig.getAttribute('position');
+        var worldPos = new window.THREE.Vector3();
+        head.object3D.getWorldPosition(worldPos);
         var myPos = this.el.getAttribute('position');
-        var dx = (rigPos.x || 0) - (myPos.x || 0);
-        var dz = (rigPos.z || 0) - (myPos.z || 0);
+        var dx = worldPos.x - (myPos.x || 0);
+        var dz = worldPos.z - (myPos.z || 0);
         var dist = Math.sqrt(dx * dx + dz * dz);
 
         var shouldShow = dist <= 3.0;
@@ -475,6 +477,77 @@ export function registerPlayComponents() {
       },
       remove: function () {
         this.el.removeEventListener('model-loaded', this.onModelLoaded);
+      }
+    });
+  }
+
+  // ─── 7. PLAY-NATIVE-CLICK-HANDLER ───────────────────────────────────
+  // Registered on <a-scene>. Bypasses A-Frame's cursor/raycaster for GLTF
+  // mesh clicks. Uses THREE.Raycaster directly against all meshes under
+  // .clickable elements, then dispatches click on the parent entity with
+  // data-asset-id. This fixes the issue where A-Frame raycaster can't
+  // reliably hit GLTF child meshes and route clicks to the parent entity.
+  if (!window.AFRAME.components['play-native-click-handler']) {
+    window.AFRAME.registerComponent('play-native-click-handler', {
+      init: function () {
+        var sceneEl = this.el; // this.el IS the <a-scene> when registered on scene
+        var raycaster = new window.THREE.Raycaster();
+        var mouse = new window.THREE.Vector2();
+
+        var handler = function (e) {
+          var camera = sceneEl.camera;
+          if (!camera) return;
+
+          var rect = sceneEl.canvas.getBoundingClientRect();
+          mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+
+          // Collect all meshes from .clickable entities
+          var meshes = [];
+          var clickables = sceneEl.querySelectorAll('.clickable');
+          for (var i = 0; i < clickables.length; i++) {
+            var el = clickables[i];
+            if (!el.object3D) continue;
+            el.object3D.traverse(function (obj) {
+              if (obj.isMesh) {
+                obj._parentClickable = el;
+                meshes.push(obj);
+              }
+            });
+          }
+
+          var hits = raycaster.intersectObjects(meshes, false);
+          if (hits.length === 0) return;
+
+          // Walk up to find the entity with data-asset-id
+          var targetEl = hits[0].object._parentClickable;
+          while (targetEl && !targetEl.getAttribute('data-asset-id')) {
+            targetEl = targetEl.parentElement;
+          }
+          if (!targetEl) return;
+
+          console.log('[NATIVE-CLICK] Hit:', targetEl.getAttribute('data-asset-id'), 'dist:', hits[0].distance.toFixed(1));
+          targetEl.dispatchEvent(new Event('click', { bubbles: false }));
+        };
+
+        this._handler = handler;
+
+        // Canvas is ready when registered on scene at renderstart
+        if (sceneEl.canvas) {
+          sceneEl.canvas.addEventListener('click', handler);
+          console.log('[PLAY] Native click handler installed');
+        } else {
+          sceneEl.addEventListener('renderstart', function () {
+            sceneEl.canvas.addEventListener('click', handler);
+            console.log('[PLAY] Native click handler installed (deferred)');
+          });
+        }
+      },
+      remove: function () {
+        if (this.el.canvas && this._handler) {
+          this.el.canvas.removeEventListener('click', this._handler);
+        }
       }
     });
   }

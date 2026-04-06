@@ -17,22 +17,26 @@ You are an expert VR biology game designer and curriculum specialist.
 Your task: output a single valid GameConfig JSON object for a 3D VR biology game.
 
 ════════════════════════════════════════
-⚠️  CRITICAL ASSET RULES — READ FIRST
+ASSET FREEDOM
 ════════════════════════════════════════
-1. You may ONLY use assets from the AVAILABLE ASSETS table below.
-2. Do NOT invent or create assets that are not in this list.
-3. model_source: "meshy" is DISABLED. Do not use it.
-4. Every asset in your config MUST have model_source: "library" and MUST use
-   an id and search_keyword EXACTLY as listed in the AVAILABLE ASSETS table.
-5. If the requested topic cannot be taught with the available assets, adapt the
-   lesson to use the closest relevant assets from the table.
-   Example: an ecology topic → use glucose + mitochondria to teach cellular energy flow.
+You may use ANY biology-related asset name that fits your lesson.
+Use names that clearly describe the biological object (e.g. 'coral-polyp',
+'green-algae', 'clownfish', 'chloroplast', 'red-blood-cell').
 
-════════════════════════════════════════
-AVAILABLE ASSETS
-(ONLY these 14 models exist — no others)
-════════════════════════════════════════
+If the asset exists in our library, it will render as a real 3D model.
+If it doesn't exist, it will render as a labeled colored sphere placeholder.
+Both are fully interactive — students can collect and deliver them.
+
+So be CREATIVE with your storylines. Use whatever organisms, molecules,
+or structures fit the lesson topic. Don't limit yourself to our library.
+
+For model_source: always set it to "library". The system will automatically
+check and convert non-library assets to placeholders.
+
+AVAILABLE LIBRARY MODELS (these will render as real 3D):
 ${buildAssetTableForPrompt()}
+
+Any other asset name is fine — it will get a placeholder sphere with the name label.
 
 ════════════════════════════════════════
 AVAILABLE PHASE TYPES
@@ -108,8 +112,12 @@ PEDAGOGY RULES (MUST FOLLOW)
 5. ASSET DECLARATIONS:
    Every asset id referenced in phases (target_asset, drag_item, drag_target,
    step.drag_item, step.drag_target) MUST appear in the assets array.
-   Assets used as snap targets should have role: "target".
-   Assets that are dragged should have role: "draggable".
+   ROLE RULES (critical for gameplay):
+   - click phase target_asset → asset role MUST be "target" or "interactive"
+   - drag/drag-multi/drag-chain drag_item → asset role MUST be "draggable"
+   - drag/drag-multi/drag-chain drag_target → asset role MUST be "target"
+   - drag-chain steps[].drag_item → "draggable", steps[].drag_target → "target"
+   Getting roles wrong breaks click/collect interactions.
 
 6. POSITIONS (Vec3 = [x, y, z]):
    Scene space: camera starts at z=+2 facing -z. Assets at z=-2 to z=-5 are comfortably visible.
@@ -354,6 +362,379 @@ function enforceRegistryAssets(cfg: any): { config: any; placeholderAssets: stri
   };
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function humanReadableName(id: string): string {
+  return id
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ─── Layer 1: Schema Validation ──────────────────────────────────────────────
+// Ensures JSON structure is valid. Fills missing required fields with defaults.
+
+function validateSchemaLayer(config: any): any {
+  const errors: string[] = [];
+
+  // === meta ===
+  if (!config.meta) config.meta = {};
+  if (!config.meta.id) config.meta.id = `game-${Date.now()}`;
+  if (!config.meta.title) config.meta.title = 'Untitled Experience';
+  if (!config.meta.subject) config.meta.subject = 'Biology';
+  if (!config.meta.grade) config.meta.grade = 'high';
+  if (!config.meta.duration_minutes) config.meta.duration_minutes = 10;
+  if (!Array.isArray(config.meta.ngss_standards)) config.meta.ngss_standards = [];
+  if (!Array.isArray(config.meta.learning_objectives)) config.meta.learning_objectives = [];
+
+  // === environment ===
+  if (!config.environment) config.environment = {};
+  const VALID_PRESETS = ['default','forest','japan','starry','volcano','arches','tron','egypt','osiris','dream','poison','goaland','yavapai','goldmine','threetowers','checkerboard','contact'];
+  if (!config.environment.preset || !VALID_PRESETS.includes(config.environment.preset)) {
+    errors.push(`[SCHEMA] Invalid preset "${config.environment.preset}" → defaulting to "forest"`);
+    config.environment.preset = 'forest';
+  }
+  if (!config.environment.skybox_prompt) config.environment.skybox_prompt = '';
+  if (!config.environment.lighting) config.environment.lighting = 'neutral';
+
+  // === phases ===
+  if (!Array.isArray(config.phases) || config.phases.length === 0) {
+    errors.push('[SCHEMA] No phases found → creating minimal intro + complete');
+    config.phases = [
+      { id: 'intro', type: 'intro', title: 'Welcome', instruction: 'Click Continue to begin.', points: 0 },
+      { id: 'complete', type: 'complete', title: 'Complete', instruction: 'Well done!', points: 0 }
+    ];
+  }
+
+  // Ensure first phase is intro, last is complete
+  if (config.phases[0]?.type !== 'intro') {
+    config.phases.unshift({ id: 'intro', type: 'intro', title: 'Welcome', instruction: 'Click Continue to begin.', points: 0 });
+    errors.push('[SCHEMA] Added missing intro phase');
+  }
+  if (config.phases[config.phases.length - 1]?.type !== 'complete') {
+    config.phases.push({ id: 'complete', type: 'complete', title: 'Mission Complete!', instruction: 'Great work!', points: 0 });
+    errors.push('[SCHEMA] Added missing complete phase');
+  }
+
+  // Validate each phase's required fields
+  for (const phase of config.phases) {
+    if (!phase.id) phase.id = `phase-${Math.random().toString(36).slice(2, 8)}`;
+    if (!phase.type) { phase.type = 'intro'; errors.push(`[SCHEMA] Phase "${phase.id}" missing type → intro`); }
+    if (!phase.title) phase.title = phase.id;
+    if (!phase.instruction) phase.instruction = phase.title;
+    if (phase.points === undefined || phase.points === null) phase.points = 0;
+
+    switch (phase.type) {
+      case 'click':
+        if (!phase.target_asset) errors.push(`[SCHEMA] ClickPhase "${phase.id}" missing target_asset`);
+        break;
+      case 'drag':
+        if (!phase.drag_item) errors.push(`[SCHEMA] DragPhase "${phase.id}" missing drag_item`);
+        if (!phase.drag_target) errors.push(`[SCHEMA] DragPhase "${phase.id}" missing drag_target`);
+        break;
+      case 'drag-multi':
+        if (!phase.drag_target) errors.push(`[SCHEMA] DragMultiPhase "${phase.id}" missing drag_target`);
+        if (!phase.total || phase.total < 1) { phase.total = 3; errors.push(`[SCHEMA] DragMultiPhase "${phase.id}" total → 3`); }
+        break;
+      case 'drag-chain':
+        if (!Array.isArray(phase.steps) || phase.steps.length === 0) {
+          errors.push(`[SCHEMA] DragChainPhase "${phase.id}" missing steps`);
+          phase.steps = [];
+        }
+        for (const step of (phase.steps || [])) {
+          if (!step.drag_item) errors.push(`[SCHEMA] DragChainPhase "${phase.id}" step missing drag_item`);
+          if (!step.drag_target) errors.push(`[SCHEMA] DragChainPhase "${phase.id}" step missing drag_target`);
+        }
+        break;
+      case 'quiz':
+        if (!phase.question) phase.question = 'Question not generated';
+        if (!Array.isArray(phase.options) || phase.options.length < 2) {
+          errors.push(`[SCHEMA] QuizPhase "${phase.id}" missing options → defaults`);
+          phase.options = [
+            { id: 'a', text: 'Option A', is_correct: true },
+            { id: 'b', text: 'Option B', is_correct: false },
+            { id: 'c', text: 'Option C', is_correct: false },
+            { id: 'd', text: 'Option D', is_correct: false },
+          ];
+        }
+        if (!phase.explanation) phase.explanation = '';
+        break;
+      case 'explore':
+        if (!Array.isArray(phase.target_position) || phase.target_position.length !== 3) {
+          errors.push(`[SCHEMA] ExplorePhase "${phase.id}" missing target_position → [0, 0.8, -10]`);
+          phase.target_position = [0, 0.8, -10];
+        }
+        if (!phase.trigger_radius || phase.trigger_radius < 0.5) phase.trigger_radius = 2.5;
+        break;
+    }
+  }
+
+  // === assets ===
+  if (!Array.isArray(config.assets)) config.assets = [];
+  for (const asset of config.assets) {
+    if (!asset.id) asset.id = `asset-${Math.random().toString(36).slice(2, 8)}`;
+    if (!asset.name) asset.name = humanReadableName(asset.id);
+    if (!asset.role) asset.role = 'interactive';
+    if (!Array.isArray(asset.position) || asset.position.length !== 3) asset.position = [0, 0.8, -5];
+    if (!Array.isArray(asset.rotation)) asset.rotation = [0, 0, 0];
+    if (!asset.scale || asset.scale <= 0) asset.scale = 1;
+  }
+
+  // === scoring (placeholder, recalculated in layer 3) ===
+  if (!config.scoring) config.scoring = {};
+
+  // === knowledge_cards ===
+  if (!config.knowledge_cards || typeof config.knowledge_cards !== 'object') config.knowledge_cards = {};
+
+  // === hud ===
+  if (!config.hud) config.hud = { show_score: true, show_phase_counter: true, show_instruction: true, show_timer: true, show_knowledge_cards: true, show_tasks: true };
+
+  if (errors.length > 0) {
+    console.log('[SCHEMA VALIDATION]', errors.length, 'issues fixed:');
+    errors.forEach(e => console.log('  ', e));
+  }
+  return config;
+}
+
+// ─── Layer 2: Asset Reference Integrity ──────────────────────────────────────
+// Ensures every phase-referenced asset ID exists in config.assets.
+
+function fixAssetReferences(config: any): any {
+  const fixes: string[] = [];
+  const existingIds = new Set(config.assets.map((a: any) => a.id));
+
+  function createPlaceholder(id: string, role: string, phaseId: string, index: number): any {
+    const colorMap: Record<string, string> = {
+      target: 'hsl(210, 70%, 55%)',
+      draggable: 'hsl(35, 90%, 55%)',
+      interactive: 'hsl(160, 70%, 45%)',
+    };
+    let position: [number, number, number];
+    if (role === 'target') {
+      position = [(Math.random() - 0.5) * 8, 0.8, -5 - Math.random() * 10];
+    } else {
+      const angle = (index / 5) * Math.PI * 2 + Math.random() * 0.5;
+      const radius = 6 + Math.random() * 8;
+      position = [Math.cos(angle) * radius, 0.8, -3 + Math.sin(angle) * radius * -1];
+    }
+    // Push apart from existing assets
+    for (const existing of config.assets) {
+      if (!existing.position) continue;
+      const dx = position[0] - existing.position[0];
+      const dz = position[2] - existing.position[2];
+      if (Math.sqrt(dx * dx + dz * dz) < 3) { position[0] += 3; position[2] -= 2; }
+    }
+    return {
+      id, name: humanReadableName(id), model_source: 'placeholder', model_path: null,
+      primitive_color: colorMap[role] || colorMap.interactive,
+      position, rotation: [0, 0, 0], scale: 1, role, quest_phase_id: phaseId,
+      description: `Placeholder for ${humanReadableName(id)}`,
+    };
+  }
+
+  function ensureAsset(id: string, role: string, phaseId: string, index: number) {
+    if (!id || existingIds.has(id)) return;
+    config.assets.push(createPlaceholder(id, role, phaseId, index));
+    existingIds.add(id);
+    fixes.push(`[REF] Phase "${phaseId}" references "${id}" → created ${role} placeholder`);
+  }
+
+  for (const phase of config.phases) {
+    switch (phase.type) {
+      case 'click':
+        ensureAsset(phase.target_asset, 'target', phase.id, 0);
+        break;
+      case 'drag':
+        ensureAsset(phase.drag_item, 'draggable', phase.id, 0);
+        ensureAsset(phase.drag_target, 'target', phase.id, 1);
+        break;
+      case 'drag-multi': {
+        ensureAsset(phase.drag_target, 'target', phase.id, 0);
+        const existingDraggables = config.assets.filter(
+          (a: any) => a.quest_phase_id === phase.id && a.role === 'draggable'
+        );
+        const needed = (phase.total || 3) - existingDraggables.length;
+        if (needed > 0) {
+          fixes.push(`[REF] DragMulti "${phase.id}" needs ${phase.total} draggables, has ${existingDraggables.length} → adding ${needed}`);
+          for (let i = 0; i < needed; i++) {
+            const itemId = `${phase.id}-item-${existingDraggables.length + i + 1}`;
+            config.assets.push(createPlaceholder(itemId, 'draggable', phase.id, i + 2));
+            existingIds.add(itemId);
+          }
+        }
+        break;
+      }
+      case 'drag-chain':
+        for (let i = 0; i < (phase.steps || []).length; i++) {
+          const step = phase.steps[i];
+          ensureAsset(step.drag_item, 'draggable', phase.id, i * 2);
+          ensureAsset(step.drag_target, 'target', phase.id, i * 2 + 1);
+        }
+        break;
+    }
+  }
+
+  if (fixes.length > 0) {
+    console.log('[REF VALIDATION]', fixes.length, 'missing assets created:');
+    fixes.forEach(f => console.log('  ', f));
+  }
+  return config;
+}
+
+// ─── Layer 3: Gameplay Consistency ───────────────────────────────────────────
+// Fixes roles, scoring, positions, explore targets, knowledge cards, NPC hints.
+
+function fixGameplayConsistency(config: any): any {
+  const fixes: string[] = [];
+
+  // ── 1. Role consistency ──
+  for (const phase of config.phases) {
+    switch (phase.type) {
+      case 'click': {
+        const asset = config.assets.find((a: any) => a.id === phase.target_asset);
+        if (asset && asset.role === 'draggable') {
+          fixes.push(`[ROLE] "${asset.id}" is click target → "target"`);
+          asset.role = 'target';
+        }
+        break;
+      }
+      case 'drag': {
+        const item = config.assets.find((a: any) => a.id === phase.drag_item);
+        if (item && item.role !== 'draggable') {
+          fixes.push(`[ROLE] "${item.id}" is drag_item → "draggable"`);
+          item.role = 'draggable';
+          item.quest_phase_id = phase.id;
+        }
+        const target = config.assets.find((a: any) => a.id === phase.drag_target);
+        if (target && target.role === 'draggable') {
+          fixes.push(`[ROLE] "${target.id}" is drag_target → "target"`);
+          target.role = 'target';
+        }
+        break;
+      }
+      case 'drag-multi': {
+        const target = config.assets.find((a: any) => a.id === phase.drag_target);
+        if (target && target.role === 'draggable') {
+          fixes.push(`[ROLE] "${target.id}" is drag_target → "target"`);
+          target.role = 'target';
+        }
+        for (const asset of config.assets) {
+          if (asset.quest_phase_id === phase.id && asset.role !== 'draggable' && asset.id !== phase.drag_target) {
+            fixes.push(`[ROLE] "${asset.id}" in drag-multi phase → "draggable"`);
+            asset.role = 'draggable';
+          }
+        }
+        break;
+      }
+      case 'drag-chain': {
+        for (const step of (phase.steps || [])) {
+          const item = config.assets.find((a: any) => a.id === step.drag_item);
+          if (item && item.role !== 'draggable') {
+            fixes.push(`[ROLE] "${item.id}" is chain drag_item → "draggable"`);
+            item.role = 'draggable';
+            item.quest_phase_id = phase.id;
+          }
+          const target = config.assets.find((a: any) => a.id === step.drag_target);
+          if (target && target.role === 'draggable') {
+            fixes.push(`[ROLE] "${target.id}" is chain drag_target → "target"`);
+            target.role = 'target';
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // ── 2. Scoring recalculation ──
+  let totalPoints = 0;
+  for (const phase of config.phases) {
+    if (phase.type !== 'intro' && phase.type !== 'complete') {
+      totalPoints += (phase.points || 0);
+      if (phase.time_bonus?.bonus_points) totalPoints += phase.time_bonus.bonus_points;
+    }
+  }
+  if (config.scoring.max_possible !== totalPoints) {
+    fixes.push(`[SCORING] max_possible ${config.scoring.max_possible} → ${totalPoints}`);
+    config.scoring.max_possible = totalPoints;
+  }
+  config.scoring.passing_threshold = Math.floor(totalPoints * 0.6);
+
+  // ── 3. Position fixes: Y clamp + de-overlap ──
+  for (const asset of config.assets) {
+    if (asset.position[1] < 0) { asset.position[1] = 0.8; fixes.push(`[POS] "${asset.id}" y<0 → 0.8`); }
+    if (asset.position[1] > 10) { asset.position[1] = 2; fixes.push(`[POS] "${asset.id}" y>10 → 2`); }
+  }
+  for (let i = 0; i < config.assets.length; i++) {
+    for (let j = i + 1; j < config.assets.length; j++) {
+      const a = config.assets[i], b = config.assets[j];
+      const dx = a.position[0] - b.position[0];
+      const dz = a.position[2] - b.position[2];
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < 2) {
+        const angle = Math.atan2(dz, dx) + Math.PI;
+        b.position[0] += Math.cos(angle) * (2 - dist + 0.5);
+        b.position[2] += Math.sin(angle) * (2 - dist + 0.5);
+        fixes.push(`[POS] "${b.id}" too close to "${a.id}" → pushed apart`);
+      }
+    }
+  }
+
+  // ── 4. ExplorePhase target_position alignment ──
+  for (const phase of config.phases) {
+    if (phase.type !== 'explore') continue;
+    if (!Array.isArray(phase.target_position) || phase.target_position.length !== 3) {
+      const relatedAsset = config.assets.find((a: any) =>
+        phase.title?.toLowerCase().includes(a.name?.toLowerCase()) ||
+        phase.instruction?.toLowerCase().includes(a.name?.toLowerCase())
+      );
+      if (relatedAsset) {
+        phase.target_position = [...relatedAsset.position];
+        phase.target_position[1] = 0.8;
+        fixes.push(`[EXPLORE] "${phase.id}" target_position → asset "${relatedAsset.id}"`);
+      } else {
+        phase.target_position = [0, 0.8, -10];
+        fixes.push(`[EXPLORE] "${phase.id}" target_position → default`);
+      }
+    }
+    if (!phase.trigger_radius || phase.trigger_radius < 1) phase.trigger_radius = 2.5;
+  }
+
+  // ── 5. Knowledge cards for every interactive phase ──
+  for (const phase of config.phases) {
+    if (phase.type === 'intro' || phase.type === 'complete') continue;
+    if (!config.knowledge_cards[phase.id]) {
+      config.knowledge_cards[phase.id] = {
+        title: phase.title,
+        body: `You completed: ${phase.instruction}`,
+        tag: config.meta?.subject || 'Biology',
+      };
+      fixes.push(`[CARDS] Created placeholder card for "${phase.id}"`);
+    }
+  }
+
+  // ── 6. NPC hints for every interactive phase ──
+  if (config.npc) {
+    if (!config.npc.hints) config.npc.hints = {};
+    for (const phase of config.phases) {
+      if (phase.type === 'intro' || phase.type === 'complete') continue;
+      if (!config.npc.hints[phase.id]) {
+        config.npc.hints[phase.id] = `Try to: ${phase.instruction}`;
+        fixes.push(`[NPC] Created hint for "${phase.id}"`);
+      }
+    }
+    if (!Array.isArray(config.npc.spawn_position) || config.npc.spawn_position.length !== 3) {
+      config.npc.spawn_position = [3, 1.5, -3];
+      fixes.push('[NPC] Fixed missing spawn_position');
+    }
+  }
+
+  if (fixes.length > 0) {
+    console.log('[GAMEPLAY VALIDATION]', fixes.length, 'consistency fixes:');
+    fixes.forEach(f => console.log('  ', f));
+  }
+  console.log(`[VALIDATION COMPLETE] ${config.phases.length} phases, ${config.assets.length} assets, max_possible=${config.scoring.max_possible}`);
+  return config;
+}
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -415,20 +796,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Enforce registry: keep all assets, mark non-library ones as placeholders ──
-  const { config: cleaned, placeholderAssets } = enforceRegistryAssets(parsed);
-
-  // ── Clamp asset Y positions to valid range (ground level) ──
-  if (Array.isArray(cleaned.assets)) {
-    for (const asset of cleaned.assets) {
-      if (Array.isArray(asset.position) && asset.position.length >= 3) {
-        const y = asset.position[1];
-        if (y < 0) asset.position[1] = 0.8;
-        else if (y < 0.3) asset.position[1] = 0.3;
-        else if (y > 2.0) asset.position[1] = 2.0;
-      }
-    }
-  }
+  // ── 3-layer validation pipeline ──
+  const { config: enforced, placeholderAssets } = enforceRegistryAssets(parsed);
+  const layer1 = validateSchemaLayer(enforced);
+  const layer2 = fixAssetReferences(layer1);
+  const cleaned = fixGameplayConsistency(layer2);
 
   // ── Resolve library asset model_urls before validation ──
   if (Array.isArray(cleaned.assets)) {

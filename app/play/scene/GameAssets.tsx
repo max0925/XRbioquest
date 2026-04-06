@@ -155,16 +155,16 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
                 ? `${asset.scale} ${asset.scale} ${asset.scale}`
                 : '1 1 1'
             }
-            // Invisible bounding box for raycasting
+            // Bounding sphere for raycasting
             geometry={
               isDraggable
-                ? 'primitive: sphere; radius: 0.4'
-                : 'primitive: box; width: 0.5; height: 0.6; depth: 0.5'
+                ? 'primitive: sphere; radius: 0.6'
+                : 'primitive: sphere; radius: 1.5'
             }
             material={
               isDraggable
                 ? 'color: #F59E0B; opacity: 0.15; transparent: true'
-                : 'visible: false'
+                : 'opacity: 0.001; transparent: true; side: double'
             }
             class={`clickable grabbable cursor-listener`}
             // Config-driven click component (active for non-draggable assets)
@@ -182,10 +182,14 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
             {hasModel && (
               <a-gltf-model
                 src={proxiedUrl}
-                config-auto-scale="target: 3.0"
+                config-auto-scale="target: 1.2"
                 position="0 0 0"
                 crossorigin="anonymous"
                 shadow="cast: true; receive: true"
+                class="clickable"
+                data-asset-id={asset.id}
+                {...(!isDraggable && { 'config-clickable': '' })}
+                {...(isDraggable && { 'config-collectible': '' })}
               ></a-gltf-model>
             )}
 
