@@ -66,7 +66,7 @@ export interface EnvironmentConfig {
 
 // ─── Assets ──────────────────────────────────────────────────────────────
 
-export type ModelSource = 'library' | 'supabase' | 'meshy';
+export type ModelSource = 'library' | 'supabase' | 'meshy' | 'primitive' | 'placeholder';
 
 export type AssetRole = 'interactive' | 'target' | 'draggable' | 'decorative';
 

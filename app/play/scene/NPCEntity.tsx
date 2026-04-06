@@ -22,6 +22,7 @@ export function NPCEntity({ npc }: NPCEntityProps) {
     <a-entity
       config-npc-entity=""
       position={posStr}
+      scale="2 2 2"
       class="clickable cursor-listener"
     >
       {/* Floating emerald orb — gently bobs up/down */}

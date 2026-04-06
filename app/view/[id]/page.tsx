@@ -292,14 +292,21 @@ export default function ViewScenePage() {
               {...(model.interactionFX?.collisionTrigger && { 'collision-trigger': '' })}
               {...(model.interactionFX?.glowPulse && { 'glow-pulse': '' })}
             >
-              {/* Child Model - Only render if AI model path exists */}
-              {modelPath && (
+              {/* Child Model — gltf if available, fallback emerald sphere */}
+              {modelPath ? (
                 <a-gltf-model
                   src={modelPath}
                   position="0 -0.3 0"
                   crossorigin="anonymous"
                   shadow="cast: true; receive: true"
                 ></a-gltf-model>
+              ) : (
+                <a-sphere
+                  radius="0.35"
+                  material="color: #10b981; opacity: 0.85; transparent: true; emissive: #10b981; emissiveIntensity: 0.3"
+                  shadow="cast: true"
+                  animation="property: components.material.material.emissiveIntensity; from: 0.1; to: 0.6; dir: alternate; dur: 1500; loop: true; easing: easeInOutSine"
+                ></a-sphere>
               )}
 
               {/* Shadow base */}

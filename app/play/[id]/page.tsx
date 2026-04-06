@@ -651,9 +651,8 @@ export default function PlayPage() {
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
           fog="type: exponential; color: #0a1628; density: 0.008"
         >
-          {/* Environment — A-Frame built-in with flat ground */}
-          <a-entity environment="preset: forest; skyType: gradient; skyColor: #87CEEB; horizonColor: #c8e6f0; groundColor: #4a8c5c; groundColor2: #3a7c4c; dressing: mushrooms; dressingAmount: 30; dressingScale: 3; ground: flat; fog: 0.3; gridColor: #5a9c6c; grid: none"></a-entity>
-          <a-sky color="#87CEEB"></a-sky>
+          {/* Environment — A-Frame built-in with flat ground, preset from config */}
+          <a-entity environment={`preset: ${config.environment.preset || 'default'}; ground: flat; fog: 0.3; grid: none`}></a-entity>
 
           {/* Boundary walls (invisible) */}
           <a-box position="0 2 -40" width="80" height="5" depth="1" visible="false"></a-box>

@@ -118,6 +118,11 @@ export function resolveAssetPaths(config: GameConfig): ResolvedGameConfig {
 }
 
 function resolveModelUrl(asset: AssetConfig): string {
+  // Primitive/placeholder — no model URL needed, rendered as geometry
+  if (asset.model_source === 'primitive' || asset.model_source === 'placeholder') {
+    return '';
+  }
+
   if (asset.model_source === 'supabase') {
     if (!asset.model_path) {
       throw new Error(

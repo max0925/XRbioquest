@@ -127,6 +127,11 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
         const isTarget = isClickTarget || isSnapTarget;
         const isDraggable = asset.role === 'draggable';
         const hasModel = !!asset.model_url;
+        const isPlaceholder = (asset as any).model_source === 'placeholder' || (asset as any).model_source === 'primitive';
+
+        if (!hasModel) {
+          console.log(`[GameAssets] "${asset.id}" — placeholder sphere, color=${(asset as any).primitive_color || 'default'}`);
+        }
 
         const posStr = `${asset.position[0]} ${asset.position[1]} ${asset.position[2]}`;
         const proxiedUrl = hasModel ? proxyModelUrl(asset.model_url) : '';
@@ -177,22 +182,34 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
             {hasModel && (
               <a-gltf-model
                 src={proxiedUrl}
-                config-auto-scale="target: 1.0"
+                config-auto-scale="target: 3.0"
                 position="0 0 0"
                 crossorigin="anonymous"
                 shadow="cast: true; receive: true"
               ></a-gltf-model>
             )}
 
-            {/* ── Placeholder for unresolved meshy/library assets ── */}
-            {!hasModel && (
-              <a-sphere
-                radius="0.2"
-                color={isDraggable ? '#94A3B8' : '#4A5568'}
-                material="transparent: true; opacity: 0.7; emissive: #4A5568; emissiveIntensity: 0.3"
-                position="0 0 0"
-              ></a-sphere>
-            )}
+            {/* ── Placeholder sphere for missing models / placeholder assets ── */}
+            {!hasModel && (() => {
+              const pColor = (asset as any).primitive_color || (isDraggable ? '#94A3B8' : '#4A5568');
+              return (
+                <>
+                  <a-sphere
+                    radius="0.6"
+                    material={`color: ${pColor}; opacity: 0.85; transparent: true; emissive: ${pColor}; emissiveIntensity: 0.3`}
+                    shadow="cast: true"
+                    position="0 0 0"
+                    animation="property: components.material.material.emissiveIntensity; from: 0.1; to: 0.6; dir: alternate; dur: 1500; loop: true; easing: easeInOutSine"
+                  ></a-sphere>
+                  {/* Name label above the sphere */}
+                  <a-entity
+                    position="0 1 0"
+                    text={`value: ${asset.name}; align: center; width: 4; color: #FFFFFF; font: kelsonsans`}
+                    look-at="[camera]"
+                  ></a-entity>
+                </>
+              );
+            })()}
 
             {/* ── Drop shadow ── */}
             <a-entity

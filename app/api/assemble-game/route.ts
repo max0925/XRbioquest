@@ -205,15 +205,39 @@ ENVIRONMENT PRESET GUIDE
 Always include BOTH skybox_prompt AND preset. The preset renders immediately
 as a fallback; skybox_prompt is used to generate a photorealistic skybox later.
 
-Topic → recommended preset:
-  Cell biology / biochemistry → "tron"    (neon grid, futuristic lab feel)
-  Genetics / DNA              → "starry"  (cosmic, deep-space DNA lab)
-  Ecology / plants            → "forest"  (natural outdoor environment)
-  Human body / physiology     → "default" (clean neutral space)
-  Evolution                   → "osiris"  (ancient, dramatic atmosphere)
-  General biology             → "contact" (sci-fi research station)
-  Ocean / marine biology      → "dream"   (surreal, underwater-like)
+environment.preset MUST be one of these exact values:
+  default, contact, egypt, checkerboard, forest, goaland, yavapai,
+  goldmine, threetowers, poison, arches, tron, japan, dream, volcano, starry, osiris
+
+Choose preset based on the lesson topic:
+  Cell biology / biochemistry → "default" (green field with trees)
+  Genetics / DNA              → "starry"  (night sky, mysterious)
+  Ecology / plants / ecosystems → "forest" (dense forest)
+  Human body / physiology     → "tron"    (sci-fi grid)
+  Photosynthesis / plants     → "japan"   (cherry blossoms)
+  Ocean / marine biology      → "osiris"  (blue tones)
+  Evolution                   → "yavapai" (desert canyon)
+  Chemistry / molecules       → "tron"    (neon grid, futuristic lab feel)
+  General biology             → "default" (green field with trees)
   Middle school               → "japan"   (calm, approachable aesthetic)
+
+════════════════════════════════════════
+ASSET PLACEMENT RULES
+════════════════════════════════════════
+- ALL assets must have Y position between 0.5 and 1.0 (sitting on ground, never underground)
+- Target assets (delivery points) should be clustered near the center:
+  X between -5 and 5, Z between -3 and -25
+- Collectible assets should be scattered further out:
+  X between -15 and 15, Z between -5 and -35
+- Keep at least 8 units distance between any two assets
+- Scatter assets in BOTH X and Z directions, not in a straight line
+- NPC spawn at [1, 1.5, -1] near player start
+
+Use these example positions as templates:
+  Targets: [2,0.8,-3], [-3,0.8,-8], [5,0.8,-15], [-2,0.8,-22]
+  Collectibles: [-8,0.8,-6], [12,0.5,-12], [-10,0.5,-18], [8,0.5,-25], [-7,0.8,-28]
+
+NEVER place any asset with Y < 0 (underground) or Y > 3 (floating too high).
 
 ════════════════════════════════════════
 STRICT OUTPUT RULES
@@ -222,7 +246,7 @@ STRICT OUTPUT RULES
 - Every phase id and asset id in phases must also appear in the assets array.
 - knowledge_cards must have one entry for every click/drag/drag-multi/drag-chain phase.
 - The phases array must start with an "intro" type and end with a "complete" type.
-- Asset positions must not overlap (min 1.5 units apart).
+- Asset positions must not overlap (min 8 units apart).
 - Use kebab-case for all id fields.
 - environment.preset is REQUIRED — choose from the preset guide above.
 - The "npc" field is optional but encouraged.
@@ -267,43 +291,49 @@ function getPhaseAssetRefs(phase: any): string[] {
 
 // ─── Post-generation registry validation ──────────────────────────────────────
 
-function enforceRegistryAssets(cfg: any): { config: any; removedAssets: string[]; removedPhases: string[] } {
-  const removedAssets: string[] = [];
-  const removedPhases: string[] = [];
+/**
+ * Hash a string to a consistent hue (0–360) for deterministic placeholder colors.
+ * Same asset name always gets the same color.
+ */
+function nameToColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
 
-  // 1. Remove assets not in the available registry
+function enforceRegistryAssets(cfg: any): { config: any; placeholderAssets: string[] } {
+  const placeholderAssets: string[] = [];
+
+  // Keep ALL assets. Valid library assets stay as-is; others become placeholders.
   const originalAssets: any[] = cfg.assets ?? [];
-  const validAssets = originalAssets.filter((asset: any) => {
+  const patchedAssets = originalAssets.map((asset: any) => {
     const valid = asset.model_source === 'library' && AVAILABLE_ASSET_IDS.has(asset.id);
-    if (!valid) {
-      console.warn(`[assemble-game] Removing invalid asset "${asset.id}" (source: ${asset.model_source})`);
-      removedAssets.push(asset.id);
-    }
-    return valid;
+    if (valid) return asset;
+
+    // Mark as placeholder — game stays fully playable with colored spheres
+    console.log(`[assemble-game] Placeholder: "${asset.id}" ("${asset.name}") — not in model library`);
+    placeholderAssets.push(asset.id);
+    return {
+      ...asset,
+      model_source: 'placeholder',
+      model_path: null,
+      primitive_color: nameToColor(asset.name || asset.id),
+      primitive_shape: 'sphere',
+    };
   });
 
-  const validAssetIds = new Set(validAssets.map((a: any) => a.id));
+  console.log(`[assemble-game] Assets: ${originalAssets.length} total, ${originalAssets.length - placeholderAssets.length} library models, ${placeholderAssets.length} placeholders`);
 
-  // 2. Remove phases that reference any removed asset
+  // All phases stay — placeholders keep asset ids intact
   const originalPhases: any[] = cfg.phases ?? [];
-  const validPhases = originalPhases.filter((phase: any) => {
-    if (phase.type === 'intro' || phase.type === 'complete' || phase.type === 'quiz') {
-      return true; // these don't reference 3D assets
-    }
-    const refs = getPhaseAssetRefs(phase);
-    const missingRef = refs.find((id) => !validAssetIds.has(id));
-    if (missingRef) {
-      console.warn(`[assemble-game] Removing phase "${phase.id}" (references missing asset "${missingRef}")`);
-      removedPhases.push(phase.id);
-      return false;
-    }
-    return true;
-  });
 
-  // 3. Recalculate scoring
+  // Recalculate scoring
   const interactiveTypes = new Set(['click', 'drag', 'drag-multi', 'drag-chain', 'quiz', 'explore']);
   let maxPossible = 0;
-  for (const phase of validPhases) {
+  for (const phase of originalPhases) {
     if (!interactiveTypes.has(phase.type)) continue;
     const pts = phase.points ?? 0;
     maxPossible += pts;
@@ -313,15 +343,14 @@ function enforceRegistryAssets(cfg: any): { config: any; removedAssets: string[]
   return {
     config: {
       ...cfg,
-      assets: validAssets,
-      phases: validPhases,
+      assets: patchedAssets,
+      phases: originalPhases,
       scoring: {
         max_possible: maxPossible,
         passing_threshold: Math.round(maxPossible * 0.6),
       },
     },
-    removedAssets,
-    removedPhases,
+    placeholderAssets,
   };
 }
 
@@ -386,28 +415,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Enforce registry: strip invalid assets + dependent phases ──
-  const { config: cleaned, removedAssets, removedPhases } = enforceRegistryAssets(parsed);
+  // ── Enforce registry: keep all assets, mark non-library ones as placeholders ──
+  const { config: cleaned, placeholderAssets } = enforceRegistryAssets(parsed);
 
-  // ── Check minimum viable game (at least 2 interactive phases remain) ──
-  const interactiveTypes = new Set(['click', 'drag', 'drag-multi', 'drag-chain', 'quiz', 'explore']);
-  const interactiveCount = (cleaned.phases as any[]).filter((p: any) =>
-    interactiveTypes.has(p.type)
-  ).length;
-
-  if (interactiveCount < 2) {
-    console.warn('[assemble-game] Too few interactive phases after registry validation:', interactiveCount);
-    return NextResponse.json(
-      {
-        error:
-          'Not enough models available for this topic. ' +
-          'Available categories: cell-biology, genetics, human-body, molecules. ' +
-          'Try a topic in these areas.',
-        removed_assets: removedAssets,
-        removed_phases: removedPhases,
-      },
-      { status: 422 }
-    );
+  // ── Clamp asset Y positions to valid range (ground level) ──
+  if (Array.isArray(cleaned.assets)) {
+    for (const asset of cleaned.assets) {
+      if (Array.isArray(asset.position) && asset.position.length >= 3) {
+        const y = asset.position[1];
+        if (y < 0) asset.position[1] = 0.8;
+        else if (y < 0.3) asset.position[1] = 0.3;
+        else if (y > 2.0) asset.position[1] = 2.0;
+      }
+    }
   }
 
   // ── Resolve library asset model_urls before validation ──
@@ -461,8 +481,7 @@ export async function POST(req: NextRequest) {
         model: 'gpt-4o',
         phase_count: config.phases.length,
         asset_count: config.assets.length,
-        removed_assets: removedAssets,
-        removed_phases: removedPhases,
+        placeholder_assets: placeholderAssets,
       },
     },
     { status: 200 }
