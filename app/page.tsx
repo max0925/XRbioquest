@@ -1,16 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { ExperienceLibrarySection } from '@/components/ExperienceLibrarySection';
-
-const CATEGORY_TABS = [
-  { label: '🧬 Cell Biology', prompt: 'Create a cell biology game about organelle functions for high school students' },
-  { label: '🧪 Genetics', prompt: 'Create a genetics game about DNA replication and transcription for AP Biology' },
-  { label: '🌿 Ecology', prompt: 'Create an ecology game about food webs and energy flow for middle school' },
-  { label: '🫀 Human Body', prompt: 'Create a human body game about the cardiovascular and respiratory systems' },
-  { label: '☀️ Photosynthesis', prompt: 'Create a photosynthesis game about the light reactions and Calvin cycle for AP Biology' },
-];
+import { useEffect, useRef } from "react";
 
 // ─── Sector icons ────────────────────────────────────────────────────────────
 function SectorSchoolIcon({ className }: { className?: string }) {
@@ -50,14 +40,6 @@ const EMERALD_CLIP  = `polygon(0 ${SLANT}px, 100% 0, 100% calc(100% - ${SLANT}px
 const EMERALD_CLIP_LAST = `polygon(0 ${SLANT}px, 100% 0, 100% 100%, 0 100%)`; // flat bottom for final section
 
 export default function Home() {
-  const router = useRouter();
-  const [heroPrompt, setHeroPrompt] = useState("");
-
-  const handleHeroGenerate = () => {
-    const val = heroPrompt.trim();
-    if (val) router.push(`/create?prompt=${encodeURIComponent(val)}`);
-  };
-
   const sectorsRef   = useRef<HTMLElement>(null);
   const demoRef      = useRef<HTMLElement>(null);
   const featuresRef  = useRef<HTMLElement>(null);
@@ -145,7 +127,7 @@ export default function Home() {
                 textTransform: "uppercase",
               }}
             >
-              For Educators &amp; Designers
+              AI-POWERED LEARNING &middot; WEB &amp; VR
             </span>
           </div>
 
@@ -163,13 +145,13 @@ export default function Home() {
               animationDelay: "0.1s",
             }}
           >
-            What should your students<br />
+            Create immersive biology<br />
             <span style={{
               background: "linear-gradient(135deg, #34d399, #6ee7b7, #a7f3d0)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
-            }}>explore</span> today?
+            }}>experiences with AI</span>
           </h1>
 
           {/* Subtitle */}
@@ -186,93 +168,29 @@ export default function Home() {
               animationDelay: "0.2s",
             }}
           >
-            AI generates a playable biology game with quests, scoring, and
-            NGSS-aligned content —{" "}
-            <span style={{ color: "rgba(255,255,255,0.9)" }}>no code required</span>
-            , playable on both{" "}
-            <span style={{ color: "rgba(255,255,255,0.9)" }}>Web and VR</span>.
+            Curriculum-aligned, interactive, ready for{" "}
+            <span style={{ color: "rgba(255,255,255,0.9)" }}>web</span> and{" "}
+            <span style={{ color: "rgba(255,255,255,0.9)" }}>VR</span> — in 60 seconds.
           </p>
 
-          {/* Prompt input — glassmorphism */}
-          <div
-            className="hero-input-container relative flex items-center mb-5 fade-in-up mx-auto"
-            style={{
-              animationDelay: "0.3s",
-              background: "rgba(255,255,255,0.07)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: "16px",
-              padding: "6px 6px 6px 24px",
-              maxWidth: "580px",
-            }}
-          >
-            <input
-              type="text"
-              value={heroPrompt}
-              onChange={(e) => setHeroPrompt(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleHeroGenerate()}
-              placeholder="e.g. Mitosis and cell division for AP Biology..."
-              className="hero-glass-input flex-1 bg-transparent outline-none"
+          {/* CTA button */}
+          <div className="fade-in-up" style={{ animationDelay: "0.3s" }}>
+            <Link
+              href="/create"
+              className="inline-block cursor-pointer active:scale-95 transition-all duration-200"
               style={{
-                fontFamily: '"DM Sans", system-ui, sans-serif',
-                fontSize: "15px",
+                background: "linear-gradient(135deg, #059669, #0d9488)",
                 color: "white",
-              }}
-            />
-            <button
-              onClick={handleHeroGenerate}
-              className="hero-generate-btn whitespace-nowrap transition-all duration-200 cursor-pointer active:scale-95"
-              style={{
-                backgroundColor: "#10b981",
-                color: "white",
-                padding: "12px 24px",
-                borderRadius: "12px",
-                fontSize: "14px",
-                fontWeight: 600,
+                padding: "18px 56px",
+                borderRadius: "14px",
+                fontSize: "18px",
+                fontWeight: 700,
                 fontFamily: '"DM Sans", system-ui, sans-serif',
-                border: "none",
+                boxShadow: "0 4px 24px rgba(5, 150, 105, 0.4)",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#059669"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#10b981"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
             >
-              Generate Experience →
-            </button>
-          </div>
-
-          {/* Category pills */}
-          <div className="flex flex-wrap justify-center gap-2 fade-in-up" style={{ animationDelay: "0.4s" }}>
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.label}
-                onClick={() => router.push(`/create?prompt=${encodeURIComponent(tab.prompt)}`)}
-                className="transition-all duration-200 cursor-pointer"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "100px",
-                  padding: "8px 18px",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.7)",
-                  fontFamily: '"DM Sans", system-ui, sans-serif',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-                  e.currentTarget.style.color = "white";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.7)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+              Start Creating →
+            </Link>
           </div>
         </div>
       </section>
@@ -347,9 +265,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Experience Library Section */}
-      <ExperienceLibrarySection />
 
       {/* ══════════════════════════════════════════════════════════════════════
           PRODUCT DEMO — white
@@ -661,15 +576,6 @@ export default function Home() {
         .animate-in .stagger-cta     { opacity: 1; transform: translateY(0); transition-delay: 0.38s; }
 
         a, button { transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1); }
-
-        /* Hero glass input placeholder */
-        .hero-glass-input::placeholder { color: rgba(255,255,255,0.35); }
-
-        /* Hero input container focus-within ring */
-        .hero-input-container:focus-within {
-          border-color: rgba(110,231,183,0.4);
-          box-shadow: 0 0 0 4px rgba(110,231,183,0.08);
-        }
 
         /* Scroll-down arrow */
         .scroll-arrow-fade {

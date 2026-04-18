@@ -4,29 +4,19 @@
 // Single source of truth for all biology 3D model assets available in
 // BioQuest via the Supabase ngss_assets table.
 //
-//   available: true  → Confirmed in ngss_assets table; usable as model_source "library".
-//   available: false → Planned; not yet in the table.
-//
-// supabase_id — UUID from ngss_assets.id column.
-//               Run `SELECT id, name FROM ngss_assets ORDER BY name;` to
-//               populate real values. Placeholder UUIDs are used below.
-//
+// model_filename must match exactly what's in Supabase storage bucket "assets".
 // The AI assembler receives only available=true entries (via buildAssetTableForPrompt).
 // ═══════════════════════════════════════════════════════════════════════════
+
+const SUPABASE_STORAGE_BASE =
+  'https://tqqimwpwjnaldwuibeqf.supabase.co/storage/v1/object/public/assets';
 
 export interface AssetRegistryEntry {
   /** Kebab-case id used in GameConfig (e.g. "mitochondria") */
   id: string;
   /** Display name shown in HUD / tooltips */
   name: string;
-  /**
-   * UUID from Supabase ngss_assets.id column.
-   * Used for direct DB lookup via lookupBySupabaseId().
-   * Replace placeholders with real UUIDs from:
-   *   SELECT id, name FROM ngss_assets ORDER BY name;
-   */
-  supabase_id: string;
-  /** Primary search keyword for searchNGSSAssetsServer — matches ngss_assets keywords[] */
+  /** Primary search keyword for searchNGSSAssetsServer */
   search_keyword: string;
   /** Broad biology category */
   category: 'cell-biology' | 'genetics' | 'human-body' | 'molecules' | 'ecology';
@@ -36,257 +26,428 @@ export interface AssetRegistryEntry {
   description: string;
   /** Which interaction types this model works well for */
   supported_interactions: ('click' | 'drag' | 'examine')[];
-  /** false = not yet in ngss_assets table; excluded from AI assembler prompt */
+  /** Exact .glb filename in Supabase storage bucket "assets" */
+  model_filename: string;
+  /** false = not yet in storage; excluded from AI assembler prompt */
   available: boolean;
 }
 
 // ─── Registry ────────────────────────────────────────────────────────────────
-// All 14 confirmed models from the ngss_assets Supabase table.
-// supabase_id values are PLACEHOLDERS — replace with:
-//   SELECT id, name FROM ngss_assets ORDER BY name;
+// All confirmed models verified against Supabase storage bucket.
 
 export const ASSET_REGISTRY: AssetRegistryEntry[] = [
-  // ── Cell Biology ─────────────────────────────────────────────────────────
+  // ═══ CELLS & ORGANELLES ═══
   {
     id: 'mitochondria',
     name: 'Mitochondria',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000001',
     search_keyword: 'mitochondria',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-2', 'HS-LS1-6', 'AP-Bio-Unit-3'],
-    description: 'Double-membraned powerhouse; produces ATP via cellular respiration',
+    ngss_standards: ['HS-LS1-7'],
+    description: 'Powerhouse of the cell — produces ATP through cellular respiration',
     supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'mitochondria_-_cell_organelles.glb',
     available: true,
   },
   {
     id: 'lysosome',
     name: 'Lysosome',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000002',
     search_keyword: 'lysosome',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-2', 'HS-LS1-6'],
-    description: 'Digestive vesicle containing hydrolytic enzymes; breaks down cellular waste at pH 4.5',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Digestive system of the cell — breaks down waste with enzymes',
     supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'lysosome.glb',
     available: true,
   },
   {
     id: 'endoplasmic-reticulum',
     name: 'Endoplasmic Reticulum',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000003',
     search_keyword: 'endoplasmic reticulum',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-2'],
-    description: 'Rough ER folds and glycosylates proteins; Smooth ER synthesizes lipids and detoxifies',
+    ngss_standards: ['HS-LS1-1'],
+    description: 'Transport network — folds and processes proteins',
     supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'endoplasmic_reticulum.glb',
     available: true,
   },
   {
     id: 'golgi-apparatus',
     name: 'Golgi Apparatus',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000004',
     search_keyword: 'golgi apparatus',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-2'],
-    description: 'Packaging and sorting station; modifies proteins and routes them to final destinations',
+    ngss_standards: ['HS-LS1-1'],
+    description: 'Packaging center — modifies, sorts, and ships proteins',
     supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'golgi_apparatuscomplex.glb',
     available: true,
   },
 
-  // ── Genetics ─────────────────────────────────────────────────────────────
+  // ═══ GENETICS ═══
   {
     id: 'dna-molecule',
     name: 'DNA Molecule',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000005',
     search_keyword: 'DNA molecule',
     category: 'genetics',
-    ngss_standards: ['HS-LS3-1', 'HS-LS3-2'],
-    description: 'Double-stranded antiparallel helix; stores genetic information as complementary base pairs',
+    ngss_standards: ['HS-LS1-1', 'HS-LS3-1'],
+    description: 'Double helix structure carrying genetic information',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'deoxyribonucleic_acid_dna.glb',
     available: true,
   },
   {
     id: 'dna-base-pairing',
     name: 'DNA Base Pairing',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000006',
     search_keyword: 'DNA base pairing',
     category: 'genetics',
-    ngss_standards: ['HS-LS3-1', 'HS-LS3-2'],
-    description: 'Adenine pairs with Thymine (2 H-bonds) and Cytosine pairs with Guanine (3 H-bonds)',
+    ngss_standards: ['HS-LS1-1', 'HS-LS3-1'],
+    description: 'Complementary base pairs — A-T and C-G hydrogen bonds',
     supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'dna_helix_with_base_pairing_3d.glb',
     available: true,
   },
   {
     id: 'dna-ribbon',
     name: 'DNA Ribbon Structure',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000007',
     search_keyword: 'DNA ribbon',
     category: 'genetics',
     ngss_standards: ['HS-LS3-1'],
-    description: 'Ribbon diagram highlighting major/minor grooves; shows sugar-phosphate backbone structure',
+    description: 'Ribbon visualization of DNA molecular structure',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'b-dna_ribbon_backbone__sticks_bases.glb',
+    available: true,
+  },
+  {
+    id: 'dna-replication',
+    name: 'DNA Replication',
+    search_keyword: 'DNA replication',
+    category: 'genetics',
+    ngss_standards: ['HS-LS1-1', 'HS-LS3-1'],
+    description: 'DNA replication fork showing semiconservative replication',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'dna_replication_model.glb',
     available: true,
   },
 
-  // ── Molecules ─────────────────────────────────────────────────────────────
+  // ═══ MOLECULES ═══
   {
-    id: 'glucose',
-    name: 'Glucose',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000008',
+    id: 'glucose-molecule',
+    name: 'Glucose Molecule',
     search_keyword: 'glucose',
     category: 'molecules',
-    ngss_standards: ['HS-LS1-6', 'HS-LS1-7'],
-    description: 'C₆H₁₂O₆ primary fuel molecule; enters glycolysis to begin cellular respiration',
+    ngss_standards: ['HS-LS1-7'],
+    description: 'Simple sugar C6H12O6 — primary fuel for cellular respiration',
     supported_interactions: ['click', 'drag', 'examine'],
-    available: true,
-  },
-  {
-    id: 'enzyme-inhibition',
-    name: 'Enzyme Inhibition',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000009',
-    search_keyword: 'enzyme inhibition',
-    category: 'molecules',
-    ngss_standards: ['HS-LS1-6', 'AP-Bio-Unit-3'],
-    description: 'Competitive vs allosteric inhibition; regulates metabolic pathway flux by blocking active sites',
-    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'glucose_molecule.glb',
     available: true,
   },
   {
     id: 'polypeptide-chain',
     name: 'Polypeptide Chain',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000010',
-    search_keyword: 'polypeptide chain',
+    search_keyword: 'polypeptide',
     category: 'molecules',
-    ngss_standards: ['HS-LS1-1', 'HS-LS3-1'],
-    description: 'Chain of amino acids linked by peptide bonds; folds into 3D protein structure based on R-groups',
+    ngss_standards: ['HS-LS1-1'],
+    description: 'Polypeptide chain — amino acid sequence that folds into protein',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'keratine_chains__vlakna_keratinu.glb',
+    available: true,
+  },
+  {
+    id: 'enzyme-inhibition',
+    name: 'Enzyme Inhibition',
+    search_keyword: 'enzyme inhibition',
+    category: 'molecules',
+    ngss_standards: ['HS-LS1-1'],
+    description: 'Enzyme-substrate interaction showing competitive inhibition',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'ornithine_decarboxylase_inhibition_by_g418.glb',
     available: true,
   },
 
-  // ── Human Body ────────────────────────────────────────────────────────────
+  // ═══ HUMAN BODY ═══
   {
     id: 'human-heart',
     name: 'Human Heart',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000011',
     search_keyword: 'heart',
     category: 'human-body',
     ngss_standards: ['HS-LS1-2'],
-    description: 'Four-chambered muscular pump; circulates ~5 L of blood per minute through pulmonary and systemic circuits',
+    description: 'Four-chambered heart — pumps blood through circulatory system',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'realistic_human_heart.glb',
     available: true,
   },
   {
     id: 'human-lungs',
     name: 'Human Lungs',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000012',
     search_keyword: 'lungs',
     category: 'human-body',
-    ngss_standards: ['HS-LS1-2', 'HS-LS1-7'],
-    description: 'Gas exchange organs; 300 million alveoli provide ~70 m² surface area for O₂/CO₂ diffusion',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Lungs — gas exchange organ for oxygen and carbon dioxide',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'realistic_human_lungs.glb',
     available: true,
   },
   {
     id: 'human-skeleton',
     name: 'Human Skeleton',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000013',
     search_keyword: 'human skeleton',
     category: 'human-body',
     ngss_standards: ['HS-LS1-2'],
-    description: '206 bones providing structural support, protection, and attachment points for muscles',
+    description: 'Full human skeletal system — 206 bones providing structure',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'human_skeleton.glb',
     available: true,
   },
   {
     id: 'human-anatomy',
     name: 'Human Anatomy',
-    supabase_id: 'FILL-IN-00000000-0000-0000-0000-000000000014',
     search_keyword: 'human anatomy',
     category: 'human-body',
     ngss_standards: ['HS-LS1-2'],
-    description: 'Full-body cross-section showing major organ systems and their spatial relationships',
+    description: 'Full human anatomical model showing major organ systems',
     supported_interactions: ['click', 'examine'],
+    model_filename: 'human_anatomy.glb',
     available: true,
   },
 
-  // ── Planned (not yet in ngss_assets table) ────────────────────────────────
+  // ═══ CELLS (WHOLE) ═══
   {
-    id: 'chloroplast',
-    name: 'Chloroplast',
-    supabase_id: '',
-    search_keyword: 'chloroplast',
+    id: 'animal-cell',
+    name: 'Animal Cell',
+    search_keyword: 'animal cell',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-5', 'HS-LS1-6'],
-    description: 'Double-membraned plastid; converts light energy to glucose via photosynthesis',
-    supported_interactions: ['click', 'drag', 'examine'],
-    available: false,
+    ngss_standards: ['HS-LS1-1', 'HS-LS1-2'],
+    description: 'Complete animal cell showing all major organelles',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'animal_cell.glb',
+    available: true,
   },
   {
-    id: 'nucleus',
-    name: 'Nucleus',
-    supabase_id: '',
-    search_keyword: 'nucleus',
+    id: 'plant-cell',
+    name: 'Plant Cell',
+    search_keyword: 'plant cell',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-1', 'HS-LS3-1'],
-    description: 'Command center of the cell; contains chromatin and directs gene expression',
+    ngss_standards: ['HS-LS1-1', 'HS-LS1-2'],
+    description: 'Complete plant cell with cell wall, chloroplasts, and large vacuole',
     supported_interactions: ['click', 'examine'],
-    available: false,
-  },
-  {
-    id: 'cell-membrane',
-    name: 'Cell Membrane',
-    supabase_id: '',
-    search_keyword: 'cell membrane',
-    category: 'cell-biology',
-    ngss_standards: ['HS-LS1-2', 'HS-LS1-3'],
-    description: 'Phospholipid bilayer with embedded proteins; selectively permeable boundary controlling transport',
-    supported_interactions: ['click', 'examine'],
-    available: false,
+    model_filename: 'plant_cell.glb',
+    available: true,
   },
   {
     id: 'ribosome',
     name: 'Ribosome',
-    supabase_id: '',
     search_keyword: 'ribosome',
     category: 'cell-biology',
-    ngss_standards: ['HS-LS1-1', 'HS-LS3-1'],
-    description: 'Site of protein synthesis; translates mRNA codons into amino acid chains',
+    ngss_standards: ['HS-LS1-1', 'HS-LS1-2'],
+    description: 'Ribosome — molecular machine that translates mRNA into protein',
     supported_interactions: ['click', 'drag', 'examine'],
-    available: false,
+    model_filename: 'ribosome.glb',
+    available: true,
+  },
+  {
+    id: 'chloroplast',
+    name: 'Chloroplast',
+    search_keyword: 'chloroplast',
+    category: 'cell-biology',
+    ngss_standards: ['HS-LS1-1', 'HS-LS1-5'],
+    description: 'Chloroplast — converts light energy to chemical energy via photosynthesis',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'chloroplast.glb',
+    available: true,
   },
   {
     id: 'chromosome',
     name: 'Chromosome',
-    supabase_id: '',
     search_keyword: 'chromosome',
     category: 'genetics',
     ngss_standards: ['HS-LS3-1', 'HS-LS3-2'],
-    description: 'Condensed chromatin structure; humans have 46 chromosomes (23 homologous pairs)',
+    description: 'Condensed chromosome structure carrying genes during cell division',
     supported_interactions: ['click', 'drag', 'examine'],
-    available: false,
+    model_filename: 'chromosome.glb',
+    available: true,
+  },
+  {
+    id: 'red-blood-cell',
+    name: 'Red Blood Cell',
+    search_keyword: 'red blood cell',
+    category: 'human-body',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Biconcave red blood cell (erythrocyte) that carries oxygen via hemoglobin',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'red_blood_cell.glb',
+    available: true,
+  },
+  {
+    id: 'neuron',
+    name: 'Neuron',
+    search_keyword: 'neuron',
+    category: 'human-body',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Nerve cell with axon, dendrites, and synaptic terminals for signal transmission',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'neuron.glb',
+    available: true,
+  },
+
+  // ═══ HUMAN ORGANS (NEW) ═══
+  {
+    id: 'human-brain',
+    name: 'Human Brain',
+    search_keyword: 'brain',
+    category: 'human-body',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Human brain — central organ of the nervous system controlling cognition',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'human_brain.glb',
+    available: true,
+  },
+  {
+    id: 'human-kidney',
+    name: 'Human Kidney',
+    search_keyword: 'kidney',
+    category: 'human-body',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Human kidney — filters blood and produces urine via nephrons',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'human_kidney.glb',
+    available: true,
+  },
+  {
+    id: 'human-stomach',
+    name: 'Human Stomach',
+    search_keyword: 'stomach',
+    category: 'human-body',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Human stomach — muscular organ that digests food with gastric acid',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'human_stomach.glb',
+    available: true,
+  },
+  {
+    id: 'human-eye',
+    name: 'Human Eye',
+    search_keyword: 'eye',
+    category: 'human-body',
+    ngss_standards: ['HS-LS1-2'],
+    description: 'Human eye — sensory organ with lens, retina, and optic nerve for vision',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'human_eye.glb',
+    available: true,
+  },
+
+  // ═══ ECOLOGY ═══
+  {
+    id: 'coral-reef',
+    name: 'Coral Reef',
+    search_keyword: 'coral reef',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-2', 'HS-LS2-4'],
+    description: 'Coral reef ecosystem — marine habitat built by coral polyps',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'coral_reef.glb',
+    available: true,
+  },
+  {
+    id: 'clownfish',
+    name: 'Clownfish',
+    search_keyword: 'clownfish',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-2'],
+    description: 'Clownfish — symbiotic marine fish that lives among sea anemones',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'clownfish.glb',
+    available: true,
+  },
+  {
+    id: 'shark',
+    name: 'Shark',
+    search_keyword: 'shark',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-2'],
+    description: 'Shark — apex marine predator at the top of ocean food chains',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'shark.glb',
+    available: true,
+  },
+  {
+    id: 'sea-turtle',
+    name: 'Sea Turtle',
+    search_keyword: 'sea turtle',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-2'],
+    description: 'Sea turtle — marine reptile and consumer in ocean ecosystems',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'sea_turtle.glb',
+    available: true,
+  },
+  {
+    id: 'seaweed',
+    name: 'Seaweed',
+    search_keyword: 'seaweed',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-4'],
+    description: 'Seaweed — marine algae and primary producer via photosynthesis',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'seaweed.glb',
+    available: true,
+  },
+  {
+    id: 'frog',
+    name: 'Frog',
+    search_keyword: 'frog',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-2'],
+    description: 'Frog — amphibian that undergoes metamorphosis, consumer in pond ecosystems',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'frog.glb',
+    available: true,
+  },
+  {
+    id: 'butterfly',
+    name: 'Butterfly',
+    search_keyword: 'butterfly',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-2'],
+    description: 'Butterfly — insect pollinator that undergoes complete metamorphosis',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'butterfly.glb',
+    available: true,
+  },
+  {
+    id: 'oak-tree',
+    name: 'Oak Tree',
+    search_keyword: 'oak tree',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-4'],
+    description: 'Oak tree — large producer in forest ecosystems via photosynthesis',
+    supported_interactions: ['click', 'examine'],
+    model_filename: 'oak_tree.glb',
+    available: true,
+  },
+  {
+    id: 'mushroom',
+    name: 'Mushroom',
+    search_keyword: 'mushroom',
+    category: 'ecology',
+    ngss_standards: ['HS-LS2-1', 'HS-LS2-4'],
+    description: 'Mushroom — fungal decomposer that breaks down organic matter in ecosystems',
+    supported_interactions: ['click', 'drag', 'examine'],
+    model_filename: 'mushroom.glb',
+    available: true,
   },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Returns only models that are available in the ngss_assets table. */
+/** Returns only models that are available in storage. */
 export function getAvailableAssets(): AssetRegistryEntry[] {
   return ASSET_REGISTRY.filter((a) => a.available);
 }
 
 /** Returns assets filtered by category. */
 export function getAssetsByCategory(
-  category: AssetRegistryEntry['category']
+  category: AssetRegistryEntry['category'],
 ): AssetRegistryEntry[] {
   return ASSET_REGISTRY.filter((a) => a.category === category);
-}
-
-/**
- * Look up a registry entry by its Supabase ngss_assets UUID.
- * Returns null if not found or supabase_id is not set.
- */
-export function lookupBySupabaseId(id: string): AssetRegistryEntry | null {
-  if (!id) return null;
-  return ASSET_REGISTRY.find((a) => a.supabase_id === id) ?? null;
 }
 
 /**
@@ -296,9 +457,16 @@ export function lookupByKeyword(keyword: string): AssetRegistryEntry | null {
   const lower = keyword.toLowerCase();
   return (
     ASSET_REGISTRY.find(
-      (a) => a.available && a.search_keyword.toLowerCase() === lower
+      (a) => a.available && a.search_keyword.toLowerCase() === lower,
     ) ?? null
   );
+}
+
+/**
+ * Get the full Supabase storage URL for an asset.
+ */
+export function getModelUrl(entry: AssetRegistryEntry): string {
+  return `${SUPABASE_STORAGE_BASE}/${entry.model_filename}`;
 }
 
 /**
@@ -307,16 +475,6 @@ export function lookupByKeyword(keyword: string): AssetRegistryEntry | null {
  */
 export function buildAssetTableForPrompt(): string {
   const available = getAvailableAssets();
-  const header =
-    'id                       | name                     | search_keyword           | category       | description\n' +
-    '-------------------------|--------------------------|--------------------------|----------------|---------------------------------------------';
-  const rows = available.map((a) => {
-    const id = a.id.padEnd(25);
-    const name = a.name.padEnd(24);
-    const kw = a.search_keyword.padEnd(24);
-    const cat = a.category.padEnd(14);
-    return `${id}| ${name}| ${kw}| ${cat}| ${a.description}`;
-  });
-  return [header, ...rows].join('\n');
+  const rows = available.map((a) => `- ${a.id} (${a.name}) [${a.category}]`);
+  return rows.join('\n');
 }
-

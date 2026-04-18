@@ -5,7 +5,30 @@
       "Bash(node -e \"const d=require\\(''/Users/deadpool/Desktop/XRbioquest/data/experiences/voyage-inside-cell.json''\\); d.phases.forEach\\(p=>{if\\(p.type===''drag''||p.type===''drag-multi''||p.type===''drag-chain''\\){console.log\\(p.id,p.type,JSON.stringify\\(p.snap_distance??''none''\\),p.steps?p.steps.map\\(s=>s.snap_distance??''none''\\):''''\\)}}\\);console.log\\(''---assets---''\\);d.assets.forEach\\(a=>{if\\(a.snap_distance\\)console.log\\(a.id,''snap_distance:'',a.snap_distance\\)}\\)\")",
       "Bash(node -e \"const d=require\\(''/Users/deadpool/Desktop/XRbioquest/data/experiences/voyage-inside-cell.json''\\); const drag=d.phases.filter\\(p=>[''drag'',''drag-multi'',''drag-chain''].includes\\(p.type\\)\\); console.log\\(JSON.stringify\\(drag,null,2\\)\\)\")",
       "Bash(git status -u)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(curl -s \"https://tqqimwpwjnaldwuibeqf.supabase.co/rest/v1/game_configs?order=created_at.desc&limit=1&select=id,config,created_at\" -H \"apikey: sb_publishable_TfmmJa3j6eQfu64vmAroLw_KNGbqBBN\" -H \"Authorization: Bearer sb_publishable_TfmmJa3j6eQfu64vmAroLw_KNGbqBBN\")",
+      "Bash(node /tmp/parse_config.js)",
+      "Bash(curl -s \"https://tqqimwpwjnaldwuibeqf.supabase.co/rest/v1/game_configs?order=created_at.desc&limit=10&select=id,config,created_at\" -H \"apikey: sb_publishable_TfmmJa3j6eQfu64vmAroLw_KNGbqBBN\" -H \"Authorization: Bearer sb_publishable_TfmmJa3j6eQfu64vmAroLw_KNGbqBBN\")",
+      "Bash(node /tmp/parse_all_configs.js)",
+      "Bash(npx skills find \"webxr aframe vr 3d\")",
+      "Bash(npx skills add freshtechbro/claudedesignskills@aframe-webxr -g -y)",
+      "Bash(npx skills find \"frontend design UI UX\")",
+      "Bash(npx skills add 404kidwiz/claude-supercode-skills@frontend-ui-ux-engineer -g -y)",
+      "Bash(npx skills add dengineproblem/agents-monorepo@frontend-design -g -y)",
+      "Read(//Users/deadpool/.claude/skills/frontend-design/**)",
+      "Read(//Users/deadpool/.agents/skills/frontend-design/**)",
+      "Bash(node -e \":*)",
+      "Bash(node scripts/seed-ngss-assets.mjs)",
+      "Bash(node /tmp/seed-new-assets.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/create)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/play/voyage-inside-cell)",
+      "Bash(npx tsc --noEmit app/api/assemble-game/route.ts)",
+      "Bash(npx tsc --noEmit lib/config-validators.ts)",
+      "Bash(npx tsc --noEmit app/workspace/[id]/page.tsx)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/Users/deadpool/Desktop/XRbioquest/app/workspace"
     ]
   }
 }

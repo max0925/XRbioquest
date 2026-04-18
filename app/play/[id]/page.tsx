@@ -80,6 +80,10 @@ export default function PlayPage() {
   const [showDeliveryPrompt, setShowDeliveryPrompt] = useState(false);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<string | null>(null);
 
+  // ── Collection toast ──
+  const [collectToast, setCollectToast] = useState<string | null>(null);
+  const collectToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── NPC state ──
   const [npcChatOpen, setNpcChatOpen] = useState(false);
   const [npcMessages, setNpcMessages] = useState<ChatMessage[]>([]);
@@ -96,6 +100,7 @@ export default function PlayPage() {
       .then((raw) => {
         const resolved = resolveAssetPaths(raw);
         setConfig(resolved);
+        (window as any).__playGameTitle = resolved.meta?.title ?? '';
       })
       .catch((err) => {
         console.error('[PLAY] Failed to load config for id:', id, err);
@@ -151,7 +156,7 @@ export default function PlayPage() {
     };
     window.addEventListener('keydown', handleQE);
 
-    const timer = setTimeout(() => setReady(true), 150);
+    const timer = setTimeout(() => setReady(true), 300);
 
     return () => {
       clearTimeout(timer);
@@ -251,6 +256,14 @@ export default function PlayPage() {
 
   // ─── Helpers ────────────────────────────────────────────────────────────
 
+  // Score helper — caps at max_possible to prevent overflow from click-through bugs
+  const addScore = useCallback((pts: number) => {
+    if (!config || pts <= 0) return;
+    const max = config.scoring.max_possible;
+    setPrevScore(score);
+    setScore((s) => Math.min(s + pts, max));
+  }, [config, score]);
+
   const advancePhase = useCallback(() => {
     if (!config) return;
     setPhaseIndex((i) => {
@@ -303,16 +316,14 @@ export default function PlayPage() {
       if (advancedRef.current) return;
       advancedRef.current = true;
       if (!config || !phase || !isClickPhase(phase)) return;
-      const pts = phase.points ?? 0;
-      setPrevScore((s) => s);
-      setScore((s) => s + pts);
+      addScore(phase.points ?? 0);
       advancePhase();
       showCard(phase.id);
       setTimeout(() => { advancedRef.current = false; }, 1000);
     };
     window.addEventListener('play-advance', handler);
     return () => window.removeEventListener('play-advance', handler);
-  }, [config, phase, advancePhase, showCard]);
+  }, [config, phase, advancePhase, showCard, addScore]);
 
   // ─── Event: play-drag-success ─────────────────────────────────────────────
 
@@ -342,8 +353,7 @@ export default function PlayPage() {
             : 0;
         const pts = (phase.points ?? 0) + bonus;
         if (bonus > 0) console.log('[PLAY] Speed bonus! +' + bonus);
-        setPrevScore((s) => s);
-        setScore((s) => s + pts);
+        addScore(pts);
         showCard(phase.id);
         advancePhase();
       } else if (isDragMultiPhase(phase)) {
@@ -351,7 +361,7 @@ export default function PlayPage() {
         const count = dragMultiCountRef.current;
         setPhaseProgress((prev) => (prev ? { ...prev, count } : prev));
         if (count >= phase.total) {
-          setScore((s) => s + (phase.points ?? 0));
+          addScore(phase.points ?? 0);
           showCard(phase.id);
           advancePhase();
         }
@@ -363,7 +373,7 @@ export default function PlayPage() {
           prev ? { ...prev, step: nextStep, count: nextStep } : prev
         );
         if (isLast) {
-          setScore((s) => s + (phase.points ?? 0));
+          addScore(phase.points ?? 0);
           showCard(phase.id);
           advancePhase();
         } else {
@@ -385,7 +395,7 @@ export default function PlayPage() {
     };
     window.addEventListener('play-drag-success', handler as EventListener);
     return () => window.removeEventListener('play-drag-success', handler as EventListener);
-  }, [config, phase, advancePhase, showCard]);
+  }, [config, phase, advancePhase, showCard, addScore]);
 
   // ─── Event: play-item-collected ──────────────────────────────────────────
 
@@ -394,10 +404,16 @@ export default function PlayPage() {
       const { assetId } = e.detail ?? {};
       if (!assetId) return;
       setInventory((prev) => [...prev, assetId]);
+
+      // Show collection toast for 3 seconds
+      const assetName = config?.assets.find((a) => a.id === assetId)?.name ?? assetId;
+      setCollectToast(`Collected ${assetName}! Select it in hotbar, then click the target to deliver`);
+      if (collectToastTimer.current) clearTimeout(collectToastTimer.current);
+      collectToastTimer.current = setTimeout(() => setCollectToast(null), 3000);
     };
     window.addEventListener('play-item-collected', handler as EventListener);
     return () => window.removeEventListener('play-item-collected', handler as EventListener);
-  }, []);
+  }, [config]);
 
   // ─── Event: play-item-reappear (drag-chain: reposition collectible) ─────
 
@@ -444,16 +460,14 @@ export default function PlayPage() {
     (optionId: string, isCorrect: boolean) => {
       if (!config || !phase || !isQuizPhase(phase) || !isCorrect) return;
       setQuizAnswered(true);
-      const pts = phase.points ?? 0;
-      setPrevScore((s) => s);
-      setScore((s) => s + pts);
+      addScore(phase.points ?? 0);
       showCard(phase.id);
       // Give the student 2 s to read the explanation, then advance
       setTimeout(() => {
         advancePhase();
       }, 2000);
     },
-    [config, phase, advancePhase, showCard]
+    [config, phase, advancePhase, showCard, addScore]
   );
 
   // ─── Event: play-proximity-reached (ExplorePhase) ─────────────────────────
@@ -463,16 +477,14 @@ export default function PlayPage() {
       if (!config || !phase) return;
       const { phaseId } = e.detail ?? {};
       if (phaseId !== phase.id || !isExplorePhase(phase)) return;
-      const pts = phase.points ?? 0;
-      setPrevScore((s) => s);
-      setScore((s) => s + pts);
+      addScore(phase.points ?? 0);
       showCard(phase.id);
       advancePhase();
     };
     window.addEventListener('play-proximity-reached', handler as EventListener);
     return () =>
       window.removeEventListener('play-proximity-reached', handler as EventListener);
-  }, [config, phase, advancePhase, showCard]);
+  }, [config, phase, advancePhase, showCard, addScore]);
 
   // ─── Event: play-npc-talk (NPC clicked or proximity prompt) ─────────────────
 
@@ -653,7 +665,7 @@ export default function PlayPage() {
           play-native-click-handler
         >
           {/* Environment — A-Frame built-in with flat ground, preset from config */}
-          <a-entity environment={`preset: ${config.environment.preset || 'default'}; ground: flat; fog: 0.3; grid: none`}></a-entity>
+          <a-entity environment={`preset: ${config.environment.preset || 'default'}; ground: flat; fog: 0.3; grid: none; dressing: none; dressingAmount: 0`}></a-entity>
 
           {/* Boundary walls (invisible) */}
           <a-box position="0 2 -40" width="80" height="5" depth="1" visible="false"></a-box>
@@ -749,6 +761,26 @@ export default function PlayPage() {
               selectedInventoryItem={selectedInventoryItem}
               onSelectInventoryItem={(id) => setSelectedInventoryItem((prev) => prev === id ? null : id)}
             />
+            {collectToast && (
+              <div
+                className="fixed bottom-28 left-1/2 -translate-x-1/2 pointer-events-none"
+                style={{
+                  zIndex: 10001,
+                  backgroundColor: 'rgba(245, 158, 11, 0.92)',
+                  color: 'white',
+                  padding: '10px 24px',
+                  borderRadius: '12px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  maxWidth: '420px',
+                  textAlign: 'center',
+                  animation: 'slideUp 0.3s ease both',
+                  boxShadow: '0 4px 20px rgba(245,158,11,0.4)',
+                }}
+              >
+                {collectToast}
+              </div>
+            )}
             {wrongClickHint && (
               <div
                 className="fixed top-24 left-1/2 -translate-x-1/2 pointer-events-none"

@@ -52,9 +52,11 @@ export function registerPlayComponents() {
             window.currentPlayPhaseType === 'click' &&
             self.el.getAttribute('data-asset-id') === window.currentPlayClickTarget
           ) {
+            var base = parseFloat(self.el.getAttribute('data-auto-scale')) || 1;
+            var up = (base * 1.15).toFixed(4);
             self.el.setAttribute('animation__hover', {
               property: 'scale',
-              to: '1.15 1.15 1.15',
+              to: up + ' ' + up + ' ' + up,
               dur: 200,
               easing: 'easeOutQuad'
             });
@@ -62,9 +64,11 @@ export function registerPlayComponents() {
         });
 
         self.el.addEventListener('mouseleave', function () {
+          var base = parseFloat(self.el.getAttribute('data-auto-scale')) || 1;
+          var s = base.toFixed(4);
           self.el.setAttribute('animation__hover', {
             property: 'scale',
-            to: '1 1 1',
+            to: s + ' ' + s + ' ' + s,
             dur: 200,
             easing: 'easeOutQuad'
           });
@@ -120,19 +124,23 @@ export function registerPlayComponents() {
         self.el.addEventListener('click', handleClick);
         self.el.addEventListener('triggerdown', handleClick);
 
-        // Hover pulse
+        // Hover pulse — use auto-scale value as base to avoid resetting to 1
         self.el.addEventListener('mouseenter', function () {
           if (self._collected) return;
           var assetId = self.el.getAttribute('data-asset-id');
           var items = window.currentPlayCollectibleItems;
           if (!items || !items.has(assetId)) return;
+          var base = parseFloat(self.el.getAttribute('data-auto-scale')) || 1;
+          var up = (base * 1.15).toFixed(4);
           self.el.setAttribute('animation__hover', {
-            property: 'scale', to: '1.15 1.15 1.15', dur: 200, easing: 'easeOutQuad'
+            property: 'scale', to: up + ' ' + up + ' ' + up, dur: 200, easing: 'easeOutQuad'
           });
         });
         self.el.addEventListener('mouseleave', function () {
+          var base = parseFloat(self.el.getAttribute('data-auto-scale')) || 1;
+          var s = base.toFixed(4);
           self.el.setAttribute('animation__hover', {
-            property: 'scale', to: '1 1 1', dur: 200, easing: 'easeOutQuad'
+            property: 'scale', to: s + ' ' + s + ' ' + s, dur: 200, easing: 'easeOutQuad'
           });
         });
       },
@@ -234,12 +242,17 @@ export function registerPlayComponents() {
 
         if (shouldPulse && !this._pulseActive) {
           this._pulseActive = true;
+          var base = parseFloat(this.el.getAttribute('data-auto-scale')) || 1;
+          var up = (base * 1.15).toFixed(4);
+          var bs = base.toFixed(4);
           this.el.setAttribute('animation__deliverypulse', {
-            property: 'scale', to: '1.15 1.15 1.15',
+            property: 'scale', from: bs + ' ' + bs + ' ' + bs, to: up + ' ' + up + ' ' + up,
             dir: 'alternate', loop: true, dur: 800, easing: 'easeInOutSine'
           });
         } else if (!shouldPulse && this._pulseActive) {
           this.el.removeAttribute('animation__deliverypulse');
+          var baseR = parseFloat(this.el.getAttribute('data-auto-scale')) || 1;
+          this.el.object3D.scale.set(baseR, baseR, baseR);
           this._pulseActive = false;
         }
       },
@@ -459,21 +472,39 @@ export function registerPlayComponents() {
   // Same as voyage auto-scale — normalizes GLB to target unit size.
   if (!window.AFRAME.components['config-auto-scale']) {
     window.AFRAME.registerComponent('config-auto-scale', {
-      schema: { target: { type: 'number', default: 0.6 } },
+      schema: { target: { type: 'number', default: 1.2 } },
       init: function () {
+        this._scaled = false;
         this.onModelLoaded = this.onModelLoaded.bind(this);
         this.el.addEventListener('model-loaded', this.onModelLoaded);
       },
-      onModelLoaded: function (evt) {
-        var mesh = evt.detail.model;
-        if (!mesh) return;
-        var box = new window.THREE.Box3().setFromObject(mesh);
-        var size = box.getSize(new window.THREE.Vector3());
-        var maxDim = Math.max(size.x, size.y, size.z);
-        if (maxDim > 0) {
-          var s = this.data.target / maxDim;
-          this.el.setAttribute('scale', s + ' ' + s + ' ' + s);
-        }
+      onModelLoaded: function () {
+        if (this._scaled) return; // only run once
+        this._scaled = true;
+        var self = this;
+        // Wait one frame so the mesh hierarchy is fully set up
+        setTimeout(function () {
+          var meshNode = self.el.getObject3D('mesh');
+          if (!meshNode) return;
+          // Measure original bounding box (before any scale)
+          var box = new window.THREE.Box3().setFromObject(meshNode);
+          var size = box.getSize(new window.THREE.Vector3());
+          var maxDim = Math.max(size.x, size.y, size.z);
+          if (maxDim <= 0) return;
+          var s = self.data.target / maxDim;
+          self.el.object3D.scale.set(s, s, s);
+          self.el.setAttribute('data-auto-scale', s);
+          // Force world matrix update so bounding box reflects the new scale
+          self.el.object3D.updateMatrixWorld(true);
+          // Re-compute bounding box and center the mesh at entity origin
+          box.setFromObject(meshNode);
+          var center = box.getCenter(new window.THREE.Vector3());
+          // Convert world-space center to local-space offset
+          var entityPos = self.el.object3D.getWorldPosition(new window.THREE.Vector3());
+          meshNode.position.x -= (center.x - entityPos.x) / s;
+          meshNode.position.y -= (center.y - entityPos.y) / s;
+          meshNode.position.z -= (center.z - entityPos.z) / s;
+        }, 0);
       },
       remove: function () {
         this.el.removeEventListener('model-loaded', this.onModelLoaded);
@@ -495,6 +526,17 @@ export function registerPlayComponents() {
         var mouse = new window.THREE.Vector2();
 
         var handler = function (e) {
+          // ── HUD click-through guard ──
+          // If any DOM element above the canvas is at the click point,
+          // this is a HUD button click (GOT IT, Continue, Quiz, etc.) — ignore it.
+          var elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
+          for (var i = 0; i < elementsAtPoint.length; i++) {
+            var domEl = elementsAtPoint[i];
+            if (domEl === sceneEl.canvas || domEl === sceneEl) continue;
+            // Any non-canvas element above means this click targets HUD
+            return;
+          }
+
           var camera = sceneEl.camera;
           if (!camera) return;
 

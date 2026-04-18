@@ -12,7 +12,7 @@ import type {
   QuizPhase,
   ExplorePhase,
 } from '@/types/game-config';
-import { lookupBySupabaseId, lookupByKeyword } from '@/lib/asset-registry';
+import { lookupByKeyword, getModelUrl } from '@/lib/asset-registry';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -140,18 +140,13 @@ function resolveModelUrl(asset: AssetConfig): string {
       : `${SUPABASE_STORAGE_BASE}/${asset.model_path}`;
   }
 
-  // Fallback: try registry lookup by supabase_id or search_keyword.
-  // (Handles configs assembled before the auto-resolution step existed.)
+  // Fallback: try registry lookup by search_keyword or asset id.
   if (asset.model_source === 'library') {
     const entry =
-      (asset.supabase_id ? lookupBySupabaseId(asset.supabase_id) : null) ??
-      (asset.search_keyword ? lookupByKeyword(asset.search_keyword) : null);
+      (asset.search_keyword ? lookupByKeyword(asset.search_keyword) : null) ??
+      lookupByKeyword(asset.id);
     if (entry) {
-      // Registry entries don't store model_url — flag for re-assembly
-      console.warn(
-        `[game-config-loader] Asset "${asset.id}" (library) has no model_path. ` +
-          `Re-assemble the experience to populate URLs from the ngss_assets table.`
-      );
+      return getModelUrl(entry);
     }
   }
 

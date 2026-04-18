@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { validateGameConfig } from '@/lib/game-config-loader';
-import { buildAssetTableForPrompt, getAvailableAssets } from '@/lib/asset-registry';
+import { buildAssetTableForPrompt, getAvailableAssets, type AssetRegistryEntry } from '@/lib/asset-registry';
 import { searchNGSSAssetsServer } from '@/lib/ngssAssetsServer';
+import {
+  nameToColor,
+  validateSchemaLayer,
+  fixAssetReferences,
+  fixGameplayConsistency,
+} from '@/lib/config-validators';
 import type { GameConfig } from '@/types/game-config';
 
 export const maxDuration = 60;
@@ -23,33 +29,49 @@ You may use ANY biology-related asset name that fits your lesson.
 Use names that clearly describe the biological object (e.g. 'coral-polyp',
 'green-algae', 'clownfish', 'chloroplast', 'red-blood-cell').
 
-If the asset exists in our library, it will render as a real 3D model.
-If it doesn't exist, it will render as a labeled colored sphere placeholder.
-Both are fully interactive — students can collect and deliver them.
+STRONGLY PREFER using assets from our library below — they render as real 3D models.
+Non-library assets render as labeled colored sphere placeholders, which is less engaging.
 
-So be CREATIVE with your storylines. Use whatever organisms, molecules,
-or structures fit the lesson topic. Don't limit yourself to our library.
+CRITICAL RULES:
+- Each asset id MUST describe what the asset actually IS. Use a descriptive kebab-case id.
+  oxygen → id: "oxygen", name: "Oxygen Molecule"
+  plankton → id: "plankton", name: "Plankton"
+  adenine → id: "adenine", name: "Adenine"
+  coral-polyp → id: "coral-polyp", name: "Coral Polyp"
+- Do NOT reuse the same id for different items. Every asset must have a unique, descriptive id.
+- Do NOT use a library model id (like "glucose-molecule") to represent a different object.
+  The system will show a colored sphere placeholder for non-library items — this is OK and preferred over a wrong model.
+- For drag-multi phases with total=N, you MUST create exactly N separate draggable assets
+  in the assets array, each with unique ids (e.g. plankton-1, plankton-2, plankton-3),
+  each with role: "draggable" and quest_phase_id matching the phase id.
+  Do NOT rely on the system to auto-create missing items.
+- If you need multiple copies of the same kind, use numbered suffixes: "oxygen-1", "oxygen-2", "oxygen-3".
+- model_source: always set to "library". The system will automatically convert non-library assets to placeholders.
 
-For model_source: always set it to "library". The system will automatically
-check and convert non-library assets to placeholders.
-
-AVAILABLE LIBRARY MODELS (these will render as real 3D):
+AVAILABLE LIBRARY MODELS (these render as real 3D models):
 ${buildAssetTableForPrompt()}
 
-Any other asset name is fine — it will get a placeholder sphere with the name label.
+Any other asset id is allowed but will render as a labeled colored sphere placeholder.
 
 ════════════════════════════════════════
 AVAILABLE PHASE TYPES
 ════════════════════════════════════════
 intro        → required first phase. No interaction. Shows welcome text.
+               The intro instruction MUST tell a story in 2-3 sentences:
+               - Give the player a ROLE (scientist, explorer, nano-bot, etc.)
+               - Set the SCENE (where they are, what happened)
+               - Explain their MISSION (what they must do and why it matters)
+               Examples:
+               "You've been miniaturized and injected into a coral reef ecosystem. The reef is dying — producers are vanishing and energy flow has stopped. Your mission: identify the key organisms, restore the food web, and save the reef before it's too late."
+               "A mysterious genetic mutation is spreading through the population. You're a geneticist sent to investigate. Decode the DNA, trace the inheritance pattern, and find the cure."
+               NEVER use generic text like "Click Continue to begin" or "Welcome to this experience".
 click        → player clicks a 3D object. Requires: target_asset (asset id)
 drag         → player drags item onto target. Requires: drag_item, drag_target.
                Optional: time_bonus { threshold_seconds, bonus_points }
 drag-multi   → player collects N identical items → one target.
                Requires: drag_item (representative id), drag_target, total (number 2–5)
                RULE: declare total separate assets each with quest_phase_id = this phase id
-drag-chain   → sequential drag pathway. Requires: steps[] where each step has { drag_item, drag_target }
-               Use for metabolic pathways, protein secretion, signal cascades
+drag-chain   → DEPRECATED. Do NOT use this type. Use drag or drag-multi instead.
 quiz         → multiple-choice question overlay (no 3D interaction).
                Requires: question (string), options (array of 4 objects), explanation (string)
                Each option: { "id": "a"|"b"|"c"|"d", "text": string, "is_correct": boolean }
@@ -85,17 +107,29 @@ PEDAGOGY RULES (MUST FOLLOW)
    click      → identification & recognition
    drag       → function / cause-effect relationship
    drag-multi → bulk/repeated processes (autophagy, phagocytosis, ion channels)
-   drag-chain → sequential pathway (secretory pathway, electron transport, signal transduction)
    quiz       → conceptual check / misconception correction (insert after a click or drag)
    explore    → spatial orientation / navigation to a key structure
 
-2. PROGRESSIVE COMPLEXITY: phases must increase in cognitive load.
-   Typical arc: intro → click → drag → drag-multi → drag-chain → complete
-   Simpler games may omit drag-multi or drag-chain.
+2. MANDATORY PHASE STRUCTURE — generate EXACTLY this structure (9 phases total):
+   Phase 1: intro      — Narrative story (2-3 sentences: role + scene + mission)
+   Phase 2: click      — Identify a key structure (100 pts)
+   Phase 3: drag       — Deliver a molecule/substance to a target (150 pts)
+   Phase 4: quiz       — 4-option multiple choice about the topic (75 pts)
+   Phase 5: drag-multi — Collect 3 items and deliver them, total: 3 (150 pts)
+   Phase 6: explore    — Walk to a location to observe a process (50 pts)
+   Phase 7: click      — Identify another important structure (100 pts)
+   Phase 8: quiz       — Another knowledge check question (75 pts)
+   Phase 9: complete   — Celebration with summary
+
+   That is 7 interactive phases + intro + complete = 9 phases total.
+   You MUST include at least 2 quiz phases and at least 1 explore phase.
+   Do NOT use drag-chain type. It is deprecated and confuses players.
+   Use drag (single item) or drag-multi (multiple items) instead.
+   Do NOT generate fewer than 7 interactive phases. Short games are rejected.
 
 3. KNOWLEDGE CARDS (REQUIRED for every interactive phase):
    knowledge_cards must have one entry keyed by phase.id for each
-   click / drag / drag-multi / drag-chain / quiz / explore phase.
+   click / drag / drag-multi / quiz / explore phase.
    Each card must include: title, body (with unicode formulas if relevant), tag.
    Include misconception where a common student error exists.
 
@@ -103,7 +137,6 @@ PEDAGOGY RULES (MUST FOLLOW)
    click phases:      50–150 pts
    drag phases:       100–200 pts + optional time_bonus (10–30s, 25–75pts)
    drag-multi phases: 100–200 pts (for completing all items, not per item)
-   drag-chain phases: 100–200 pts (for completing entire chain)
    quiz phases:       50–100 pts (awarded on first correct answer)
    explore phases:    25–75 pts (awarded on reaching target)
    Set scoring.max_possible = sum of all phase points + all possible bonuses.
@@ -114,9 +147,8 @@ PEDAGOGY RULES (MUST FOLLOW)
    step.drag_item, step.drag_target) MUST appear in the assets array.
    ROLE RULES (critical for gameplay):
    - click phase target_asset → asset role MUST be "target" or "interactive"
-   - drag/drag-multi/drag-chain drag_item → asset role MUST be "draggable"
-   - drag/drag-multi/drag-chain drag_target → asset role MUST be "target"
-   - drag-chain steps[].drag_item → "draggable", steps[].drag_target → "target"
+   - drag/drag-multi drag_item → asset role MUST be "draggable"
+   - drag/drag-multi drag_target → asset role MUST be "target"
    Getting roles wrong breaks click/collect interactions.
 
 6. POSITIONS (Vec3 = [x, y, z]):
@@ -139,7 +171,7 @@ OUTPUT JSON SCHEMA (exact shape required)
   },
   "environment": {
     "skybox_prompt": "detailed scene prompt for AI skybox generator",
-    "preset": "tron" | "starry" | "forest" | "default" | "contact" | "egypt" | "checkerboard" | "goaland" | "yavapai" | "goldmine" | "threetowers" | "poison" | "arches" | "japan" | "dream" | "volcano" | "osiris",
+    "preset": "forest" | "starry" | "japan" | "default" | "dream",
     "lighting": "warm" | "cool" | "neutral" | "dramatic" | "bioluminescent"
   },
   "assets": [
@@ -164,11 +196,6 @@ OUTPUT JSON SCHEMA (exact shape required)
     { "id": "...", "type": "drag", "title": "...", "instruction": "...", "drag_item": "asset-id", "drag_target": "asset-id", "points": 150,
       "time_bonus": { "threshold_seconds": 10, "bonus_points": 50 } },
     { "id": "...", "type": "drag-multi", "title": "...", "instruction": "... (0/N)", "drag_item": "first-item-id", "drag_target": "target-id", "total": 3, "points": 150 },
-    { "id": "...", "type": "drag-chain", "title": "...", "instruction": "...",
-      "steps": [
-        { "drag_item": "item-id", "drag_target": "target-id" },
-        { "drag_item": "item-id", "drag_target": "target-id" }
-      ], "points": 150 },
     { "id": "...", "type": "quiz", "title": "Quick Check", "instruction": "...", "question": "...",
       "options": [
         { "id": "a", "text": "...", "is_correct": false },
@@ -204,6 +231,27 @@ OUTPUT JSON SCHEMA (exact shape required)
     "show_timer": true,
     "show_knowledge_cards": true,
     "show_tasks": true
+  },
+  "teacher_guide": {
+    "learning_objectives": ["Students will be able to... (3-5 specific, measurable objectives using Bloom's taxonomy verbs)"],
+    "essential_questions": ["Driving question that frames the inquiry? (2-3 questions)"],
+    "vocabulary": [
+      { "term": "Key Term", "definition": "Clear, student-friendly definition" }
+    ],
+    "ngss_standards": [
+      { "code": "HS-LS1-1", "description": "Full standard description" }
+    ],
+    "pedagogical_notes": "1 paragraph explaining the teaching approach, learning theories used (constructivism, inquiry-based, etc.), and how the VR interactions support understanding.",
+    "assessment_suggestions": [
+      "Exit ticket or follow-up activity description (3 items)"
+    ],
+    "prerequisite_knowledge": [
+      "Prior concept students should know (2-3 items)"
+    ],
+    "cross_curricular_connections": [
+      "Chemistry: relevant connection",
+      "Math: relevant connection"
+    ]
   }
 }
 
@@ -213,21 +261,17 @@ ENVIRONMENT PRESET GUIDE
 Always include BOTH skybox_prompt AND preset. The preset renders immediately
 as a fallback; skybox_prompt is used to generate a photorealistic skybox later.
 
-environment.preset MUST be one of these exact values:
-  default, contact, egypt, checkerboard, forest, goaland, yavapai,
-  goldmine, threetowers, poison, arches, tron, japan, dream, volcano, starry, osiris
+environment.preset MUST be one of these 5 clean presets:
+  forest, starry, japan, default, dream
 
 Choose preset based on the lesson topic:
-  Cell biology / biochemistry → "default" (green field with trees)
-  Genetics / DNA              → "starry"  (night sky, mysterious)
-  Ecology / plants / ecosystems → "forest" (dense forest)
-  Human body / physiology     → "tron"    (sci-fi grid)
-  Photosynthesis / plants     → "japan"   (cherry blossoms)
-  Ocean / marine biology      → "osiris"  (blue tones)
-  Evolution                   → "yavapai" (desert canyon)
-  Chemistry / molecules       → "tron"    (neon grid, futuristic lab feel)
-  General biology             → "default" (green field with trees)
-  Middle school               → "japan"   (calm, approachable aesthetic)
+  Cell biology / biochemistry   → "default" (clean green field)
+  Genetics / DNA                → "starry"  (night sky, mysterious)
+  Ecology / plants / ecosystems → "forest"  (dense forest)
+  Photosynthesis / plants       → "japan"   (cherry blossoms, calm)
+  Ocean / marine / human body   → "dream"   (soft ethereal landscape)
+  General biology               → "default" (green field)
+  Middle school                 → "japan"   (calm, approachable aesthetic)
 
 ════════════════════════════════════════
 ASSET PLACEMENT RULES
@@ -252,80 +296,212 @@ STRICT OUTPUT RULES
 ════════════════════════════════════════
 - Output ONLY the JSON object. No markdown, no explanation, no code fences.
 - Every phase id and asset id in phases must also appear in the assets array.
-- knowledge_cards must have one entry for every click/drag/drag-multi/drag-chain phase.
+- knowledge_cards must have one entry for every click/drag/drag-multi/quiz/explore phase.
 - The phases array must start with an "intro" type and end with a "complete" type.
 - Asset positions must not overlap (min 8 units apart).
 - Use kebab-case for all id fields.
 - environment.preset is REQUIRED — choose from the preset guide above.
 - The "npc" field is optional but encouraged.
 - model_source MUST be "library" for every asset. "meshy" is NOT allowed.
+- teacher_guide is REQUIRED. It must contain: learning_objectives (3-5 items), essential_questions (2-3), vocabulary (5-8 terms with definitions), ngss_standards (2-3 with code + description), pedagogical_notes (1 paragraph), assessment_suggestions (3 items), prerequisite_knowledge (2-3), cross_curricular_connections (2-3).
 `.trim();
 }
 
-// ─── Asset ids from the registry (available only) ─────────────────────────────
+// ─── Asset matching (fuzzy) ───────────────────────────────────────────────────
 
-const AVAILABLE_ASSET_IDS = new Set(getAvailableAssets().map((a) => a.id));
+const AVAILABLE_ASSETS = getAvailableAssets();
+const AVAILABLE_ASSET_IDS = new Set(AVAILABLE_ASSETS.map((a) => a.id));
+
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[-_]/g, ' ').replace(/s$/, '');
+}
+
+// Exact-string alias map for short/ambiguous names GPT commonly uses.
+// Only matches when the ENTIRE normalized id or name equals the alias key.
+// No molecule fallbacks — a placeholder sphere is better than a wrong model.
+const ALIAS_MAP: Record<string, string> = {
+  'protein': 'polypeptide-chain',
+  'amino acid': 'polypeptide-chain',
+  'enzyme': 'enzyme-inhibition',
+  'cell membrane': 'animal-cell',
+  'nucleus': 'animal-cell',
+  'nerve': 'neuron',
+  'bone': 'human-skeleton',
+  'lung': 'human-lungs',
+  'kidney': 'human-kidney',
+  'brain': 'human-brain',
+  'stomach': 'human-stomach',
+  'eye': 'human-eye',
+  'tree': 'oak-tree',
+  'algae': 'seaweed',
+  'kelp': 'seaweed',
+  'fungus': 'mushroom',
+  'fungi': 'mushroom',
+  'coral': 'coral-reef',
+  'turtle': 'sea-turtle',
+};
+
+// Words too generic to count as a meaningful keyword match on their own.
+const GENERIC_TOKENS = new Set([
+  'molecule', 'cell', 'organ', 'model', 'structure', 'system',
+  'body', 'part', 'type', 'human', 'small', 'large', 'the',
+]);
+
+function tokenize(s: string): string[] {
+  return normalize(s).split(/\s+/).filter((t) => t.length >= 3);
+}
+
+function fuzzyMatchRegistry(assetId: string, assetName: string): AssetRegistryEntry | null {
+  const normId = normalize(assetId);
+  const normName = normalize(assetName || '');
+
+  // 1. Exact id match
+  const exact = AVAILABLE_ASSETS.find((e) => e.id === assetId);
+  if (exact) {
+    console.log(`[REGISTRY-MATCH] "${assetId}" → exact id → "${exact.id}"`);
+    return exact;
+  }
+
+  // 2. Exact normalized id match (catches underscores vs hyphens, trailing-s, etc.)
+  for (const entry of AVAILABLE_ASSETS) {
+    if (normalize(entry.id) === normId) {
+      console.log(`[REGISTRY-MATCH] "${assetId}" → normalized id "${normId}" → "${entry.id}"`);
+      return entry;
+    }
+  }
+
+  // 3. Token-based matching — strict: require ≥2 non-generic token overlaps,
+  //    OR 1 specific non-generic token that is ≥4 chars (catches "frog", "shark", "heart", etc.)
+  const queryTokens = new Set([
+    ...tokenize(assetId),
+    ...tokenize(assetName || ''),
+  ]);
+  const queryArr = Array.from(queryTokens);
+
+  let bestMatch: AssetRegistryEntry | null = null;
+  let bestScore = 0;
+  const debugCandidates: string[] = [];
+
+  for (const entry of AVAILABLE_ASSETS) {
+    const entryTokens = new Set([
+      ...tokenize(entry.id),
+      ...tokenize(entry.name),
+      ...(entry.search_keyword ? tokenize(entry.search_keyword) : []),
+    ]);
+
+    let matchCount = 0;
+    let nonGenericCount = 0;
+    const matched: string[] = [];
+    for (const token of queryArr) {
+      if (entryTokens.has(token)) {
+        matchCount++;
+        matched.push(token);
+        if (!GENERIC_TOKENS.has(token)) nonGenericCount++;
+      }
+    }
+
+    // Accept if: ≥2 total matches with ≥1 non-generic,
+    // OR exactly 1 non-generic match where the token is specific enough (≥4 chars)
+    const hasSpecificSingle =
+      nonGenericCount === 1 &&
+      matchCount === 1 &&
+      queryArr.some(
+        (t) => entryTokens.has(t) && !GENERIC_TOKENS.has(t) && t.length >= 4,
+      );
+
+    const isValid =
+      (matchCount >= 2 && nonGenericCount >= 1) || hasSpecificSingle;
+
+    if (matchCount > 0) {
+      debugCandidates.push(
+        `${entry.id}(tokens:[${Array.from(entryTokens)}] matched:[${matched}] total:${matchCount} nonGen:${nonGenericCount} valid:${isValid})`,
+      );
+    }
+
+    if (isValid && matchCount > bestScore) {
+      bestScore = matchCount;
+      bestMatch = entry;
+    }
+  }
+
+  if (bestMatch) {
+    console.log(
+      `[REGISTRY-MATCH] "${assetId}" (name:"${assetName}") queryTokens:[${queryArr}] → token match → "${bestMatch.id}" (score:${bestScore}) | candidates: ${debugCandidates.join(', ')}`,
+    );
+    return bestMatch;
+  }
+
+  // 4. Alias map — exact normalized string match only (no substring)
+  for (const [alias, targetId] of Object.entries(ALIAS_MAP)) {
+    const normAlias = normalize(alias);
+    if (normId === normAlias || normName === normAlias) {
+      const entry = AVAILABLE_ASSETS.find((e) => e.id === targetId);
+      if (entry) {
+        console.log(`[REGISTRY-MATCH] "${assetId}" → alias "${alias}" → "${targetId}"`);
+        return entry;
+      }
+    }
+  }
+
+  // No match — log full debug info
+  console.log(
+    `[REGISTRY-MISS] "${assetId}" (name:"${assetName}") normId:"${normId}" queryTokens:[${queryArr}] | partial candidates: ${debugCandidates.length > 0 ? debugCandidates.join(', ') : 'none'}`,
+  );
+  return null;
+}
 
 // ─── Returns all asset ids referenced by a phase ──────────────────────────────
 
-function getPhaseAssetRefs(phase: any): string[] {
-  const refs: string[] = [];
-  switch (phase.type) {
-    case 'click':
-      if (phase.target_asset) refs.push(phase.target_asset);
-      break;
-    case 'drag':
-      if (phase.drag_item) refs.push(phase.drag_item);
-      if (phase.drag_target) refs.push(phase.drag_target);
-      break;
-    case 'drag-multi':
-      if (phase.drag_item) refs.push(phase.drag_item);
-      if (phase.drag_target) refs.push(phase.drag_target);
-      break;
-    case 'drag-chain':
-      if (Array.isArray(phase.steps)) {
-        for (const step of phase.steps) {
-          if (step.drag_item) refs.push(step.drag_item);
-          if (step.drag_target) refs.push(step.drag_target);
-        }
-      }
-      break;
-    case 'explore':
-      if (phase.target_asset) refs.push(phase.target_asset);
-      break;
-  }
-  return refs;
-}
-
 // ─── Post-generation registry validation ──────────────────────────────────────
-
-/**
- * Hash a string to a consistent hue (0–360) for deterministic placeholder colors.
- * Same asset name always gets the same color.
- */
-function nameToColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = ((hash % 360) + 360) % 360;
-  return `hsl(${hue}, 70%, 55%)`;
-}
 
 function enforceRegistryAssets(cfg: any): { config: any; placeholderAssets: string[] } {
   const placeholderAssets: string[] = [];
+  const usedIds = new Set<string>();
 
-  // Keep ALL assets. Valid library assets stay as-is; others become placeholders.
+  function getUniqueId(baseId: string): string {
+    if (!usedIds.has(baseId)) {
+      usedIds.add(baseId);
+      return baseId;
+    }
+    let counter = 2;
+    while (usedIds.has(`${baseId}-${counter}`)) counter++;
+    const uniqueId = `${baseId}-${counter}`;
+    usedIds.add(uniqueId);
+    return uniqueId;
+  }
+
+  // Keep ALL assets. Match against registry with fuzzy logic; unmatched become placeholders.
   const originalAssets: any[] = cfg.assets ?? [];
   const patchedAssets = originalAssets.map((asset: any) => {
-    const valid = asset.model_source === 'library' && AVAILABLE_ASSET_IDS.has(asset.id);
-    if (valid) return asset;
+    // Exact id in registry — write model_path from registry
+    if (asset.model_source === 'library' && AVAILABLE_ASSET_IDS.has(asset.id)) {
+      const entry = AVAILABLE_ASSETS.find((e) => e.id === asset.id)!;
+      const uniqueId = getUniqueId(asset.id);
+      console.log(`[REGISTRY] "${asset.id}" (name: "${asset.name}") → exact match "${uniqueId}" → ${entry.model_filename}`);
+      return { ...asset, id: uniqueId, model_path: entry.model_filename };
+    }
 
-    // Mark as placeholder — game stays fully playable with colored spheres
-    console.log(`[assemble-game] Placeholder: "${asset.id}" ("${asset.name}") — not in model library`);
-    placeholderAssets.push(asset.id);
+    // Fuzzy match — write model_path directly so client doesn't need to re-lookup
+    const match = fuzzyMatchRegistry(asset.id, asset.name || '');
+    if (match) {
+      const uniqueId = getUniqueId(match.id);
+      console.log(`[REGISTRY] "${asset.id}" (name: "${asset.name}") → fuzzy matched "${match.id}"${uniqueId !== match.id ? ` (deduped → "${uniqueId}")` : ''} → ${match.model_filename}`);
+      return {
+        ...asset,
+        id: uniqueId,
+        model_source: 'library',
+        search_keyword: match.search_keyword,
+        model_path: match.model_filename,
+      };
+    }
+
+    // No match — placeholder
+    const uniqueId = getUniqueId(asset.id);
+    console.log(`[REGISTRY] "${asset.id}" (name: "${asset.name}") → NO MATCH → placeholder "${uniqueId}"`);
+    placeholderAssets.push(uniqueId);
     return {
       ...asset,
+      id: uniqueId,
       model_source: 'placeholder',
       model_path: null,
       primitive_color: nameToColor(asset.name || asset.id),
@@ -335,8 +511,26 @@ function enforceRegistryAssets(cfg: any): { config: any; placeholderAssets: stri
 
   console.log(`[assemble-game] Assets: ${originalAssets.length} total, ${originalAssets.length - placeholderAssets.length} library models, ${placeholderAssets.length} placeholders`);
 
-  // All phases stay — placeholders keep asset ids intact
+  // Build id remap for assets whose id changed (old id → new id)
+  const idRemap = new Map<string, string>();
+  for (let i = 0; i < originalAssets.length; i++) {
+    const oldId = originalAssets[i].id;
+    const newId = patchedAssets[i].id;
+    if (oldId !== newId) {
+      idRemap.set(oldId, newId);
+      console.log(`[REGISTRY] Remap phase refs: "${oldId}" → "${newId}"`);
+    }
+  }
+
+  // Update phase references to remapped asset ids
   const originalPhases: any[] = cfg.phases ?? [];
+  if (idRemap.size > 0) {
+    for (const phase of originalPhases) {
+      if (phase.target_asset && idRemap.has(phase.target_asset)) phase.target_asset = idRemap.get(phase.target_asset);
+      if (phase.drag_item && idRemap.has(phase.drag_item)) phase.drag_item = idRemap.get(phase.drag_item);
+      if (phase.drag_target && idRemap.has(phase.drag_target)) phase.drag_target = idRemap.get(phase.drag_target);
+    }
+  }
 
   // Recalculate scoring
   const interactiveTypes = new Set(['click', 'drag', 'drag-multi', 'drag-chain', 'quiz', 'explore']);
@@ -362,378 +556,6 @@ function enforceRegistryAssets(cfg: any): { config: any; placeholderAssets: stri
   };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function humanReadableName(id: string): string {
-  return id
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-// ─── Layer 1: Schema Validation ──────────────────────────────────────────────
-// Ensures JSON structure is valid. Fills missing required fields with defaults.
-
-function validateSchemaLayer(config: any): any {
-  const errors: string[] = [];
-
-  // === meta ===
-  if (!config.meta) config.meta = {};
-  if (!config.meta.id) config.meta.id = `game-${Date.now()}`;
-  if (!config.meta.title) config.meta.title = 'Untitled Experience';
-  if (!config.meta.subject) config.meta.subject = 'Biology';
-  if (!config.meta.grade) config.meta.grade = 'high';
-  if (!config.meta.duration_minutes) config.meta.duration_minutes = 10;
-  if (!Array.isArray(config.meta.ngss_standards)) config.meta.ngss_standards = [];
-  if (!Array.isArray(config.meta.learning_objectives)) config.meta.learning_objectives = [];
-
-  // === environment ===
-  if (!config.environment) config.environment = {};
-  const VALID_PRESETS = ['default','forest','japan','starry','volcano','arches','tron','egypt','osiris','dream','poison','goaland','yavapai','goldmine','threetowers','checkerboard','contact'];
-  if (!config.environment.preset || !VALID_PRESETS.includes(config.environment.preset)) {
-    errors.push(`[SCHEMA] Invalid preset "${config.environment.preset}" → defaulting to "forest"`);
-    config.environment.preset = 'forest';
-  }
-  if (!config.environment.skybox_prompt) config.environment.skybox_prompt = '';
-  if (!config.environment.lighting) config.environment.lighting = 'neutral';
-
-  // === phases ===
-  if (!Array.isArray(config.phases) || config.phases.length === 0) {
-    errors.push('[SCHEMA] No phases found → creating minimal intro + complete');
-    config.phases = [
-      { id: 'intro', type: 'intro', title: 'Welcome', instruction: 'Click Continue to begin.', points: 0 },
-      { id: 'complete', type: 'complete', title: 'Complete', instruction: 'Well done!', points: 0 }
-    ];
-  }
-
-  // Ensure first phase is intro, last is complete
-  if (config.phases[0]?.type !== 'intro') {
-    config.phases.unshift({ id: 'intro', type: 'intro', title: 'Welcome', instruction: 'Click Continue to begin.', points: 0 });
-    errors.push('[SCHEMA] Added missing intro phase');
-  }
-  if (config.phases[config.phases.length - 1]?.type !== 'complete') {
-    config.phases.push({ id: 'complete', type: 'complete', title: 'Mission Complete!', instruction: 'Great work!', points: 0 });
-    errors.push('[SCHEMA] Added missing complete phase');
-  }
-
-  // Validate each phase's required fields
-  for (const phase of config.phases) {
-    if (!phase.id) phase.id = `phase-${Math.random().toString(36).slice(2, 8)}`;
-    if (!phase.type) { phase.type = 'intro'; errors.push(`[SCHEMA] Phase "${phase.id}" missing type → intro`); }
-    if (!phase.title) phase.title = phase.id;
-    if (!phase.instruction) phase.instruction = phase.title;
-    if (phase.points === undefined || phase.points === null) phase.points = 0;
-
-    switch (phase.type) {
-      case 'click':
-        if (!phase.target_asset) errors.push(`[SCHEMA] ClickPhase "${phase.id}" missing target_asset`);
-        break;
-      case 'drag':
-        if (!phase.drag_item) errors.push(`[SCHEMA] DragPhase "${phase.id}" missing drag_item`);
-        if (!phase.drag_target) errors.push(`[SCHEMA] DragPhase "${phase.id}" missing drag_target`);
-        break;
-      case 'drag-multi':
-        if (!phase.drag_target) errors.push(`[SCHEMA] DragMultiPhase "${phase.id}" missing drag_target`);
-        if (!phase.total || phase.total < 1) { phase.total = 3; errors.push(`[SCHEMA] DragMultiPhase "${phase.id}" total → 3`); }
-        break;
-      case 'drag-chain':
-        if (!Array.isArray(phase.steps) || phase.steps.length === 0) {
-          errors.push(`[SCHEMA] DragChainPhase "${phase.id}" missing steps`);
-          phase.steps = [];
-        }
-        for (const step of (phase.steps || [])) {
-          if (!step.drag_item) errors.push(`[SCHEMA] DragChainPhase "${phase.id}" step missing drag_item`);
-          if (!step.drag_target) errors.push(`[SCHEMA] DragChainPhase "${phase.id}" step missing drag_target`);
-        }
-        break;
-      case 'quiz':
-        if (!phase.question) phase.question = 'Question not generated';
-        if (!Array.isArray(phase.options) || phase.options.length < 2) {
-          errors.push(`[SCHEMA] QuizPhase "${phase.id}" missing options → defaults`);
-          phase.options = [
-            { id: 'a', text: 'Option A', is_correct: true },
-            { id: 'b', text: 'Option B', is_correct: false },
-            { id: 'c', text: 'Option C', is_correct: false },
-            { id: 'd', text: 'Option D', is_correct: false },
-          ];
-        }
-        if (!phase.explanation) phase.explanation = '';
-        break;
-      case 'explore':
-        if (!Array.isArray(phase.target_position) || phase.target_position.length !== 3) {
-          errors.push(`[SCHEMA] ExplorePhase "${phase.id}" missing target_position → [0, 0.8, -10]`);
-          phase.target_position = [0, 0.8, -10];
-        }
-        if (!phase.trigger_radius || phase.trigger_radius < 0.5) phase.trigger_radius = 2.5;
-        break;
-    }
-  }
-
-  // === assets ===
-  if (!Array.isArray(config.assets)) config.assets = [];
-  for (const asset of config.assets) {
-    if (!asset.id) asset.id = `asset-${Math.random().toString(36).slice(2, 8)}`;
-    if (!asset.name) asset.name = humanReadableName(asset.id);
-    if (!asset.role) asset.role = 'interactive';
-    if (!Array.isArray(asset.position) || asset.position.length !== 3) asset.position = [0, 0.8, -5];
-    if (!Array.isArray(asset.rotation)) asset.rotation = [0, 0, 0];
-    if (!asset.scale || asset.scale <= 0) asset.scale = 1;
-  }
-
-  // === scoring (placeholder, recalculated in layer 3) ===
-  if (!config.scoring) config.scoring = {};
-
-  // === knowledge_cards ===
-  if (!config.knowledge_cards || typeof config.knowledge_cards !== 'object') config.knowledge_cards = {};
-
-  // === hud ===
-  if (!config.hud) config.hud = { show_score: true, show_phase_counter: true, show_instruction: true, show_timer: true, show_knowledge_cards: true, show_tasks: true };
-
-  if (errors.length > 0) {
-    console.log('[SCHEMA VALIDATION]', errors.length, 'issues fixed:');
-    errors.forEach(e => console.log('  ', e));
-  }
-  return config;
-}
-
-// ─── Layer 2: Asset Reference Integrity ──────────────────────────────────────
-// Ensures every phase-referenced asset ID exists in config.assets.
-
-function fixAssetReferences(config: any): any {
-  const fixes: string[] = [];
-  const existingIds = new Set(config.assets.map((a: any) => a.id));
-
-  function createPlaceholder(id: string, role: string, phaseId: string, index: number): any {
-    const colorMap: Record<string, string> = {
-      target: 'hsl(210, 70%, 55%)',
-      draggable: 'hsl(35, 90%, 55%)',
-      interactive: 'hsl(160, 70%, 45%)',
-    };
-    let position: [number, number, number];
-    if (role === 'target') {
-      position = [(Math.random() - 0.5) * 8, 0.8, -5 - Math.random() * 10];
-    } else {
-      const angle = (index / 5) * Math.PI * 2 + Math.random() * 0.5;
-      const radius = 6 + Math.random() * 8;
-      position = [Math.cos(angle) * radius, 0.8, -3 + Math.sin(angle) * radius * -1];
-    }
-    // Push apart from existing assets
-    for (const existing of config.assets) {
-      if (!existing.position) continue;
-      const dx = position[0] - existing.position[0];
-      const dz = position[2] - existing.position[2];
-      if (Math.sqrt(dx * dx + dz * dz) < 3) { position[0] += 3; position[2] -= 2; }
-    }
-    return {
-      id, name: humanReadableName(id), model_source: 'placeholder', model_path: null,
-      primitive_color: colorMap[role] || colorMap.interactive,
-      position, rotation: [0, 0, 0], scale: 1, role, quest_phase_id: phaseId,
-      description: `Placeholder for ${humanReadableName(id)}`,
-    };
-  }
-
-  function ensureAsset(id: string, role: string, phaseId: string, index: number) {
-    if (!id || existingIds.has(id)) return;
-    config.assets.push(createPlaceholder(id, role, phaseId, index));
-    existingIds.add(id);
-    fixes.push(`[REF] Phase "${phaseId}" references "${id}" → created ${role} placeholder`);
-  }
-
-  for (const phase of config.phases) {
-    switch (phase.type) {
-      case 'click':
-        ensureAsset(phase.target_asset, 'target', phase.id, 0);
-        break;
-      case 'drag':
-        ensureAsset(phase.drag_item, 'draggable', phase.id, 0);
-        ensureAsset(phase.drag_target, 'target', phase.id, 1);
-        break;
-      case 'drag-multi': {
-        ensureAsset(phase.drag_target, 'target', phase.id, 0);
-        const existingDraggables = config.assets.filter(
-          (a: any) => a.quest_phase_id === phase.id && a.role === 'draggable'
-        );
-        const needed = (phase.total || 3) - existingDraggables.length;
-        if (needed > 0) {
-          fixes.push(`[REF] DragMulti "${phase.id}" needs ${phase.total} draggables, has ${existingDraggables.length} → adding ${needed}`);
-          for (let i = 0; i < needed; i++) {
-            const itemId = `${phase.id}-item-${existingDraggables.length + i + 1}`;
-            config.assets.push(createPlaceholder(itemId, 'draggable', phase.id, i + 2));
-            existingIds.add(itemId);
-          }
-        }
-        break;
-      }
-      case 'drag-chain':
-        for (let i = 0; i < (phase.steps || []).length; i++) {
-          const step = phase.steps[i];
-          ensureAsset(step.drag_item, 'draggable', phase.id, i * 2);
-          ensureAsset(step.drag_target, 'target', phase.id, i * 2 + 1);
-        }
-        break;
-    }
-  }
-
-  if (fixes.length > 0) {
-    console.log('[REF VALIDATION]', fixes.length, 'missing assets created:');
-    fixes.forEach(f => console.log('  ', f));
-  }
-  return config;
-}
-
-// ─── Layer 3: Gameplay Consistency ───────────────────────────────────────────
-// Fixes roles, scoring, positions, explore targets, knowledge cards, NPC hints.
-
-function fixGameplayConsistency(config: any): any {
-  const fixes: string[] = [];
-
-  // ── 1. Role consistency ──
-  for (const phase of config.phases) {
-    switch (phase.type) {
-      case 'click': {
-        const asset = config.assets.find((a: any) => a.id === phase.target_asset);
-        if (asset && asset.role === 'draggable') {
-          fixes.push(`[ROLE] "${asset.id}" is click target → "target"`);
-          asset.role = 'target';
-        }
-        break;
-      }
-      case 'drag': {
-        const item = config.assets.find((a: any) => a.id === phase.drag_item);
-        if (item && item.role !== 'draggable') {
-          fixes.push(`[ROLE] "${item.id}" is drag_item → "draggable"`);
-          item.role = 'draggable';
-          item.quest_phase_id = phase.id;
-        }
-        const target = config.assets.find((a: any) => a.id === phase.drag_target);
-        if (target && target.role === 'draggable') {
-          fixes.push(`[ROLE] "${target.id}" is drag_target → "target"`);
-          target.role = 'target';
-        }
-        break;
-      }
-      case 'drag-multi': {
-        const target = config.assets.find((a: any) => a.id === phase.drag_target);
-        if (target && target.role === 'draggable') {
-          fixes.push(`[ROLE] "${target.id}" is drag_target → "target"`);
-          target.role = 'target';
-        }
-        for (const asset of config.assets) {
-          if (asset.quest_phase_id === phase.id && asset.role !== 'draggable' && asset.id !== phase.drag_target) {
-            fixes.push(`[ROLE] "${asset.id}" in drag-multi phase → "draggable"`);
-            asset.role = 'draggable';
-          }
-        }
-        break;
-      }
-      case 'drag-chain': {
-        for (const step of (phase.steps || [])) {
-          const item = config.assets.find((a: any) => a.id === step.drag_item);
-          if (item && item.role !== 'draggable') {
-            fixes.push(`[ROLE] "${item.id}" is chain drag_item → "draggable"`);
-            item.role = 'draggable';
-            item.quest_phase_id = phase.id;
-          }
-          const target = config.assets.find((a: any) => a.id === step.drag_target);
-          if (target && target.role === 'draggable') {
-            fixes.push(`[ROLE] "${target.id}" is chain drag_target → "target"`);
-            target.role = 'target';
-          }
-        }
-        break;
-      }
-    }
-  }
-
-  // ── 2. Scoring recalculation ──
-  let totalPoints = 0;
-  for (const phase of config.phases) {
-    if (phase.type !== 'intro' && phase.type !== 'complete') {
-      totalPoints += (phase.points || 0);
-      if (phase.time_bonus?.bonus_points) totalPoints += phase.time_bonus.bonus_points;
-    }
-  }
-  if (config.scoring.max_possible !== totalPoints) {
-    fixes.push(`[SCORING] max_possible ${config.scoring.max_possible} → ${totalPoints}`);
-    config.scoring.max_possible = totalPoints;
-  }
-  config.scoring.passing_threshold = Math.floor(totalPoints * 0.6);
-
-  // ── 3. Position fixes: Y clamp + de-overlap ──
-  for (const asset of config.assets) {
-    if (asset.position[1] < 0) { asset.position[1] = 0.8; fixes.push(`[POS] "${asset.id}" y<0 → 0.8`); }
-    if (asset.position[1] > 10) { asset.position[1] = 2; fixes.push(`[POS] "${asset.id}" y>10 → 2`); }
-  }
-  for (let i = 0; i < config.assets.length; i++) {
-    for (let j = i + 1; j < config.assets.length; j++) {
-      const a = config.assets[i], b = config.assets[j];
-      const dx = a.position[0] - b.position[0];
-      const dz = a.position[2] - b.position[2];
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < 2) {
-        const angle = Math.atan2(dz, dx) + Math.PI;
-        b.position[0] += Math.cos(angle) * (2 - dist + 0.5);
-        b.position[2] += Math.sin(angle) * (2 - dist + 0.5);
-        fixes.push(`[POS] "${b.id}" too close to "${a.id}" → pushed apart`);
-      }
-    }
-  }
-
-  // ── 4. ExplorePhase target_position alignment ──
-  for (const phase of config.phases) {
-    if (phase.type !== 'explore') continue;
-    if (!Array.isArray(phase.target_position) || phase.target_position.length !== 3) {
-      const relatedAsset = config.assets.find((a: any) =>
-        phase.title?.toLowerCase().includes(a.name?.toLowerCase()) ||
-        phase.instruction?.toLowerCase().includes(a.name?.toLowerCase())
-      );
-      if (relatedAsset) {
-        phase.target_position = [...relatedAsset.position];
-        phase.target_position[1] = 0.8;
-        fixes.push(`[EXPLORE] "${phase.id}" target_position → asset "${relatedAsset.id}"`);
-      } else {
-        phase.target_position = [0, 0.8, -10];
-        fixes.push(`[EXPLORE] "${phase.id}" target_position → default`);
-      }
-    }
-    if (!phase.trigger_radius || phase.trigger_radius < 1) phase.trigger_radius = 2.5;
-  }
-
-  // ── 5. Knowledge cards for every interactive phase ──
-  for (const phase of config.phases) {
-    if (phase.type === 'intro' || phase.type === 'complete') continue;
-    if (!config.knowledge_cards[phase.id]) {
-      config.knowledge_cards[phase.id] = {
-        title: phase.title,
-        body: `You completed: ${phase.instruction}`,
-        tag: config.meta?.subject || 'Biology',
-      };
-      fixes.push(`[CARDS] Created placeholder card for "${phase.id}"`);
-    }
-  }
-
-  // ── 6. NPC hints for every interactive phase ──
-  if (config.npc) {
-    if (!config.npc.hints) config.npc.hints = {};
-    for (const phase of config.phases) {
-      if (phase.type === 'intro' || phase.type === 'complete') continue;
-      if (!config.npc.hints[phase.id]) {
-        config.npc.hints[phase.id] = `Try to: ${phase.instruction}`;
-        fixes.push(`[NPC] Created hint for "${phase.id}"`);
-      }
-    }
-    if (!Array.isArray(config.npc.spawn_position) || config.npc.spawn_position.length !== 3) {
-      config.npc.spawn_position = [3, 1.5, -3];
-      fixes.push('[NPC] Fixed missing spawn_position');
-    }
-  }
-
-  if (fixes.length > 0) {
-    console.log('[GAMEPLAY VALIDATION]', fixes.length, 'consistency fixes:');
-    fixes.forEach(f => console.log('  ', f));
-  }
-  console.log(`[VALIDATION COMPLETE] ${config.phases.length} phases, ${config.assets.length} assets, max_possible=${config.scoring.max_possible}`);
-  return config;
-}
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -769,7 +591,7 @@ export async function POST(req: NextRequest) {
       model: 'gpt-4o',
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [
         { role: 'system', content: buildSystemPrompt() },
         { role: 'user', content: userMessage },
@@ -785,15 +607,51 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Parse JSON ──
+  console.log(`[ASSEMBLE] GPT response length: ${rawContent.length}`);
+  console.log(`[ASSEMBLE] GPT response ends with: ${rawContent.slice(-100)}`);
+
   let parsed: any;
   try {
     parsed = JSON.parse(rawContent);
-  } catch (err: any) {
-    console.error('[assemble-game] JSON parse failed. Raw:\n', rawContent.slice(0, 500));
-    return NextResponse.json(
-      { error: 'AI returned invalid JSON', raw: rawContent.slice(0, 500) },
-      { status: 422 }
-    );
+  } catch {
+    // Try to recover truncated JSON by finding the last valid closing brace
+    console.error(`[ASSEMBLE] JSON parse failed. First 500 chars:\n${rawContent.slice(0, 500)}`);
+    console.error(`[ASSEMBLE] Last 200 chars:\n${rawContent.slice(-200)}`);
+
+    // Attempt truncation recovery: strip trailing incomplete content and close
+    let recovered = false;
+    const trimmed = rawContent.trimEnd();
+    if (trimmed.length > 100 && !trimmed.endsWith('}')) {
+      // Find the last complete property or array close
+      const lastBrace = trimmed.lastIndexOf('}');
+      if (lastBrace > trimmed.length * 0.5) {
+        try {
+          // Count open vs close braces up to lastBrace to find a valid cut point
+          let candidate = trimmed.slice(0, lastBrace + 1);
+          // Close any unclosed braces/brackets
+          let openBraces = 0, openBrackets = 0;
+          for (const ch of candidate) {
+            if (ch === '{') openBraces++;
+            if (ch === '}') openBraces--;
+            if (ch === '[') openBrackets++;
+            if (ch === ']') openBrackets--;
+          }
+          candidate += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
+          parsed = JSON.parse(candidate);
+          recovered = true;
+          console.log(`[ASSEMBLE] Recovered truncated JSON (cut at ${lastBrace}, added ${Math.max(0, openBrackets)} ] and ${Math.max(0, openBraces)} })`);
+        } catch {
+          // Recovery failed
+        }
+      }
+    }
+
+    if (!recovered) {
+      return NextResponse.json(
+        { error: 'AI returned invalid JSON (possibly truncated)', raw: rawContent.slice(0, 500) },
+        { status: 422 }
+      );
+    }
   }
 
   // ── 3-layer validation pipeline ──

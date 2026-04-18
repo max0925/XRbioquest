@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import type { ResolvedGameConfig, PhaseConfig, ResolvedAsset } from '@/types/game-config';
 import { NPCEntity } from './NPCEntity';
 
@@ -50,7 +50,7 @@ interface GameAssetsProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps) {
+export const GameAssets = memo(function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps) {
   const phase = currentPhase;
 
   // ── Populate window.playAssetPositions for A-Frame components ──
@@ -253,4 +253,4 @@ export function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps)
       })}
     </>
   );
-}
+});

@@ -173,7 +173,7 @@ function QuestPanel({
       key={animKey}
       style={{
         position: 'fixed',
-        top: '20px',
+        top: '70px',
         left: '20px',
         width: '280px',
         ...PANEL_BASE,
@@ -306,7 +306,7 @@ function StatsPanel({
   return (
     <div style={{
       position: 'fixed',
-      top: '20px',
+      top: '70px',
       right: '20px',
       width: '180px',
       ...PANEL_BASE,
@@ -373,13 +373,24 @@ function StatsPanel({
 
 // ─── Inventory Bar (bottom-center) ────────────────────────────────────────────
 
-function InventoryBar({ items, selectedItem, onSelect, deliveryTargetName }: {
+function InventoryBar({ items, selectedItem, onSelect, deliveryTargetName, config }: {
   items: string[];
   selectedItem: string | null;
   onSelect: (id: string) => void;
   deliveryTargetName: string | null;
+  config: GameConfig;
 }) {
   const SLOT_COUNT = 6;
+
+  // Look up asset info for display
+  const getAssetInfo = (id: string) => {
+    const asset = config.assets.find((a: any) => a.id === id);
+    const name = asset?.name ?? id;
+    // First letter of each word, max 2 chars (e.g. "DNA" → "DN", "Glucose" → "G")
+    const initials = name.split(/[\s-]+/).map((w: string) => w[0]?.toUpperCase() ?? '').join('').slice(0, 2);
+    const color = (asset as any)?.primitive_color ?? '#F59E0B';
+    return { initials, color, name };
+  };
 
   return (
     <div style={{
@@ -425,12 +436,14 @@ function InventoryBar({ items, selectedItem, onSelect, deliveryTargetName }: {
           const item = items[i];
           const filled = !!item;
           const isSelected = filled && item === selectedItem;
+          const info = filled ? getAssetInfo(item) : null;
 
           return (
             <div
               key={i}
               onMouseDown={filled ? (e) => { e.stopPropagation(); e.preventDefault(); } : undefined}
               onClick={filled ? (e) => { e.stopPropagation(); onSelect(item); } : undefined}
+              title={info?.name}
               style={{
                 width: '46px',
                 height: '46px',
@@ -438,26 +451,30 @@ function InventoryBar({ items, selectedItem, onSelect, deliveryTargetName }: {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: filled ? '18px' : '14px',
+                fontSize: filled ? '16px' : '14px',
+                fontWeight: 800,
+                fontFamily: MONO,
+                color: 'white',
                 cursor: filled ? 'pointer' : 'default',
                 pointerEvents: filled ? 'auto' : 'none',
                 backgroundColor: isSelected
-                  ? 'rgba(245,158,11,0.35)'
+                  ? (info?.color ?? 'rgba(245,158,11,0.35)')
                   : filled
-                    ? 'rgba(245,158,11,0.15)'
+                    ? `color-mix(in srgb, ${info?.color ?? '#F59E0B'} 35%, transparent)`
                     : 'rgba(255,255,255,0.03)',
                 border: isSelected
-                  ? '2px solid rgba(245,158,11,0.9)'
+                  ? `2px solid ${info?.color ?? 'rgba(245,158,11,0.9)'}`
                   : filled
-                    ? '1px solid rgba(245,158,11,0.45)'
+                    ? `1px solid color-mix(in srgb, ${info?.color ?? '#F59E0B'} 60%, transparent)`
                     : '1px solid rgba(255,255,255,0.06)',
                 boxShadow: isSelected
-                  ? '0 0 16px rgba(245,158,11,0.5), inset 0 0 8px rgba(245,158,11,0.2)'
-                  : filled ? '0 0 10px rgba(245,158,11,0.15)' : 'none',
+                  ? `0 0 16px color-mix(in srgb, ${info?.color ?? '#F59E0B'} 50%, transparent), inset 0 0 8px rgba(0,0,0,0.2)`
+                  : filled ? `0 0 10px color-mix(in srgb, ${info?.color ?? '#F59E0B'} 25%, transparent)` : 'none',
                 transition: 'all 0.2s ease',
                 opacity: filled ? 1 : 0.4,
+                textShadow: filled ? '0 1px 3px rgba(0,0,0,0.5)' : 'none',
               }}>
-              {filled ? '📦' : '·'}
+              {filled ? info?.initials : '·'}
             </div>
           );
         })}
@@ -1360,6 +1377,7 @@ export function PlayOverlayUI({
           selectedItem={selectedInventoryItem ?? null}
           onSelect={onSelectInventoryItem ?? (() => {})}
           deliveryTargetName={deliveryTargetName}
+          config={config}
         />
       )}
 
