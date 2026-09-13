@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireApiUser } from '@/lib/api/auth';
+
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
 // Normalize MIME type to supported formats
 function normalizeMimeType(contentType: string): string {
@@ -17,6 +19,9 @@ function normalizeMimeType(contentType: string): string {
 
 // Upload skybox image to Supabase Storage
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   // Validate request origin — only allow internal API calls (same-origin or server-side)
   const referer = request.headers.get('referer');
   const origin = request.headers.get('origin');
@@ -28,19 +33,19 @@ export async function POST(request: NextRequest) {
   try {
     // Parse FormData with image blob
     const formData = await request.formData();
-    const imageBlob = formData.get('image') as Blob;
-    const skyboxId = formData.get('skyboxId') as string;
+    const imageBlob = formData.get('image');
+    const skyboxId = formData.get('skyboxId');
     const rawContentType = formData.get('contentType') as string || 'image/jpeg';
     const contentType = normalizeMimeType(rawContentType);
 
-    if (!imageBlob) {
+    if (!(imageBlob instanceof Blob) || imageBlob.size === 0 || imageBlob.size > MAX_IMAGE_BYTES) {
       return NextResponse.json(
-        { error: 'Image blob is required' },
-        { status: 400 }
+        { error: imageBlob instanceof Blob && imageBlob.size > MAX_IMAGE_BYTES ? 'Image is too large' : 'Image blob is required' },
+        { status: imageBlob instanceof Blob && imageBlob.size > MAX_IMAGE_BYTES ? 413 : 400 }
       );
     }
 
-    if (!skyboxId) {
+    if (typeof skyboxId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(skyboxId)) {
       return NextResponse.json(
         { error: 'Skybox ID is required' },
         { status: 400 }
@@ -52,25 +57,14 @@ export async function POST(request: NextRequest) {
     }
     console.log(`[SKYBOX UPLOAD] Received image blob: ${imageBlob.size} bytes, type: ${contentType}`);
 
-    // Initialize Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: 'Supabase environment variables not configured' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { user, supabase } = auth.context;
 
     // Convert Blob to ArrayBuffer for Supabase upload
     const imageBuffer = await imageBlob.arrayBuffer();
 
     // Determine file extension from content type
     const extension = contentType.includes('png') ? 'png' : 'jpg';
-    const fileName = `skybox-${skyboxId}-${Date.now()}.${extension}`;
+    const fileName = `${user.id}/skybox-${skyboxId}-${Date.now()}.${extension}`;
 
     console.log(`[SKYBOX UPLOAD] Uploading to Supabase Storage: ${fileName}`);
 
@@ -86,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('[SKYBOX UPLOAD] Supabase upload error:', error);
       return NextResponse.json(
-        { error: `Failed to upload to Supabase Storage: ${error.message}` },
+        { error: 'Failed to upload skybox image' },
         { status: 500 }
       );
     }
@@ -108,7 +102,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[SKYBOX UPLOAD] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to upload skybox image' },
+      { error: 'Failed to upload skybox image' },
       { status: 500 }
     );
   }

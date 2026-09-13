@@ -447,6 +447,40 @@ export function fixGameplayConsistency(config: any): any {
     }
   }
 
+  // Terrain theme + sky color defaults (if GPT didn't provide them)
+  if (!config.environment.terrain_theme || !config.environment.sky_color) {
+    const subject = (config.meta?.subject || '').toLowerCase();
+    const topic = (config.meta?.topic || config.meta?.title || '').toLowerCase();
+
+    let theme = config.environment.terrain_theme || 'grassland';
+    let sky = config.environment.sky_color || '#87CEEB';
+
+    if (subject.includes('ecology') || topic.includes('ecosystem') || topic.includes('food chain') || topic.includes('food web')) {
+      theme = 'grassland'; sky = '#87CEEB';
+    } else if (subject.includes('ocean') || topic.includes('marine') || topic.includes('ocean') || topic.includes('coral')) {
+      theme = 'ocean'; sky = '#1a3a5c';
+    } else if (subject.includes('cell') || topic.includes('cell') || topic.includes('organelle') || topic.includes('mitochon')) {
+      theme = 'cell'; sky = '#1a0a2e';
+    } else if (subject.includes('genetic') || topic.includes('dna') || topic.includes('genetic') || topic.includes('protein')) {
+      theme = 'lab'; sky = '#e8e8e8';
+    } else if (subject.includes('human') || topic.includes('anatomy') || topic.includes('body') || topic.includes('organ')) {
+      theme = 'cell'; sky = '#2d1b3d';
+    } else if (topic.includes('photosynth') || topic.includes('plant')) {
+      theme = 'grassland'; sky = '#4a90d9';
+    } else if (topic.includes('space') || topic.includes('astro')) {
+      theme = 'space'; sky = '#0a0a1a';
+    }
+
+    if (!config.environment.terrain_theme) {
+      config.environment.terrain_theme = theme;
+      fixes.push(`[TERRAIN] Auto-selected theme: "${theme}"`);
+    }
+    if (!config.environment.sky_color) {
+      config.environment.sky_color = sky;
+      fixes.push(`[TERRAIN] Auto-selected sky: "${sky}"`);
+    }
+  }
+
   if (fixes.length > 0) {
     console.log('[GAMEPLAY VALIDATION]', fixes.length, 'consistency fixes:');
     fixes.forEach((f) => console.log('  ', f));

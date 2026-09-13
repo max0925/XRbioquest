@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import AdmZip from 'adm-zip';
 import fs from 'fs';
 import path from 'path';
+import { requireApiUser } from '@/lib/api/auth';
 
 const SKETCHFAB_API_KEY = process.env.SKETCHFAB_API_TOKEN || '';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { modelUid, modelName } = body;
 
-    if (!modelUid) {
+    if (typeof modelUid !== 'string' || !/^[a-zA-Z0-9]{1,64}$/.test(modelUid)) {
       return NextResponse.json({ error: 'Model UID is required' }, { status: 400 });
     }
 
@@ -49,7 +53,17 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Download the ZIP file
     const zipResponse = await fetch(gltfDownload);
+    if (!zipResponse.ok) {
+      return NextResponse.json({ error: 'Failed to download model file' }, { status: 502 });
+    }
+    const contentLength = Number(zipResponse.headers.get('content-length') || 0);
+    if (contentLength > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Model archive is too large' }, { status: 413 });
+    }
     const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
+    if (zipBuffer.byteLength > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Model archive is too large' }, { status: 413 });
+    }
 
     // Step 3: Extract ZIP using adm-zip
     const zip = new AdmZip(zipBuffer);
@@ -106,9 +120,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Download error:', error);
+    console.error('Download failed');
     return NextResponse.json(
-      { error: error.message || 'Failed to download and process model' },
+      { error: 'Failed to download and process model' },
       { status: 500 }
     );
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 import OpenAI from 'openai';
 
 // Response type matching the required format
@@ -60,6 +61,9 @@ User: "Take me to space"
 Response: {"reply": "Transporting you to a starry space environment!", "skybox_style": "Deep space with distant galaxies, nebulae clouds, stars twinkling, cosmic dust, infinite void, purple and blue hues, 8k photorealistic", "lighting_color": "#8b5cf6", "channel_state": 0.5}`;
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   // Validate API key
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
@@ -141,7 +145,7 @@ export async function POST(request: NextRequest) {
     // Return graceful error response in the expected format
     return NextResponse.json(
       {
-        reply: `Error: ${error.message || 'An unexpected error occurred. Please try again.'}`,
+        reply: 'An unexpected error occurred. Please try again.',
         skybox_style: 'Clean modern laboratory with white walls, scientific equipment, 8k',
         lighting_color: '#ffffff',
         channel_state: 0.5

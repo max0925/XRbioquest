@@ -194,8 +194,14 @@ export function registerPlayComponents() {
           var phaseType = window.currentPlayPhaseType;
           var isDeliveryPhase = phaseType === 'drag' || phaseType === 'drag-multi' || phaseType === 'drag-chain';
 
-          console.log('[delivery-click]', targetId, 'phase:', phaseType, 'expected:', window.currentPlayDeliveryTargetId,
-            'selected:', window.playSelectedItem, 'inventory:', window.currentPlayInventory);
+          console.log('[delivery-click]', targetId,
+            'phase:', phaseType,
+            'phaseId:', window.currentPlayPhaseId,
+            'expected:', window.currentPlayDeliveryTargetId,
+            'selected:', window.playSelectedItem,
+            'inventory:', window.currentPlayInventory,
+            'collectible:', window.currentPlayCollectibleItems ? Array.from(window.currentPlayCollectibleItems) : [],
+            'deliverable:', window.currentPlayDeliverableItems ? Array.from(window.currentPlayDeliverableItems) : []);
 
           if (!isDeliveryPhase) return;
           if (targetId !== window.currentPlayDeliveryTargetId) return;
@@ -437,9 +443,281 @@ export function registerPlayComponents() {
     });
   }
 
-  // ─── 5. PLAY-GRAVITY ──────────────────────────────────────────────────
-  // Pulls the camera rig down to y=1.6 (eye height at ground level).
-  // Uses object3D.position directly — no schema, no attribute parsing issues.
+  // ─── 5. LOWPOLY-TERRAIN ──────────────────────────────────────────────
+  // Procedurally generates a low-poly terrain mesh using layered sin/cos
+  // noise. Vertex colors are assigned per-vertex based on height + theme.
+  if (!window.AFRAME.components['lowpoly-terrain']) {
+    window.AFRAME.registerComponent('lowpoly-terrain', {
+      schema: {
+        theme: { default: 'grassland' },
+        size: { default: 60 },
+        segments: { default: 24 },
+        maxHeight: { default: 3 },
+        seed: { default: 42 }
+      },
+
+      init: function () {
+        var d = this.data;
+        var THREE = window.THREE;
+
+        // 1. Geometry — horizontal plane
+        var geo = new THREE.PlaneGeometry(d.size, d.size, d.segments, d.segments);
+        geo.rotateX(-Math.PI / 2);
+
+        // 2. Displace vertices with layered sin/cos noise
+        var verts = geo.attributes.position.array;
+        var half = d.size * 0.5;
+        for (var i = 0; i < verts.length; i += 3) {
+          var x = verts[i];
+          var z = verts[i + 2];
+          var h = 0;
+          h += Math.sin(x * 0.1 + d.seed) * Math.cos(z * 0.1 + d.seed) * d.maxHeight * 0.5;
+          h += Math.sin(x * 0.3 + d.seed * 2) * Math.cos(z * 0.2 + d.seed * 3) * d.maxHeight * 0.3;
+          h += Math.sin(x * 0.7 + d.seed * 5) * Math.cos(z * 0.5 + d.seed * 7) * d.maxHeight * 0.15;
+          // Edge fade — flatten borders so player can't walk onto cliffs
+          var dist = Math.sqrt(x * x + z * z) / half;
+          var fade = Math.max(0, 1 - dist * dist);
+          verts[i + 1] = h * fade;
+        }
+        geo.computeVertexNormals();
+
+        // 3. Height-based vertex colors
+        var colorThemes = {
+          grassland: { low: [0.2, 0.5, 0.3], mid: [0.3, 0.7, 0.2], high: [0.5, 0.4, 0.2], water: [0.2, 0.4, 0.7] },
+          ocean:     { low: [0.1, 0.2, 0.4], mid: [0.1, 0.3, 0.5], high: [0.2, 0.4, 0.3], water: [0.05, 0.15, 0.35] },
+          cell:      { low: [0.7, 0.5, 0.6], mid: [0.8, 0.6, 0.7], high: [0.6, 0.4, 0.5], water: [0.5, 0.3, 0.5] },
+          lab:       { low: [0.85, 0.85, 0.85], mid: [0.9, 0.9, 0.9], high: [0.75, 0.75, 0.78], water: [0.7, 0.7, 0.72] },
+          space:     { low: [0.15, 0.1, 0.2], mid: [0.2, 0.15, 0.25], high: [0.3, 0.2, 0.35], water: [0.1, 0.05, 0.15] }
+        };
+        var pal = colorThemes[d.theme] || colorThemes.grassland;
+
+        var colors = [];
+        for (var i = 0; i < verts.length; i += 3) {
+          var y = verts[i + 1];
+          var ratio = (y + d.maxHeight) / (d.maxHeight * 2);
+          var c;
+          if (y < -0.3)      c = pal.water;
+          else if (ratio < 0.4) c = pal.low;
+          else if (ratio < 0.7) c = pal.mid;
+          else                   c = pal.high;
+          // Slight random jitter for organic feel
+          colors.push(
+            c[0] + (Math.random() - 0.5) * 0.05,
+            c[1] + (Math.random() - 0.5) * 0.05,
+            c[2] + (Math.random() - 0.5) * 0.05
+          );
+        }
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+        // 4. Flat-shaded material → low-poly look
+        var mat = new THREE.MeshLambertMaterial({
+          vertexColors: true,
+          flatShading: true
+        });
+
+        // 5. Add mesh
+        var mesh = new THREE.Mesh(geo, mat);
+        mesh.name = 'lowpoly-terrain';
+        mesh.receiveShadow = true;
+        this.el.setObject3D('mesh', mesh);
+
+        // Expose for terrain-follow raycasting
+        this.el.terrainMesh = mesh;
+      }
+    });
+  }
+
+  // ─── 5b. TERRAIN-FOLLOW ────────────────────────────────────────────────
+  // Attached to camera rig. Raycasts downward each tick to find the terrain
+  // surface height and pins the rig to it. Includes boundary clamping.
+  if (!window.AFRAME.components['terrain-follow']) {
+    window.AFRAME.registerComponent('terrain-follow', {
+      schema: {
+        offset: { default: 1.6 },   // eye height above ground
+        boundary: { default: 55 }    // XZ clamp radius
+      },
+
+      init: function () {
+        this._raycaster = new window.THREE.Raycaster(
+          new window.THREE.Vector3(),
+          new window.THREE.Vector3(0, -1, 0)
+        );
+        this._lastGroundY = 0;
+      },
+
+      tick: function () {
+        var terrainEl = document.querySelector('[lowpoly-terrain]');
+        if (!terrainEl || !terrainEl.terrainMesh) return;
+
+        var pos = this.el.object3D.position;
+        var bnd = this.data.boundary;
+
+        // Boundary clamp
+        if (pos.x > bnd)  pos.x = bnd;
+        if (pos.x < -bnd) pos.x = -bnd;
+        if (pos.z > bnd)  pos.z = bnd;
+        if (pos.z < -bnd) pos.z = -bnd;
+
+        // Raycast from high above straight down
+        this._raycaster.ray.origin.set(pos.x, 50, pos.z);
+        var hits = this._raycaster.intersectObject(terrainEl.terrainMesh);
+        if (hits.length > 0) {
+          this._lastGroundY = hits[0].point.y;
+        }
+        pos.y = this._lastGroundY + this.data.offset;
+      }
+    });
+  }
+
+  // ─── 5c. TERRAIN-SNAP ───────────────────────────────────────────────────
+  // Attached to asset entities. Waits for model-loaded + auto-scale to finish,
+  // then raycasts down to find terrain surface and pins entity so its model
+  // bottom sits exactly on the ground.
+  if (!window.AFRAME.components['terrain-snap']) {
+    window.AFRAME.registerComponent('terrain-snap', {
+      schema: {
+        offset: { default: 0 },
+        fallbackOffset: { default: 0.6 }
+      },
+
+      init: function () {
+        var self = this;
+        self._snapped = false;
+        var el = self.el;
+
+        var hasModel = el.hasAttribute('gltf-model') ||
+                       el.querySelector('a-gltf-model') !== null ||
+                       el.tagName === 'A-GLTF-MODEL';
+
+        if (!hasModel) {
+          // Placeholder path: snap after terrain is ready
+          setTimeout(function () { self._snapToTerrain(false); }, 600);
+          return;
+        }
+
+        // GLTF path — check if auto-scale is present
+        var gltfChild = el.querySelector('a-gltf-model');
+        var autoScaleTarget = gltfChild && gltfChild.hasAttribute('config-auto-scale') ? gltfChild : null;
+
+        if (autoScaleTarget) {
+          // Wait for auto-scale-complete (emitted after scale + centering)
+          var onScaleComplete = function () {
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                self._snapToTerrain(true);
+              });
+            });
+          };
+          autoScaleTarget.addEventListener('auto-scale-complete', onScaleComplete, { once: true });
+          self._cleanup = function () {
+            autoScaleTarget.removeEventListener('auto-scale-complete', onScaleComplete);
+          };
+        } else {
+          // Fallback: no auto-scale, just wait for model-loaded + 2 frames
+          var target = gltfChild || el;
+          var onLoaded = function () {
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                self._snapToTerrain(true);
+              });
+            });
+          };
+          target.addEventListener('model-loaded', onLoaded, { once: true });
+          self._cleanup = function () {
+            target.removeEventListener('model-loaded', onLoaded);
+          };
+        }
+      },
+
+      _snapToTerrain: function (hasModel) {
+        if (this._snapped) return;
+        this._snapped = true;
+
+        var terrainEl = document.querySelector('[lowpoly-terrain]');
+        if (!terrainEl || !terrainEl.terrainMesh) {
+          console.log('[terrain-snap] No terrain found, skipping');
+          return;
+        }
+
+        var pos = this.el.object3D.position;
+
+        var raycaster = new window.THREE.Raycaster(
+          new window.THREE.Vector3(pos.x, 50, pos.z),
+          new window.THREE.Vector3(0, -1, 0)
+        );
+        var hits = raycaster.intersectObject(terrainEl.terrainMesh);
+        if (hits.length === 0) {
+          console.log('[terrain-snap] No hit at', pos.x.toFixed(1), pos.z.toFixed(1));
+          return;
+        }
+
+        var groundY = hits[0].point.y;
+
+        if (hasModel) {
+          // Compute bbox from ONLY visible Mesh nodes — excludes hidden helpers,
+          // invisible sub-nodes, and the parent's hit-detection sphere
+          var gltfChild = this.el.querySelector('a-gltf-model');
+          var bboxRoot = gltfChild ? gltfChild.object3D : this.el.object3D;
+          bboxRoot.updateMatrixWorld(true);
+
+          var box = new window.THREE.Box3();
+          var hasAny = false;
+          bboxRoot.traverse(function(node) {
+            if (node.isMesh && node.visible && node.geometry) {
+              if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
+              var nodeBox = node.geometry.boundingBox.clone();
+              nodeBox.applyMatrix4(node.matrixWorld);
+              if (hasAny) {
+                box.union(nodeBox);
+              } else {
+                box.copy(nodeBox);
+                hasAny = true;
+              }
+            }
+          });
+
+          if (!hasAny) {
+            // Fallback if no visible meshes found
+            box.setFromObject(bboxRoot);
+          }
+
+          var bottomY = box.min.y;
+          var topY = box.max.y;
+          var height = topY - bottomY;
+          var bottomOffset = pos.y - bottomY;
+          var oldY = pos.y;
+          pos.y = groundY + bottomOffset + this.data.offset;
+
+          console.log('[terrain-snap] GLTF:', this.el.getAttribute('data-asset-id'),
+            '| entity.y before:', oldY.toFixed(2),
+            '| bbox min.y:', bottomY.toFixed(2),
+            '| bbox max.y:', topY.toFixed(2),
+            '| bbox height:', height.toFixed(2),
+            '| bottomOffset:', bottomOffset.toFixed(2),
+            '| groundY:', groundY.toFixed(2),
+            '| final.y:', pos.y.toFixed(2));
+        } else {
+          pos.y = groundY + this.data.fallbackOffset + this.data.offset;
+          var assetId = this.el.getAttribute('data-asset-id');
+          console.log('[terrain-snap] Placeholder:',
+            assetId || '(no asset-id, tag=' + this.el.tagName + ', classes=' + this.el.className + ')',
+            '| groundY:', groundY.toFixed(2),
+            '| fallbackOffset:', this.data.fallbackOffset,
+            '| final.y:', pos.y.toFixed(2));
+        }
+
+        // Update data-base-y so config-collectible's bobbing uses the snapped Y
+        this.el.setAttribute('data-base-y', String(pos.y));
+      },
+
+      remove: function () {
+        if (this._cleanup) this._cleanup();
+      }
+    });
+  }
+
+  // ─── 5d. PLAY-GRAVITY (legacy fallback) ─────────────────────────────────
+  // Kept for backward compat when no terrain is present.
   if (!window.AFRAME.components['play-gravity']) {
     window.AFRAME.registerComponent('play-gravity', {
       init: function () {
@@ -496,14 +774,8 @@ export function registerPlayComponents() {
           self.el.setAttribute('data-auto-scale', s);
           // Force world matrix update so bounding box reflects the new scale
           self.el.object3D.updateMatrixWorld(true);
-          // Re-compute bounding box and center the mesh at entity origin
-          box.setFromObject(meshNode);
-          var center = box.getCenter(new window.THREE.Vector3());
-          // Convert world-space center to local-space offset
-          var entityPos = self.el.object3D.getWorldPosition(new window.THREE.Vector3());
-          meshNode.position.x -= (center.x - entityPos.x) / s;
-          meshNode.position.y -= (center.y - entityPos.y) / s;
-          meshNode.position.z -= (center.z - entityPos.z) / s;
+          // Notify terrain-snap that scaling is done
+          self.el.emit('auto-scale-complete');
         }, 0);
       },
       remove: function () {

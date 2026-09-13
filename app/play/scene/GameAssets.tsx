@@ -167,6 +167,7 @@ export const GameAssets = memo(function GameAssets({ config, currentPhase, chain
                 : 'opacity: 0.001; transparent: true; side: double'
             }
             class={`clickable grabbable cursor-listener`}
+            terrain-snap=""
             // Config-driven click component (active for non-draggable assets)
             {...(!isDraggable && {
               'config-clickable': '',

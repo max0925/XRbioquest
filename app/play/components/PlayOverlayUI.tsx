@@ -579,6 +579,7 @@ function QuizModal({
       // Auto-advance after 2s so user can read explanation
       setTimeout(() => onAnswer(opt.id, true), 2000);
     } else {
+      onAnswer(opt.id, false);
       setWrongId(opt.id);
       setShake(opt.id);
       setTimeout(() => { setWrongId(null); setShake(null); }, 700);

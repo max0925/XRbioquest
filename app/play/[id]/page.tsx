@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 import { loadGameConfig, resolveAssetPaths } from '@/lib/game-config-loader';
 import { registerPlayComponents } from '../aframe/registerPlayComponents';
@@ -45,10 +45,14 @@ function isExplorePhase(p: PhaseConfig): p is ExplorePhase {
 
 export default function PlayPage() {
   const { id } = useParams<{ id: string }>();
+  const assignmentId = useSearchParams().get('assignmentId');
 
   // ── Config loading ──
   const [config, setConfig] = useState<ResolvedGameConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [trackingReady, setTrackingReady] = useState(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
 
   // ── A-Frame readiness ──
   const [ready, setReady] = useState(false);
@@ -98,6 +102,10 @@ export default function PlayPage() {
     if (!id) return;
     loadGameConfig(id)
       .then((raw) => {
+        console.log('[DEBUG] meta:', JSON.stringify(raw.meta, null, 2));
+        console.log('[DEBUG] assets:', JSON.stringify(raw.assets, null, 2));
+        console.log('[DEBUG] phases:', JSON.stringify(raw.phases, null, 2));
+        console.log('[DEBUG] npc:', JSON.stringify(raw.npc, null, 2));
         const resolved = resolveAssetPaths(raw);
         setConfig(resolved);
         (window as any).__playGameTitle = resolved.meta?.title ?? '';
@@ -107,6 +115,70 @@ export default function PlayPage() {
         setConfigError(err.message);
       });
   }, [id]);
+
+  // Assignment links create or resume a server-validated attempt. Public links
+  // skip this path entirely and remain anonymous/untracked.
+  useEffect(() => {
+    if (!config || !id) return;
+    if (!assignmentId) { setTrackingReady(true); return; }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/assignment-attempts/start', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignmentId, experienceId: id }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body.attempt) throw new Error(body.error || 'Assignment access could not be verified.');
+        if (cancelled) return;
+        const completed = new Set<string>(body.attempt.completed_phase_ids ?? []);
+        const nextIndex = config.phases.findIndex((candidate) => candidate.type !== 'intro' && candidate.type !== 'complete' && !completed.has(candidate.id));
+        const completeIndex = config.phases.findIndex((candidate) => candidate.type === 'complete');
+        const resumeIndex = completed.size === 0 ? 0 : nextIndex >= 0 ? nextIndex : Math.max(0, completeIndex);
+        setAttemptId(body.attempt.id);
+        setPhaseIndex(resumeIndex);
+        setScore(config.phases.reduce((total, candidate) => completed.has(candidate.id) ? total + (candidate.points ?? 0) : total, 0));
+        setTrackingReady(true);
+      } catch (error) {
+        if (!cancelled) setTrackingError(error instanceof Error ? error.message : 'Assignment access could not be verified.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [assignmentId, config, id]);
+
+  // ─── Poll for skybox_url update (async generation in workspace) ──────────
+
+  useEffect(() => {
+    if (!id || !config) return;
+    // Already have a skybox — no need to poll
+    if (config.environment?.skybox_url) return;
+    // Local JSON experiences won't get async skybox updates
+    if (!config.environment?.skybox_prompt) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 × 4s = 2 min max
+    const interval = setInterval(async () => {
+      if (cancelled || attempts >= maxAttempts) {
+        clearInterval(interval);
+        return;
+      }
+      attempts++;
+      try {
+        const raw = await loadGameConfig(id);
+        if (raw.environment?.skybox_url) {
+          console.log('[PLAY] Skybox ready:', raw.environment.skybox_url);
+          const resolved = resolveAssetPaths(raw);
+          setConfig(resolved);
+          clearInterval(interval);
+        }
+      } catch {
+        // ignore — DB might be momentarily unavailable
+      }
+    }, 4000);
+
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [id, config?.environment?.skybox_url]);
 
   // ─── Populate window.playAssetPositions from config ─────────────────────
 
@@ -126,7 +198,6 @@ export default function PlayPage() {
 
     if (!window.AFRAME) {
       require('aframe');
-      require('aframe-environment-component');
       require('aframe-extras');
     }
 
@@ -197,7 +268,11 @@ export default function PlayPage() {
     window.currentPlayDeliverableItems = collectibleItems;
 
     let deliveryTargetId = '';
-    if (isDragPhase(phase)) {
+    if (isClickPhase(phase)) {
+      deliveryTargetId = phase.target_asset || '';
+    } else if (isExplorePhase(phase)) {
+      deliveryTargetId = (phase as any).target_asset || '';
+    } else if (isDragPhase(phase)) {
       deliveryTargetId = phase.drag_target;
     } else if (isDragMultiPhase(phase)) {
       deliveryTargetId = phase.drag_target;
@@ -264,6 +339,24 @@ export default function PlayPage() {
     setScore((s) => Math.min(s + pts, max));
   }, [config, score]);
 
+  const saveAssignmentPhase = useCallback(async (phaseId: string, answer: { option_id: string } | null = null) => {
+    if (!assignmentId) return true;
+    if (!attemptId || !id) return false;
+    try {
+      const response = await fetch(`/api/assignment-attempts/${encodeURIComponent(attemptId)}/progress`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ experienceId: id, phaseId, answer }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Progress could not be saved.');
+      setTrackingError(null);
+      return true;
+    } catch (error) {
+      setTrackingError(error instanceof Error ? error.message : 'Progress could not be saved.');
+      return false;
+    }
+  }, [assignmentId, attemptId, id]);
+
   const advancePhase = useCallback(() => {
     if (!config) return;
     setPhaseIndex((i) => {
@@ -312,10 +405,11 @@ export default function PlayPage() {
   // ─── Event: play-advance ─────────────────────────────────────────────────
 
   useEffect(() => {
-    const handler = () => {
+    const handler = async () => {
       if (advancedRef.current) return;
       advancedRef.current = true;
       if (!config || !phase || !isClickPhase(phase)) return;
+      if (!await saveAssignmentPhase(phase.id)) { advancedRef.current = false; return; }
       addScore(phase.points ?? 0);
       advancePhase();
       showCard(phase.id);
@@ -323,12 +417,12 @@ export default function PlayPage() {
     };
     window.addEventListener('play-advance', handler);
     return () => window.removeEventListener('play-advance', handler);
-  }, [config, phase, advancePhase, showCard, addScore]);
+  }, [config, phase, advancePhase, showCard, addScore, saveAssignmentPhase]);
 
   // ─── Event: play-drag-success ─────────────────────────────────────────────
 
   useEffect(() => {
-    const handler = (e: CustomEvent) => {
+    const handler = async (e: CustomEvent) => {
       if (!config || !phase) return;
       const { phaseId } = e.detail ?? {};
       if (phaseId !== phase.id) return;
@@ -346,6 +440,7 @@ export default function PlayPage() {
       }
 
       if (isDragPhase(phase)) {
+        if (!await saveAssignmentPhase(phase.id)) return;
         const elapsed = (Date.now() - phaseStartTime.current) / 1000;
         const bonus =
           phase.time_bonus && elapsed < phase.time_bonus.threshold_seconds
@@ -361,6 +456,7 @@ export default function PlayPage() {
         const count = dragMultiCountRef.current;
         setPhaseProgress((prev) => (prev ? { ...prev, count } : prev));
         if (count >= phase.total) {
+          if (!await saveAssignmentPhase(phase.id)) return;
           addScore(phase.points ?? 0);
           showCard(phase.id);
           advancePhase();
@@ -373,6 +469,7 @@ export default function PlayPage() {
           prev ? { ...prev, step: nextStep, count: nextStep } : prev
         );
         if (isLast) {
+          if (!await saveAssignmentPhase(phase.id)) return;
           addScore(phase.points ?? 0);
           showCard(phase.id);
           advancePhase();
@@ -395,7 +492,7 @@ export default function PlayPage() {
     };
     window.addEventListener('play-drag-success', handler as EventListener);
     return () => window.removeEventListener('play-drag-success', handler as EventListener);
-  }, [config, phase, advancePhase, showCard, addScore]);
+  }, [config, phase, advancePhase, showCard, addScore, saveAssignmentPhase]);
 
   // ─── Event: play-item-collected ──────────────────────────────────────────
 
@@ -457,8 +554,10 @@ export default function PlayPage() {
   // and schedules phase advance after a 2-second explanation window.
 
   const handleQuizAnswer = useCallback(
-    (optionId: string, isCorrect: boolean) => {
-      if (!config || !phase || !isQuizPhase(phase) || !isCorrect) return;
+    async (optionId: string, isCorrect: boolean) => {
+      if (!config || !phase || !isQuizPhase(phase)) return;
+      if (!await saveAssignmentPhase(phase.id, { option_id: optionId })) return;
+      if (!isCorrect) return;
       setQuizAnswered(true);
       addScore(phase.points ?? 0);
       showCard(phase.id);
@@ -467,16 +566,17 @@ export default function PlayPage() {
         advancePhase();
       }, 2000);
     },
-    [config, phase, advancePhase, showCard, addScore]
+    [config, phase, advancePhase, showCard, addScore, saveAssignmentPhase]
   );
 
   // ─── Event: play-proximity-reached (ExplorePhase) ─────────────────────────
 
   useEffect(() => {
-    const handler = (e: CustomEvent) => {
+    const handler = async (e: CustomEvent) => {
       if (!config || !phase) return;
       const { phaseId } = e.detail ?? {};
       if (phaseId !== phase.id || !isExplorePhase(phase)) return;
+      if (!await saveAssignmentPhase(phase.id)) return;
       addScore(phase.points ?? 0);
       showCard(phase.id);
       advancePhase();
@@ -484,7 +584,7 @@ export default function PlayPage() {
     window.addEventListener('play-proximity-reached', handler as EventListener);
     return () =>
       window.removeEventListener('play-proximity-reached', handler as EventListener);
-  }, [config, phase, advancePhase, showCard, addScore]);
+  }, [config, phase, advancePhase, showCard, addScore, saveAssignmentPhase]);
 
   // ─── Event: play-npc-talk (NPC clicked or proximity prompt) ─────────────────
 
@@ -571,6 +671,18 @@ export default function PlayPage() {
             history: npcMessages,
           }),
         });
+        if (res.status === 401 || res.status === 403) {
+          const body = await res.json().catch(() => ({}));
+          setNpcMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: body.message || 'NPC chat is available in teacher-assigned classroom sessions.',
+            },
+          ]);
+          return;
+        }
+        if (!res.ok) throw new Error('NPC chat request failed');
         const data = await res.json();
         const reply = data.reply ?? "Keep exploring — I'm sure you'll figure it out!";
         setNpcMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
@@ -631,7 +743,18 @@ export default function PlayPage() {
     );
   }
 
-  if (!config || !ready) {
+  if (assignmentId && trackingError && !trackingReady) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 px-6">
+        <div role="alert" className="max-w-md rounded-2xl border border-red-900 bg-slate-900 p-7 text-center text-white">
+          <p className="font-bold text-red-300">Assignment access unavailable</p>
+          <p className="mt-2 text-sm text-slate-300">{trackingError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!config || !ready || (assignmentId && !trackingReady)) {
     return (
       <div
         className="h-screen w-screen flex items-center justify-center"
@@ -661,17 +784,18 @@ export default function PlayPage() {
           embedded
           vr-mode-ui="enabled: false"
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-          fog="type: exponential; color: #0a1628; density: 0.008"
+          fog={`type: exponential; color: ${config.environment.sky_color || '#87CEEB'}; density: 0.015`}
           play-native-click-handler
         >
-          {/* Environment — A-Frame built-in with flat ground, preset from config */}
-          <a-entity environment={`preset: ${config.environment.preset || 'default'}; ground: flat; fog: 0.3; grid: none; dressing: none; dressingAmount: 0`}></a-entity>
+          {/* Low-poly procedural terrain */}
+          <a-entity lowpoly-terrain={`theme: ${config.environment.terrain_theme || 'grassland'}; size: 120; segments: 40; maxHeight: 3`}></a-entity>
 
-          {/* Boundary walls (invisible) */}
-          <a-box position="0 2 -40" width="80" height="5" depth="1" visible="false"></a-box>
-          <a-box position="0 2 5" width="80" height="5" depth="1" visible="false"></a-box>
-          <a-box position="40 2 -20" width="1" height="5" depth="80" visible="false"></a-box>
-          <a-box position="-40 2 -20" width="1" height="5" depth="80" visible="false"></a-box>
+          {/* Sky — use AI skybox if available, fall back to solid color */}
+          {config.environment.skybox_url ? (
+            <a-sky src={config.environment.skybox_url} rotation="0 -90 0"></a-sky>
+          ) : (
+            <a-sky color={config.environment.sky_color || '#87CEEB'}></a-sky>
+          )}
 
           {/* Mouse cursor entity — rayOrigin: mouse shoots from the active camera
               using mouse NDC position, regardless of this entity's world position. */}
@@ -685,17 +809,10 @@ export default function PlayPage() {
 
           <GameAssets config={config} currentPhase={phase} chainStep={chainStep} />
           <Lighting />
-          {/* gravity pulls rig to y=0; camera child at y=1.6 gives eye height */}
-          <CameraRig phaseTitle={phase.title} phaseInstruction={phase.instruction} spawnPosition="0 2 0" gravity={true} />
+          {/* terrain-follow pins rig Y to ground + offset; boundary clamping in component */}
+          <CameraRig phaseTitle={phase.title} phaseInstruction={phase.instruction} spawnPosition="0 2 0" terrainFollow={true} />
 
-          <a-plane
-            class="teleport-floor"
-            position="0 -1 0"
-            rotation="-90 0 0"
-            width="20"
-            height="20"
-            material="color: #10b981; opacity: 0.1; transparent: true; visible: false"
-          ></a-plane>
+          {/* Teleport floor removed — terrain mesh provides ground */}
         </a-scene>
       </WebGLCheck>
 
@@ -779,6 +896,11 @@ export default function PlayPage() {
                 }}
               >
                 {collectToast}
+              </div>
+            )}
+            {trackingError && (
+              <div role="alert" className="fixed left-1/2 top-20 max-w-md -translate-x-1/2 rounded-xl border border-red-400 bg-red-950/95 px-5 py-3 text-center text-sm font-semibold text-red-100" style={{ zIndex: 10005 }}>
+                {trackingError} Try the phase action again.
               </div>
             )}
             {wrongClickHint && (

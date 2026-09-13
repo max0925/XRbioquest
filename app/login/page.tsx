@@ -3,11 +3,13 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getClassroomRole } from '@/lib/classroom/roles';
+import { safeRoleRedirect } from '@/lib/auth/signup';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/";
+  const redirectTo = searchParams.get("redirect");
   const messageParam = searchParams.get("message");
 
   const [email, setEmail] = useState("");
@@ -66,12 +68,16 @@ function LoginForm() {
       }
 
       if (data.user) {
-        // Success! Redirect to specified page or default
-        router.push(redirectTo);
+        const role = getClassroomRole(data.user);
+        if (!role) {
+          setError('Classroom role required. Ask an administrator to update this account.');
+          return;
+        }
+        router.replace(safeRoleRedirect(redirectTo, role));
         router.refresh();
       }
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error('[LOGIN] Sign-in failed', { message: err instanceof Error ? err.message : 'Unknown sign-in error' });
 
       // Handle specific error messages
       if (err.message?.includes("Invalid login credentials")) {
@@ -91,7 +97,7 @@ function LoginForm() {
       const supabase = createClient();
       // Build callback URL with redirect destination
       const callbackUrl = new URL("/auth/callback", window.location.origin);
-      if (redirectTo !== "/") {
+      if (redirectTo) {
         callbackUrl.searchParams.set("redirect", redirectTo);
       }
 

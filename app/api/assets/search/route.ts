@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q') || "";
+  const query = (searchParams.get('q') || '').trim();
+  if (!query || query.length > 200) {
+    return NextResponse.json({ error: 'A valid search query is required' }, { status: 400 });
+  }
 
   const apiKey = process.env.SKETCHFAB_API_TOKEN;
   if (!apiKey) {
@@ -20,10 +27,13 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Asset search failed' }, { status: 502 });
+    }
     const data = await response.json();
     // 确保返回 data.results 数组，防止前端 map 报错
     return NextResponse.json(data.results || []);
-  } catch (error) {
-    return NextResponse.json([]);
+  } catch {
+    return NextResponse.json({ error: 'Asset search failed' }, { status: 502 });
   }
 }

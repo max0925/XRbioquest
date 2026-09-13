@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 
 export const maxDuration = 30;
 
@@ -6,6 +7,9 @@ const MESHY_DISABLED = false;
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   // Guard: Return immediately if Meshy is disabled
   if (MESHY_DISABLED) {
     return NextResponse.json({
@@ -16,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     const { previewTaskId } = await request.json();
 
-    if (!previewTaskId) {
+    if (typeof previewTaskId !== 'string' || !previewTaskId || previewTaskId.length > 200) {
       return NextResponse.json({ error: 'previewTaskId is required' }, { status: 400 });
     }
 
@@ -45,9 +49,8 @@ export async function POST(request: NextRequest) {
     clearTimeout(timer);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[MESHY] Refine request failed:', errorText);
-      return NextResponse.json({ error: 'Meshy API rejected refine request', details: errorText }, { status: 500 });
+      console.error('[MESHY] Provider rejected refinement', { status: response.status });
+      return NextResponse.json({ error: 'Model refinement failed' }, { status: 502 });
     }
 
     const data = await response.json();
@@ -63,6 +66,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ taskId: taskId });
   } catch (error: any) {
     console.error('[MESHY] Refine error:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Model refinement failed' }, { status: 500 });
   }
 }

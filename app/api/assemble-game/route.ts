@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 import OpenAI from 'openai';
 import { validateGameConfig } from '@/lib/game-config-loader';
 import { buildAssetTableForPrompt, getAvailableAssets, type AssetRegistryEntry } from '@/lib/asset-registry';
@@ -256,22 +257,42 @@ OUTPUT JSON SCHEMA (exact shape required)
 }
 
 ════════════════════════════════════════
-ENVIRONMENT PRESET GUIDE
+ENVIRONMENT GUIDE
 ════════════════════════════════════════
-Always include BOTH skybox_prompt AND preset. The preset renders immediately
-as a fallback; skybox_prompt is used to generate a photorealistic skybox later.
+The scene uses a procedural low-poly terrain with a solid-color sky.
+Set environment.terrain_theme and environment.sky_color:
 
-environment.preset MUST be one of these 5 clean presets:
-  forest, starry, japan, default, dream
+terrain_theme options:
+  grassland → green hills, ecology / plants / photosynthesis / general
+  ocean     → blue seabed, marine biology / ocean / coral reef
+  cell      → pink/purple organic, cell biology / human body / anatomy
+  lab       → clean white/grey, genetics / DNA / chemistry
+  space     → dark purple, astronomy / space
 
-Choose preset based on the lesson topic:
-  Cell biology / biochemistry   → "default" (clean green field)
-  Genetics / DNA                → "starry"  (night sky, mysterious)
-  Ecology / plants / ecosystems → "forest"  (dense forest)
-  Photosynthesis / plants       → "japan"   (cherry blossoms, calm)
-  Ocean / marine / human body   → "dream"   (soft ethereal landscape)
-  General biology               → "default" (green field)
-  Middle school                 → "japan"   (calm, approachable aesthetic)
+sky_color pairings (hex string):
+  grassland → "#87CEEB" (sky blue)
+  ocean     → "#1a3a5c" (deep blue)
+  cell      → "#1a0a2e" (deep purple)
+  lab       → "#e8e8e8" (light grey)
+  space     → "#0a0a1a" (near black)
+
+environment.preset MUST be one of: forest, starry, japan, default, dream
+
+skybox_prompt is REQUIRED — it drives AI skybox generation (Blockade Labs).
+STRICT rules for skybox_prompt:
+- MUST start with EXACTLY this prefix (copy verbatim):
+  "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, "
+- Then add 5-10 words of color/lighting description ONLY
+- NEVER mention any object, creature, plant, building, or biological term
+- Total should be under 25 words
+
+Examples by subject:
+  Coral reef / marine:      "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, deep teal blue underwater glow"
+  Cell biology / cytoplasm: "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, soft pink magenta diffuse glow"
+  Genetics / DNA:           "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, deep dark blue cool space"
+  Human body / tissue:      "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, warm red orange interior glow"
+  Photosynthesis / plants:  "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, soft green golden light filtered"
+  Evolution / prehistoric:  "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, misty earth tones warm dawn"
 
 ════════════════════════════════════════
 ASSET PLACEMENT RULES
@@ -560,6 +581,9 @@ function enforceRegistryAssets(cfg: any): { config: any; placeholderAssets: stri
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
   }
@@ -571,7 +595,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     prompt = body.prompt;
     gradeLevel = body.gradeLevel;
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5 || prompt.length > 5_000) {
       return NextResponse.json(
         { error: 'prompt is required (min 5 chars)' },
         { status: 400 }
@@ -601,7 +625,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[assemble-game] OpenAI error:', err.message);
     return NextResponse.json(
-      { error: 'AI generation failed', details: err.message },
+      { error: 'AI generation failed' },
       { status: 502 }
     );
   }

@@ -7,22 +7,24 @@ interface CameraRigProps {
     spawnPosition?: string;
     /** Enable simple gravity — pulls rig to y=0 on every tick. */
     gravity?: boolean;
+    /** Enable terrain-follow — pins rig Y to terrain surface + offset. */
+    terrainFollow?: boolean;
 }
 
-export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2", gravity = false }: CameraRigProps) {
+export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2", gravity = false, terrainFollow = false }: CameraRigProps) {
     return (
         <a-entity
             id="camera-rig"
             position={spawnPosition}
             movement-controls="fly: false; speed: 0.15; controls: gamepad, touch, keyboard"
-            {...(gravity ? { 'play-gravity': '' } : {})}
+            {...(terrainFollow ? { 'terrain-follow': 'boundary: 55' } : gravity ? { 'play-gravity': '' } : {})}
         >
             {/* Camera */}
             <a-camera
                 id="head"
                 look-controls="pointerLockEnabled: false; reverseMouseDrag: false"
                 wasd-controls="acceleration: 65"
-                position="0 1.6 0"
+                position="0 0 0"
             >
                 {/* Crosshair */}
                 <a-entity

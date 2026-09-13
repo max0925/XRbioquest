@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClientId, checkRateLimit, incrementGeneration } from '@/lib/meshyRateLimit';
+import { requireApiUser } from '@/lib/api/auth';
 
 export const maxDuration = 30;
 
@@ -7,6 +8,9 @@ const MESHY_DISABLED = false;
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   // Guard: Return immediately if Meshy is disabled
   if (MESHY_DISABLED) {
     return NextResponse.json({
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
   try {
     const { prompt } = await request.json();
 
-    if (!prompt || typeof prompt !== 'string') {
+    if (!prompt || typeof prompt !== 'string' || prompt.length > 2_000) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
@@ -67,8 +71,8 @@ export async function POST(request: NextRequest) {
     clearTimeout(timer);
 
     if (!generateResponse.ok) {
-      const errorText = await generateResponse.text();
-      return NextResponse.json({ error: 'Meshy API rejected request', details: errorText }, { status: 500 });
+      console.error('[MESHY] Provider rejected generation', { status: generateResponse.status });
+      return NextResponse.json({ error: 'Model generation failed' }, { status: 502 });
     }
 
     const generateData = await generateResponse.json();
@@ -85,10 +89,9 @@ export async function POST(request: NextRequest) {
       success: true,
       taskId: taskId,
       message: 'Generation started with PBR texturing',
-      clientId: clientId // Return clientId for tracking
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Model generation failed' }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 import OpenAI from 'openai';
 
 // Internal asset library with rich metadata for semantic matching
@@ -64,6 +65,9 @@ const openai = new OpenAI({
 });
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({
       error: 'OpenAI API key not configured',
@@ -146,7 +150,7 @@ Respond with JSON: { "match": { "file": "filename.glb", "name": "Asset Name", "c
   } catch (error: any) {
     console.error('Semantic match error:', error);
     return NextResponse.json({
-      error: error.message,
+      error: 'Semantic asset matching failed',
       match: null
     }, { status: 500 });
   }

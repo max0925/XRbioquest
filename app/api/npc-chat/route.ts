@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { requireApiUser } from '@/lib/api/auth';
 
 export const maxDuration = 30;
 
@@ -11,6 +12,18 @@ interface ChatHistoryItem {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireApiUser();
+  if (!auth.ok) {
+    return NextResponse.json(
+      {
+        error: 'NPC chat requires a classroom session',
+        code: 'NPC_CHAT_AUTH_REQUIRED',
+        message: 'NPC chat is available in teacher-assigned classroom sessions.',
+      },
+      { status: 401 },
+    );
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
   }
@@ -39,7 +52,7 @@ export async function POST(req: NextRequest) {
     history = [],
   } = body;
 
-  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+  if (!message || typeof message !== 'string' || message.trim().length === 0 || message.length > 1_000) {
     return NextResponse.json({ error: 'message is required' }, { status: 400 });
   }
 
@@ -83,7 +96,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[npc-chat] OpenAI error:', err.message);
     return NextResponse.json(
-      { error: 'AI request failed', details: err.message },
+      { error: 'AI request failed' },
       { status: 502 }
     );
   }

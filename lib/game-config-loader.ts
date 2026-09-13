@@ -23,7 +23,7 @@ const SUPABASE_STORAGE_BASE =
 
 /**
  * Load a GameConfig: tries bundled local JSON first, then falls back to the
- * Supabase game_configs table (for AI-generated experiences saved at runtime).
+ * protected public-access API (for AI-generated experiences saved at runtime).
  */
 export async function loadGameConfig(id: string): Promise<GameConfig> {
   // 1. Try local JSON file (built-in experiences bundled at build time)
@@ -41,39 +41,20 @@ export async function loadGameConfig(id: string): Promise<GameConfig> {
 }
 
 /**
- * Load a GameConfig from the Supabase game_configs table by record id.
- * Uses the public anon key (safe — NEXT_PUBLIC keys are client-visible).
+ * Load a GameConfig through the visibility-aware application API.
+ * Published and legacy records are public; a signed-in owner may preview drafts.
  */
 export async function loadGameConfigFromDB(id: string): Promise<GameConfig> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !anonKey) {
-    throw new Error(
-      'Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)'
-    );
-  }
-
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/game_configs?id=eq.${encodeURIComponent(id)}&select=config`,
-    {
-      headers: {
-        apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`,
-      },
-    }
-  );
+  const res = await fetch(`/api/public/game-configs/${encodeURIComponent(id)}`, {
+    credentials: 'same-origin',
+  });
 
   if (!res.ok) {
-    throw new Error(`Database fetch failed with status ${res.status}`);
+    throw new Error(res.status === 404 ? 'Experience not found' : 'Experience could not be loaded');
   }
 
-  const rows: Array<{ config: unknown }> = await res.json();
-  if (!Array.isArray(rows) || rows.length === 0) {
-    throw new Error(`No experience found with id "${id}"`);
-  }
-
-  const raw = rows[0].config;
+  const body: { config?: unknown } = await res.json();
+  const raw = body.config;
   validateGameConfig(raw);
   return raw as GameConfig;
 }

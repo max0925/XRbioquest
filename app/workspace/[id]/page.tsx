@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import StructuredLessonEditor from '@/components/workspace/StructuredLessonEditor';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -12,6 +12,9 @@ interface ChatMessage {
   text: string;
   typing?: boolean;
 }
+
+type GameVisibility = 'draft' | 'published';
+type PublicationNotice = { kind: 'success' | 'error' | 'info'; message: string };
 
 // ─── Generation step labels ──────────────────────────────────────────────────
 
@@ -33,6 +36,35 @@ const PHASE_TYPE_MAP: Record<string, string> = {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+async function triggerSkyboxGeneration(cfg: any, dbId: string, setConfig: any) {
+  const skyboxPrompt = cfg.environment?.skybox_prompt;
+  if (!skyboxPrompt) return;
+  try {
+    console.log('[WORKSPACE] Starting skybox generation...');
+    const skyRes = await fetch('/api/generate-skybox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: skyboxPrompt, gameId: dbId }),
+    });
+    if (!skyRes.ok) {
+      console.warn('[WORKSPACE] Skybox generation failed:', skyRes.status);
+      return;
+    }
+    const { file_url, patched, patchError } = await skyRes.json();
+    if (patched && file_url) {
+      console.log('[WORKSPACE] Skybox generated and saved:', file_url);
+      setConfig((prev: any) => ({
+        ...prev,
+        environment: { ...(prev?.environment || {}), skybox_url: file_url },
+      }));
+    } else if (file_url) {
+      console.warn('[WORKSPACE] Skybox generated but DB patch failed:', patchError);
+    }
+  } catch (e: any) {
+    console.warn('[WORKSPACE] Skybox generation error (non-fatal):', e.message);
+  }
+}
+
 export default function WorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -48,8 +80,13 @@ export default function WorkspacePage() {
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [visibility, setVisibility] = useState<GameVisibility | null>(null);
+  const [publicationPending, setPublicationPending] = useState(false);
+  const [publicationNotice, setPublicationNotice] = useState<PublicationNotice | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
+  const [structuredOpen, setStructuredOpen] = useState(false);
+  const [isAssigned, setIsAssigned] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const generatingRef = useRef(false);
@@ -62,21 +99,23 @@ export default function WorkspacePage() {
   // ── Load existing config ──
   useEffect(() => {
     if (id === 'new') return;
-    const supabase = createClient();
-    supabase
-      .from('game_configs')
-      .select('config')
-      .eq('id', id)
-      .single()
-      .then(({ data, error: err }) => {
-        if (err || !data) {
+    fetch(`/api/game-configs/${encodeURIComponent(id)}`)
+      .then(async (response) => ({ response, body: await response.json().catch(() => ({})) }))
+      .then(({ response, body }) => {
+        if (!response.ok || !body.game?.config) {
           setError('Experience not found.');
           setLoading(false);
           return;
         }
-        setConfig(data.config);
+        setConfig(body.game.config);
+        setVisibility(body.game.visibility === 'published' ? 'published' : 'draft');
+        setIsAssigned(body.isAssigned === true);
         setLoading(false);
-        setMessages([buildWelcomeMessage(data.config)]);
+        setMessages([buildWelcomeMessage(body.game.config)]);
+      })
+      .catch(() => {
+        setError('Experience not found.');
+        setLoading(false);
       });
   }, [id]);
 
@@ -128,16 +167,21 @@ export default function WorkspacePage() {
       const data = await res.json();
       const cfg = data.config;
 
-      const dbId = crypto.randomUUID();
-      const supabase = createClient();
-      const { error: dbErr } = await supabase.from('game_configs').insert({
-        id: dbId,
-        config: cfg,
-        title: cfg.meta?.title ?? 'Untitled Experience',
-        subject: cfg.meta?.subject ?? 'Biology',
-        prompt,
+      const createRes = await fetch('/api/game-configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: cfg,
+          title: cfg.meta?.title ?? 'Untitled Experience',
+          subject: cfg.meta?.subject ?? 'Biology',
+          prompt,
+        }),
       });
-      if (dbErr) throw new Error(`Could not save: ${dbErr.message}`);
+      const createBody = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || typeof createBody.id !== 'string') {
+        throw new Error(createBody.error || 'Could not save experience.');
+      }
+      const dbId = createBody.id;
 
       // Wait for DB row to be fully readable before rendering iframe
       console.log('[WORKSPACE] Config saved, waiting for propagation...');
@@ -145,6 +189,7 @@ export default function WorkspacePage() {
 
       // Set config before gameId — gameId triggers iframe render
       setConfig(cfg);
+      setVisibility(createBody.visibility === 'published' ? 'published' : 'draft');
       setLoading(false);
       window.history.replaceState(null, '', `/workspace/${dbId}`);
       setGameId(dbId);
@@ -153,6 +198,11 @@ export default function WorkspacePage() {
         const userMsg = prev.find((m) => m.role === 'user');
         return [...(userMsg ? [{ ...userMsg }] : []), buildWelcomeMessage(cfg)];
       });
+
+      // ── Async skybox generation (non-blocking, server-side DB patch) ──
+      if (cfg.environment?.skybox_prompt && !cfg.environment?.skybox_url) {
+        triggerSkyboxGeneration(cfg, dbId, setConfig);
+      }
     } catch (err: any) {
       clearInterval(stepInterval);
       setLoading(false);
@@ -223,6 +273,15 @@ export default function WorkspacePage() {
 
       console.log('[EDIT] Save OK for', gameId);
 
+      // Detect skybox prompt change → regenerate
+      const oldSkyboxPrompt = config?.environment?.skybox_prompt;
+      const newSkyboxPrompt = newConfig?.environment?.skybox_prompt;
+      if (newSkyboxPrompt && newSkyboxPrompt !== oldSkyboxPrompt) {
+        console.log('[EDIT] Skybox prompt changed, regenerating...');
+        if (newConfig.environment) newConfig.environment.skybox_url = null;
+        triggerSkyboxGeneration(newConfig, gameId, setConfig);
+      }
+
       // Update local state
       setConfig(newConfig);
       setMessages((prev) => [
@@ -245,6 +304,64 @@ export default function WorkspacePage() {
     }
   }, [input, config, gameId, isEditing, messages]);
 
+  const updatePublication = useCallback(async (nextVisibility: GameVisibility) => {
+    if (!gameId || publicationPending) return;
+
+    setPublicationPending(true);
+    setPublicationNotice(null);
+    setShareCopied(false);
+
+    try {
+      const response = await fetch(`/api/game-configs/${encodeURIComponent(gameId)}/publication`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: nextVisibility }),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok || body.visibility !== nextVisibility) {
+        throw new Error('publication-update-failed');
+      }
+
+      setVisibility(nextVisibility);
+      setPublicationNotice({
+        kind: 'success',
+        message: nextVisibility === 'published'
+          ? 'Published. This experience is ready to share with students.'
+          : 'Unpublished. Only you can preview this draft.',
+      });
+    } catch {
+      setPublicationNotice({
+        kind: 'error',
+        message: `Could not ${nextVisibility === 'published' ? 'publish' : 'unpublish'} this experience. Please try again.`,
+      });
+    } finally {
+      setPublicationPending(false);
+    }
+  }, [gameId, publicationPending]);
+
+  const shareWithStudents = useCallback(async () => {
+    if (!gameId) return;
+    if (visibility !== 'published') {
+      setShareCopied(false);
+      setPublicationNotice({
+        kind: 'info',
+        message: 'Publish this experience before sharing it with students.',
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/play/${gameId}`);
+      setShareCopied(true);
+      setPublicationNotice({ kind: 'success', message: 'Student play link copied.' });
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      setShareCopied(false);
+      setPublicationNotice({ kind: 'error', message: 'Could not copy the student link. Please try again.' });
+    }
+  }, [gameId, visibility]);
+
   const title = config?.meta?.title ?? 'Loading...';
   const subject = config?.meta?.subject ?? '';
   const phases: any[] = config?.phases ?? [];
@@ -262,7 +379,7 @@ export default function WorkspacePage() {
       {/* ═══ Top Bar ═══ */}
       <div
         style={{
-          height: 48, flexShrink: 0,
+          minHeight: 56, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 16px',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
@@ -310,44 +427,87 @@ export default function WorkspacePage() {
           {isGenerating ? 'Generating...' : title}
         </span>
 
-        {/* Right: share */}
-        <button
-          disabled={!gameId}
-          onClick={() => {
-            if (gameId) {
-              navigator.clipboard.writeText(`${window.location.origin}/play/${gameId}`);
-              setShareCopied(true);
-              setTimeout(() => setShareCopied(false), 2000);
-            }
-          }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: shareCopied ? '#059669' : gameId ? 'linear-gradient(135deg, #059669, #0d9488)' : '#e5e7eb',
-            border: 'none', borderRadius: 8, padding: '6px 14px',
-            cursor: gameId ? 'pointer' : 'default',
-            fontSize: 12, fontWeight: 600,
-            color: gameId ? '#fff' : '#9ca3af',
-            fontFamily: "'DM Sans', sans-serif",
-            transition: 'background 200ms',
-          }}
-        >
-          {shareCopied ? (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
-              Link Copied!
-            </>
-          ) : !gameId ? (
-            'Generating...'
-          ) : (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
-              </svg>
-              Share with Students
-            </>
-          )}
-        </button>
+        {/* Right: publication + sharing */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            aria-label={`Publication status: ${visibility ?? 'loading'}`}
+            style={{
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+              color: visibility === 'published' ? '#047857' : '#6b7280',
+              background: visibility === 'published' ? '#ecfdf5' : '#f3f4f6',
+              border: `1px solid ${visibility === 'published' ? '#a7f3d0' : '#e5e7eb'}`,
+              borderRadius: 100, padding: '5px 9px',
+            }}
+          >
+            {visibility ?? (gameId ? 'Loading' : 'Draft')}
+          </span>
+          <button
+            type="button"
+            disabled={!gameId || visibility === null || publicationPending}
+            onClick={() => updatePublication(visibility === 'published' ? 'draft' : 'published')}
+            style={{
+              minHeight: 40, border: '1px solid rgba(5,150,105,0.35)', borderRadius: 8, padding: '7px 13px',
+              background: visibility === 'published' ? '#fff' : '#ecfdf5',
+              color: visibility === 'published' ? '#374151' : '#047857',
+              cursor: !gameId || visibility === null || publicationPending ? 'not-allowed' : 'pointer',
+              opacity: !gameId || visibility === null || publicationPending ? 0.55 : 1,
+              fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            {publicationPending
+              ? (visibility === 'published' ? 'Unpublishing…' : 'Publishing…')
+              : (visibility === 'published' ? 'Unpublish' : 'Publish')}
+          </button>
+          <button
+            type="button"
+            disabled={!gameId || publicationPending}
+            onClick={shareWithStudents}
+            aria-describedby="publication-feedback"
+            style={{
+              minHeight: 40, display: 'flex', alignItems: 'center', gap: 6,
+              background: shareCopied ? '#059669' : gameId ? 'linear-gradient(135deg, #059669, #0d9488)' : '#e5e7eb',
+              border: 'none', borderRadius: 8, padding: '7px 14px',
+              cursor: gameId && !publicationPending ? 'pointer' : 'not-allowed',
+              fontSize: 12, fontWeight: 600,
+              color: gameId ? '#fff' : '#9ca3af',
+              opacity: publicationPending ? 0.55 : 1,
+              fontFamily: "'DM Sans', sans-serif",
+              transition: 'background 200ms',
+            }}
+          >
+            {shareCopied ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                Link Copied!
+              </>
+            ) : !gameId ? (
+              'Generating...'
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                  <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+                </svg>
+                Share with Students
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div
+        id="publication-feedback"
+        role={publicationNotice?.kind === 'error' ? 'alert' : 'status'}
+        aria-live="polite"
+        style={{
+          minHeight: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          padding: '0 16px', borderBottom: '1px solid rgba(0,0,0,0.06)', fontSize: 12, fontWeight: 600,
+          color: publicationNotice?.kind === 'error' ? '#b91c1c' : publicationNotice?.kind === 'success' ? '#047857' : '#4b5563',
+          background: publicationNotice?.kind === 'error' ? '#fef2f2' : publicationNotice?.kind === 'success' ? '#ecfdf5' : '#f9fafb',
+          visibility: publicationNotice ? 'visible' : 'hidden',
+        }}
+      >
+        {publicationNotice?.message ?? 'Publication status'}
       </div>
 
       {/* ═══ Main: chat + preview ═══ */}
@@ -378,6 +538,11 @@ export default function WorkspacePage() {
                   {phases.filter((p: any) => p.type !== 'intro' && p.type !== 'complete').length} phases
                 </span>
               </div>
+              {gameId && visibility && (
+                <button type="button" onClick={() => setStructuredOpen(true)} style={{ marginTop: 12, minHeight: 40, width: '100%', cursor: 'pointer', borderRadius: 8, border: '1px solid rgba(5,150,105,0.35)', background: '#fff', color: '#047857', fontSize: 12, fontWeight: 700 }}>
+                  Edit lesson structure
+                </button>
+              )}
             </div>
           )}
 
@@ -518,6 +683,17 @@ export default function WorkspacePage() {
           )}
         </div>
       </div>
+
+      {structuredOpen && config && gameId && visibility && (
+        <StructuredLessonEditor
+          gameId={gameId}
+          config={config}
+          visibility={visibility}
+          isAssigned={isAssigned}
+          onClose={() => setStructuredOpen(false)}
+          onSaved={(nextConfig) => { setConfig(nextConfig); setIframeKey((key) => key + 1); }}
+        />
+      )}
 
       <style jsx global>{`
         @keyframes spin { to { transform: rotate(360deg); } }

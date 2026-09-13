@@ -62,6 +62,10 @@ export interface EnvironmentConfig {
   /** Filename of a .glb environment map model in Supabase assets storage.
    *  When set, this replaces the flat ground plane with the 3D environment. */
   map_model?: string;
+  /** Low-poly terrain theme: grassland, ocean, cell, lab, space */
+  terrain_theme?: 'grassland' | 'ocean' | 'cell' | 'lab' | 'space';
+  /** Sky color hex string for <a-sky>, e.g. "#87CEEB" */
+  sky_color?: string;
 }
 
 // ─── Assets ──────────────────────────────────────────────────────────────
@@ -134,6 +138,8 @@ interface PhaseBase {
   title: string;
   instruction: string;
   type: PhaseType;
+  /** Learning-objective positions associated by the structured editor. */
+  learning_objective_indices?: number[];
   /** Points awarded on completion */
   points?: number;
   /** Bonus points if completed within time limit */
@@ -204,6 +210,8 @@ export interface QuizPhase extends PhaseBase {
   options: QuizOption[];
   /** Shown after a correct answer before auto-advancing */
   explanation: string;
+  /** Optional feedback shown after an incorrect answer. */
+  incorrect_explanation?: string;
 }
 
 export interface ExplorePhase extends PhaseBase {
