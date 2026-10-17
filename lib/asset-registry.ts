@@ -218,7 +218,7 @@ export const ASSET_REGISTRY: AssetRegistryEntry[] = [
     ngss_standards: ['HS-LS1-1', 'HS-LS1-2'],
     description: 'Complete animal cell showing all major organelles',
     supported_interactions: ['click', 'examine'],
-    model_filename: 'animal_cell.glb',
+    model_filename: 'animal-cell-v2.glb',
     available: true,
   },
   {
