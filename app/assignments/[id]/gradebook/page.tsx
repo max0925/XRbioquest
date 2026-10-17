@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Download, Loader2, XCircle } from 'lucide-react';
 
-type Status = 'not_started' | 'in_progress' | 'completed';
+type Status = 'not_started' | 'in_progress' | 'submitted' | 'needs_revision' | 'reviewed';
 type StudentRow = {
   student_id: string; display_name: string; attempt_id: string | null; status: Status;
   started_at: string | null; last_activity_at: string | null; completed_at: string | null;
@@ -20,7 +20,8 @@ type AssignmentInfo = { id: string; title: string; className: string };
 
 const filters: Array<{ value: 'all' | Status; label: string }> = [
   { value: 'all', label: 'All' }, { value: 'not_started', label: 'Not started' },
-  { value: 'in_progress', label: 'In progress' }, { value: 'completed', label: 'Completed' },
+  { value: 'in_progress', label: 'In progress' }, { value: 'submitted', label: 'Needs review' },
+  { value: 'needs_revision', label: 'Needs revision' }, { value: 'reviewed', label: 'Reviewed' },
 ];
 
 export default function GradebookPage() {

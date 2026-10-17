@@ -25,7 +25,7 @@ export async function GET() {
     supabase.from('classes').select('id, name').in('id', classIds),
     supabase.from('game_configs').select('id, title').in('id', experienceIds),
     role === 'student'
-      ? supabase.from('assignment_attempts').select('id, assignment_id, attempt_number, status, progress_percent, auto_score, max_score').in('assignment_id', assignments.map((item) => item.id)).order('attempt_number', { ascending: false })
+      ? supabase.from('assignment_attempts').select('id, assignment_id, attempt_number, status, progress_percent, auto_score, max_score').in('assignment_id', assignments.map((item) => item.id)).eq('student_id', user.id).order('attempt_number', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (classesResult.error || experiencesResult.error || attemptsResult.error) {
@@ -37,19 +37,32 @@ export async function GET() {
   for (const attempt of attemptsResult.data ?? []) {
     if (!latestAttempts.has(attempt.assignment_id)) latestAttempts.set(attempt.assignment_id, attempt);
   }
-  const latestAttemptIds = [...latestAttempts.values()].map((attempt) => attempt.id);
-  const reviewsResult = role === 'student' && latestAttemptIds.length
-    ? await supabase.from('assignment_reviews').select('attempt_id, manual_adjustment, teacher_feedback').in('attempt_id', latestAttemptIds)
+  const attemptIds = (attemptsResult.data ?? []).map((attempt) => attempt.id);
+  const reviewsResult = role === 'student' && attemptIds.length
+    ? await supabase.from('assignment_reviews').select('attempt_id, manual_adjustment, teacher_feedback').in('attempt_id', attemptIds)
     : { data: [], error: null };
   if (reviewsResult.error) return NextResponse.json({ error: 'Failed to load assignment feedback' }, { status: 500 });
   const reviews = new Map((reviewsResult.data ?? []).map((review) => [review.attempt_id, review]));
+  const latestFeedback = new Map<string, { attempt_number: number; teacher_feedback: string }>();
+  for (const attempt of attemptsResult.data ?? []) {
+    const feedback = reviews.get(attempt.id)?.teacher_feedback;
+    if (feedback && !latestFeedback.has(attempt.assignment_id)) {
+      latestFeedback.set(attempt.assignment_id, { attempt_number: attempt.attempt_number, teacher_feedback: feedback });
+    }
+  }
   if (assignments.some((item) => !classNames.has(item.class_id) || !experienceTitles.has(item.experience_id))) {
     return NextResponse.json({ error: 'Failed to load complete assignment details' }, { status: 500 });
   }
   return NextResponse.json({ role, assignments: assignments.map((item) => {
     const attempt = latestAttempts.get(item.id);
     const review = attempt ? reviews.get(attempt.id) : null;
-    return { ...item, className: classNames.get(item.class_id), experienceTitle: experienceTitles.get(item.experience_id), attempt: attempt ? { ...attempt, manual_adjustment: review?.manual_adjustment ?? 0, final_score: Number(attempt.auto_score) + Number(review?.manual_adjustment ?? 0), teacher_feedback: review?.teacher_feedback ?? null } : null };
+    return {
+      ...item,
+      className: classNames.get(item.class_id),
+      experienceTitle: experienceTitles.get(item.experience_id),
+      latest_feedback: latestFeedback.get(item.id) ?? null,
+      attempt: attempt ? { ...attempt, manual_adjustment: review?.manual_adjustment ?? 0, final_score: Number(attempt.auto_score) + Number(review?.manual_adjustment ?? 0), teacher_feedback: review?.teacher_feedback ?? null } : null,
+    };
   }) });
 }
 

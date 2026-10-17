@@ -19,9 +19,13 @@ export function formatDuration(seconds: number | null): string {
   return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
 }
 
-export function getStudentAssignmentAction(status: 'not_started' | 'in_progress' | 'completed', allowRetries: boolean) {
-  if (status === 'completed' && !allowRetries) return { enabled: false, label: 'Completed · Retries disabled' };
+export type StudentAssignmentStatus = 'not_started' | 'in_progress' | 'submitted' | 'needs_revision' | 'reviewed';
+
+export function getStudentAssignmentAction(status: StudentAssignmentStatus, allowRetries: boolean) {
+  if (status === 'submitted') return { enabled: false, label: 'Submitted · Awaiting review' };
+  if (status === 'reviewed' && !allowRetries) return { enabled: false, label: 'Reviewed · Retries disabled' };
   if (status === 'in_progress') return { enabled: true, label: 'Resume experience' };
-  if (status === 'completed') return { enabled: true, label: 'Try again' };
+  if (status === 'needs_revision') return { enabled: true, label: 'Revise submission' };
+  if (status === 'reviewed') return { enabled: true, label: 'Try again' };
   return { enabled: true, label: 'Start experience' };
 }

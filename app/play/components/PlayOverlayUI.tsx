@@ -50,6 +50,11 @@ interface PlayOverlayUIProps {
   selectedInventoryItem?: string | null;
   onSelectInventoryItem?: (id: string) => void;
   quizAnswered?: boolean;
+  assignmentSubmission?: {
+    status: 'ready' | 'submitting' | 'submitted' | 'error';
+    error: string | null;
+    onSubmit: () => void;
+  };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -854,13 +859,16 @@ function CompleteScreen({
   config,
   score,
   onPlayAgain,
+  assignmentSubmission,
 }: {
   phase: PhaseConfig;
   config: GameConfig;
   score: number;
   onPlayAgain: () => void;
+  assignmentSubmission?: PlayOverlayUIProps['assignmentSubmission'];
 }) {
   const [displayScore, setDisplayScore] = useState(0);
+  const [confirmingSubmission, setConfirmingSubmission] = useState(false);
   const passed = score >= config.scoring.passing_threshold;
   const pct = config.scoring.max_possible > 0
     ? Math.round((score / config.scoring.max_possible) * 100)
@@ -1051,24 +1059,83 @@ function CompleteScreen({
             </div>
           )}
 
-          {/* Play Again */}
-          <button
-            onClick={onPlayAgain}
-            style={{
-              width: '100%', padding: '12px',
-              backgroundColor: '#10b981', color: 'white',
-              border: 'none', borderRadius: '12px',
-              fontSize: '14px', fontWeight: 700,
-              fontFamily: DM, cursor: 'pointer',
-              letterSpacing: '0.05em',
-              boxShadow: '0 0 24px rgba(16,185,129,0.3)',
-              transition: 'background-color 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
-          >
-            🔄 PLAY AGAIN
-          </button>
+          {assignmentSubmission ? assignmentSubmission.status === 'submitted' ? (
+            <div style={{
+              padding: '14px', borderRadius: '12px',
+              backgroundColor: 'rgba(16,185,129,0.12)',
+              border: '1px solid rgba(16,185,129,0.35)',
+              color: '#6ee7b7', fontSize: '13px', fontWeight: 700,
+            }} role="status">
+              Submitted · Awaiting teacher review
+              <a href="/student" style={{ display: 'block', marginTop: '10px', color: 'white' }}>
+                Return to My Learning →
+              </a>
+            </div>
+          ) : confirmingSubmission ? (
+            <div>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.72)', marginBottom: '12px' }}>
+                Submit this attempt to your teacher? You cannot change this attempt while it is awaiting review.
+              </p>
+              {assignmentSubmission.error && (
+                <p role="alert" style={{ fontSize: '12px', color: '#fca5a5', marginBottom: '12px' }}>
+                  {assignmentSubmission.error}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingSubmission(false)}
+                  disabled={assignmentSubmission.status === 'submitting'}
+                  style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.25)', background: 'transparent', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Not yet
+                </button>
+                <button
+                  type="button"
+                  onClick={assignmentSubmission.onSubmit}
+                  disabled={assignmentSubmission.status === 'submitting'}
+                  style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: '#10b981', color: 'white', fontWeight: 700, cursor: assignmentSubmission.status === 'submitting' ? 'wait' : 'pointer', opacity: assignmentSubmission.status === 'submitting' ? 0.7 : 1 }}
+                >
+                  {assignmentSubmission.status === 'submitting' ? 'Submitting…' : assignmentSubmission.status === 'error' ? 'Try submission again' : 'Confirm submit'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingSubmission(true)}
+              style={{
+                width: '100%', padding: '12px',
+                backgroundColor: '#10b981', color: 'white',
+                border: 'none', borderRadius: '12px',
+                fontSize: '14px', fontWeight: 700,
+                fontFamily: DM, cursor: 'pointer',
+                letterSpacing: '0.05em',
+                boxShadow: '0 0 24px rgba(16,185,129,0.3)',
+              }}
+            >
+              SUBMIT ASSIGNMENT
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onPlayAgain}
+              style={{
+                width: '100%', padding: '12px',
+                backgroundColor: '#10b981', color: 'white',
+                border: 'none', borderRadius: '12px',
+                fontSize: '14px', fontWeight: 700,
+                fontFamily: DM, cursor: 'pointer',
+                letterSpacing: '0.05em',
+                boxShadow: '0 0 24px rgba(16,185,129,0.3)',
+                transition: 'background-color 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+            >
+              🔄 PLAY AGAIN
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1280,6 +1347,7 @@ export function PlayOverlayUI({
   selectedInventoryItem,
   onSelectInventoryItem,
   quizAnswered,
+  assignmentSubmission,
 }: PlayOverlayUIProps) {
   const hud: HUDConfig = config.hud;
 
@@ -1413,6 +1481,7 @@ export function PlayOverlayUI({
           config={config}
           score={score}
           onPlayAgain={onContinue}
+          assignmentSubmission={assignmentSubmission}
         />
       )}
 

@@ -30,9 +30,11 @@ test('progress input does not accept client score, correctness, or duration fiel
   assert.equal(parseProgress({ experienceId: 'experience-a', phaseId: 4 }), null);
 });
 
-test('completed assignments with retries disabled have no launch action', () => {
-  assert.deepEqual(getStudentAssignmentAction('completed', false), { enabled: false, label: 'Completed · Retries disabled' });
-  assert.deepEqual(getStudentAssignmentAction('completed', true), { enabled: true, label: 'Try again' });
+test('student assignment actions follow the submission review state', () => {
+  assert.deepEqual(getStudentAssignmentAction('submitted', true), { enabled: false, label: 'Submitted · Awaiting review' });
+  assert.deepEqual(getStudentAssignmentAction('reviewed', false), { enabled: false, label: 'Reviewed · Retries disabled' });
+  assert.deepEqual(getStudentAssignmentAction('reviewed', true), { enabled: true, label: 'Try again' });
+  assert.deepEqual(getStudentAssignmentAction('needs_revision', false), { enabled: true, label: 'Revise submission' });
 });
 
 test('teacher review fields are bounded and CSV cells cannot inject columns', () => {

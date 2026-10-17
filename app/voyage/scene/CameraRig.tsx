@@ -1,6 +1,9 @@
 // @ts-nocheck
 "use client";
 
+import { useEffect, useRef } from 'react';
+import type { MapRuntime } from '@/types/map-config';
+
 interface CameraRigProps {
     phaseTitle: string;
     phaseInstruction: string;
@@ -9,22 +12,63 @@ interface CameraRigProps {
     gravity?: boolean;
     /** Enable terrain-follow — pins rig Y to terrain surface + offset. */
     terrainFollow?: boolean;
+    /** Registered physical map; replaces every free movement controller. */
+    mapRuntime?: Extract<MapRuntime, { kind: 'physical' }>;
+    /** Use the isolated keyboard-only controller in the desktop Play scene. */
+    desktopMapControls?: boolean;
+    onMapError?: (message: string) => void;
 }
 
-export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2", gravity = false, terrainFollow = false }: CameraRigProps) {
+export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2", gravity = false, terrainFollow = false, mapRuntime, desktopMapControls = false, onMapError }: CameraRigProps) {
+    const rigRef = useRef<HTMLElement | null>(null);
+    useEffect(() => {
+        const rig = rigRef.current;
+        if (!rig || !onMapError) return;
+        const handleError = (event: CustomEvent<{ message?: string }>) => onMapError(event.detail?.message || 'Map collision unavailable.');
+        rig.addEventListener('map-runtime-error', handleError as EventListener);
+        return () => rig.removeEventListener('map-runtime-error', handleError as EventListener);
+    }, [onMapError]);
+
+    useEffect(() => {
+        const rig = rigRef.current;
+        if (!rig || !mapRuntime || !desktopMapControls) return;
+        rig.removeAttribute('movement-controls');
+        rig.removeAttribute('wasd-controls');
+        rig.querySelectorAll('[movement-controls], [wasd-controls]').forEach((element) => {
+            element.removeAttribute('movement-controls');
+            element.removeAttribute('wasd-controls');
+        });
+        // Attach after the rig and its camera child exist. This is the sole
+        // desktop movement path for a physical map.
+        rig.setAttribute('desktop-map-walk', `collisionPath: ${mapRuntime.manifest.collisionPath}; radius: 0.35; spawn: ${mapSpawn.join(' ')}`);
+    }, [desktopMapControls, mapRuntime]);
+
+    const mapSpawn = mapRuntime?.spawnPoint.position ?? [0, 0, 0];
+    const usesPhysicalMap = Boolean(mapRuntime);
+    // a-camera always injects wasd-controls. Use a plain camera entity only in
+    // the desktop physical-map branch so keyboard movement has one authority.
+    const CameraEntity = mapRuntime && desktopMapControls ? 'a-entity' : 'a-camera';
     return (
         <a-entity
+            ref={rigRef}
             id="camera-rig"
-            position={spawnPosition}
-            movement-controls="fly: false; speed: 0.15; controls: gamepad, touch, keyboard"
-            {...(terrainFollow ? { 'terrain-follow': 'boundary: 55' } : gravity ? { 'play-gravity': '' } : {})}
+            position={mapRuntime ? mapSpawn.join(' ') : spawnPosition}
+            {...(mapRuntime
+                ? desktopMapControls
+                    ? { 'desktop-map-walk': `collisionPath: ${mapRuntime.manifest.collisionPath}; radius: 0.35; spawn: ${mapSpawn.join(' ')}` }
+                    : { 'map-walk': `collisionPath: ${mapRuntime.manifest.collisionPath}; camera: #head; speed: 3; spawn: ${mapSpawn.join(' ')}` }
+                : {
+                    'movement-controls': 'fly: false; speed: 0.15; controls: gamepad, touch, keyboard',
+                    ...(terrainFollow ? { 'terrain-follow': 'boundary: 55' } : gravity ? { 'play-gravity': '' } : {}),
+                  })}
         >
             {/* Camera */}
-            <a-camera
+            <CameraEntity
                 id="head"
+                {...(mapRuntime && desktopMapControls ? { camera: 'active: true' } : {})}
                 look-controls="pointerLockEnabled: false; reverseMouseDrag: false"
-                wasd-controls="acceleration: 65"
-                position="0 0 0"
+                {...(!mapRuntime && { 'wasd-controls': 'acceleration: 65' })}
+                position={mapRuntime ? `0 ${mapRuntime.spawnPoint.eyeHeight} 0` : "0 0 0"}
             >
                 {/* Crosshair */}
                 <a-entity
@@ -58,7 +102,7 @@ export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2
                         <a-text value="Close" align="center" color="#ffffff" width="0.5" position="0 0 0.001"></a-text>
                     </a-entity>
                 </a-entity>
-            </a-camera>
+            </CameraEntity>
 
             {/* Left Hand Controller with Wrist Menu */}
             <a-entity
@@ -69,7 +113,7 @@ export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2
                 cursor="fuse: false; rayOrigin: entity"
                 simple-grab
                 pull-to-hand
-                left-thumbstick-listener
+                {...(!usesPhysicalMap && { 'left-thumbstick-listener': '' })}
             >
                 {/* Wrist Button - Hamburger icon (back of wrist, facing up) */}
                 <a-entity id="wrist-btn" position="0 0.02 -0.15" rotation="-90 0 0">
@@ -166,7 +210,7 @@ export function CameraRig({ phaseTitle, phaseInstruction, spawnPosition = "0 0 2
                 cursor="fuse: false; rayOrigin: entity"
                 simple-grab
                 pull-to-hand
-                simple-teleport
+                {...(!usesPhysicalMap && { 'simple-teleport': '' })}
             ></a-entity>
         </a-entity>
     );

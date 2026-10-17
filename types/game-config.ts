@@ -8,6 +8,8 @@
 /** [x, y, z] world-space position */
 export type Vec3 = [number, number, number];
 
+export type MapEnvironmentId = 'procedural-terrain' | 'bioquest-forest' | 'bioquest-forest-xr-v2';
+
 // ─── Meta ────────────────────────────────────────────────────────────────
 
 export interface GameMeta {
@@ -59,8 +61,14 @@ export interface EnvironmentConfig {
   preset?: AFrameEnvironmentPreset;
   /** Lighting mood applied to the scene */
   lighting: 'warm' | 'cool' | 'neutral' | 'dramatic' | 'bioluminescent';
-  /** Filename of a .glb environment map model in Supabase assets storage.
-   *  When set, this replaces the flat ground plane with the 3D environment. */
+  /**
+   * Registered world selection. Missing values preserve the established
+   * procedural terrain; physical maps are always explicit opt-ins.
+   */
+  environment_id?: MapEnvironmentId;
+  /** Registered spawn-point name owned by the selected map manifest. */
+  spawn_point?: string;
+  /** Legacy environment model reference retained for existing experiences. */
   map_model?: string;
   /** Low-poly terrain theme: grassland, ocean, cell, lab, space */
   terrain_theme?: 'grassland' | 'ocean' | 'cell' | 'lab' | 'space';
@@ -105,6 +113,10 @@ export interface AssetConfig {
   position: Vec3;
   rotation?: Vec3;
   scale?: number;
+  /** Optional named placement point for registered physical maps. */
+  anchor?: string;
+  /** Offset from the anchor; Y is measured above collision-ground height. */
+  offset?: Vec3;
 
   // ── Behaviour ────────────────────────────────────────────────────────
   role: AssetRole;

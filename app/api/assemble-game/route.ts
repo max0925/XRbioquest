@@ -10,6 +10,10 @@ import {
   fixAssetReferences,
   fixGameplayConsistency,
 } from '@/lib/config-validators';
+import {
+  GeneratedForestPlacementError,
+  placeGeneratedCourseInForest,
+} from '@/lib/maps/generated-forest-placement';
 import type { GameConfig } from '@/types/game-config';
 
 export const maxDuration = 60;
@@ -171,8 +175,9 @@ OUTPUT JSON SCHEMA (exact shape required)
     "learning_objectives": ["Students will..."]
   },
   "environment": {
-    "skybox_prompt": "detailed scene prompt for AI skybox generator",
-    "preset": "forest" | "starry" | "japan" | "default" | "dream",
+    "environment_id": "bioquest-forest-xr-v2",
+    "spawn_point": "trail-start",
+    "skybox_prompt": "",
     "lighting": "warm" | "cool" | "neutral" | "dramatic" | "bioluminescent"
   },
   "assets": [
@@ -259,49 +264,22 @@ OUTPUT JSON SCHEMA (exact shape required)
 ════════════════════════════════════════
 ENVIRONMENT GUIDE
 ════════════════════════════════════════
-The scene uses a procedural low-poly terrain with a solid-color sky.
-Set environment.terrain_theme and environment.sky_color:
+Every newly generated course uses the registered BioQuest Forest XR v2 map.
+- environment_id MUST be "bioquest-forest-xr-v2"
+- spawn_point MUST be "trail-start"
+- skybox_prompt MUST be an empty string because the map owns its sky and lighting
+- Do not output terrain_theme, sky_color, preset, map_model, or skybox_url
 
-terrain_theme options:
-  grassland → green hills, ecology / plants / photosynthesis / general
-  ocean     → blue seabed, marine biology / ocean / coral reef
-  cell      → pink/purple organic, cell biology / human body / anatomy
-  lab       → clean white/grey, genetics / DNA / chemistry
-  space     → dark purple, astronomy / space
-
-sky_color pairings (hex string):
-  grassland → "#87CEEB" (sky blue)
-  ocean     → "#1a3a5c" (deep blue)
-  cell      → "#1a0a2e" (deep purple)
-  lab       → "#e8e8e8" (light grey)
-  space     → "#0a0a1a" (near black)
-
-environment.preset MUST be one of: forest, starry, japan, default, dream
-
-skybox_prompt is REQUIRED — it drives AI skybox generation (Blockade Labs).
-STRICT rules for skybox_prompt:
-- MUST start with EXACTLY this prefix (copy verbatim):
-  "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, "
-- Then add 5-10 words of color/lighting description ONLY
-- NEVER mention any object, creature, plant, building, or biological term
-- Total should be under 25 words
-
-Examples by subject:
-  Coral reef / marine:      "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, deep teal blue underwater glow"
-  Cell biology / cytoplasm: "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, soft pink magenta diffuse glow"
-  Genetics / DNA:           "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, deep dark blue cool space"
-  Human body / tissue:      "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, warm red orange interior glow"
-  Photosynthesis / plants:  "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, soft green golden light filtered"
-  Evolution / prehistoric:  "minimalist ambient background, flat solid colors, no objects, no creatures, no plants, no structures, smooth gradient, misty earth tones warm dawn"
+The server enforces these values and maps the proposed lesson layout onto the
+forest collision world before validation. Do not choose an environment by subject.
 
 ════════════════════════════════════════
 ASSET PLACEMENT RULES
 ════════════════════════════════════════
-- ALL assets must have Y position between 0.5 and 1.0 (sitting on ground, never underground)
-- Target assets (delivery points) should be clustered near the center:
-  X between -5 and 5, Z between -3 and -25
-- Collectible assets should be scattered further out:
-  X between -15 and 15, Z between -5 and -35
+- Positions are layout hints in metres; the server applies one shared map-aware
+  transform so the whole lesson avoids trees and coastline and follows terrain.
+- ALL assets must have Y position between 0.5 and 1.0 as height above ground.
+- Keep each draggable meaningfully separated from its delivery target.
 - Keep at least 8 units distance between any two assets
 - Scatter assets in BOTH X and Z directions, not in a straight line
 - NPC spawn at [1, 1.5, -1] near player start
@@ -321,7 +299,7 @@ STRICT OUTPUT RULES
 - The phases array must start with an "intro" type and end with a "complete" type.
 - Asset positions must not overlap (min 8 units apart).
 - Use kebab-case for all id fields.
-- environment.preset is REQUIRED — choose from the preset guide above.
+- environment_id and spawn_point MUST use the fixed forest v2 values above.
 - The "npc" field is optional but encouraged.
 - model_source MUST be "library" for every asset. "meshy" is NOT allowed.
 - teacher_guide is REQUIRED. It must contain: learning_objectives (3-5 items), essential_questions (2-3), vocabulary (5-8 terms with definitions), ngss_standards (2-3 with code + description), pedagogical_notes (1 paragraph), assessment_suggestions (3 items), prerequisite_knowledge (2-3), cross_curricular_connections (2-3).
@@ -708,22 +686,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Force brand-new AI courses onto the registered forest v2 map and place
+  //    the complete generated layout against its real collision data. ──
+  let placed: GameConfig;
+  try {
+    placed = placeGeneratedCourseInForest(cleaned as GameConfig);
+  } catch (error) {
+    const details = error instanceof Error ? error.message : 'Unknown forest placement error';
+    console.error('[assemble-game] Forest placement failed:', details);
+    return NextResponse.json(
+      {
+        error: error instanceof GeneratedForestPlacementError
+          ? 'Generated course could not be placed safely in BioQuest Forest XR v2'
+          : 'BioQuest Forest XR v2 placement failed',
+        details,
+      },
+      { status: 422 },
+    );
+  }
+
   // ── Validate against GameConfig shape ──
   try {
-    validateGameConfig(cleaned);
+    validateGameConfig(placed);
   } catch (err: any) {
     console.error('[assemble-game] Validation failed:', err.message);
     return NextResponse.json(
       {
         error: 'Generated config failed validation',
         details: err.message,
-        raw: cleaned,
+        raw: placed,
       },
       { status: 422 }
     );
   }
 
-  const config = cleaned as GameConfig;
+  const config = placed;
 
   return NextResponse.json(
     {

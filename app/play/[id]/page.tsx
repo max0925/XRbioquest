@@ -6,14 +6,19 @@ import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'next/navigation';
 
 import { loadGameConfig, resolveAssetPaths } from '@/lib/game-config-loader';
+import { applyMapRuntime, loadMapRuntime } from '@/lib/maps/map-runtime';
 import { registerPlayComponents } from '../aframe/registerPlayComponents';
+import { registerMapWalk } from '../aframe/registerMapWalk';
+import { registerDesktopMapWalk } from '../aframe/registerDesktopMapWalk';
 import { GameAssets } from '../scene/GameAssets';
+import { MapEnvironment } from '../scene/MapEnvironment';
 import { PlayOverlayUI, type PlayPhaseProgress, type ChatMessage } from '../components/PlayOverlayUI';
 import { CameraRig } from '../../voyage/scene/CameraRig';
 import { Lighting } from '../../voyage/scene/Lighting';
 import WebGLCheck from '../../voyage/components/WebGLCheck';
 
 import type {
+  GameConfig,
   ResolvedGameConfig,
   PhaseConfig,
   KnowledgeCardConfig,
@@ -22,6 +27,12 @@ import type {
   QuizPhase,
   ExplorePhase,
 } from '@/types/game-config';
+import type { MapRuntime } from '@/types/map-config';
+
+type PlayExperienceProps = {
+  developmentConfig?: GameConfig;
+  developmentBanner?: string;
+};
 
 // ─── Type narrowing helpers ───────────────────────────────────────────────────
 function isClickPhase(p: PhaseConfig): p is import('@/types/game-config').ClickPhase {
@@ -43,16 +54,21 @@ function isExplorePhase(p: PhaseConfig): p is ExplorePhase {
   return p.type === 'explore';
 }
 
-export default function PlayPage() {
-  const { id } = useParams<{ id: string }>();
-  const assignmentId = useSearchParams().get('assignmentId');
+export function PlayExperience({ developmentConfig, developmentBanner }: PlayExperienceProps = {}) {
+  const { id: routeId } = useParams<{ id?: string }>();
+  const searchParams = useSearchParams();
+  const id = developmentConfig?.meta.id ?? routeId;
+  const assignmentId = developmentConfig ? null : searchParams.get('assignmentId');
 
   // ── Config loading ──
   const [config, setConfig] = useState<ResolvedGameConfig | null>(null);
+  const [mapRuntime, setMapRuntime] = useState<MapRuntime | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [trackingReady, setTrackingReady] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
+  const [submissionStatus, setSubmissionStatus] = useState<'ready' | 'submitting' | 'submitted' | 'error'>('ready');
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // ── A-Frame readiness ──
   const [ready, setReady] = useState(false);
@@ -100,21 +116,26 @@ export default function PlayPage() {
 
   useEffect(() => {
     if (!id) return;
-    loadGameConfig(id)
-      .then((raw) => {
+    const configPromise = developmentConfig
+      ? Promise.resolve(developmentConfig)
+      : loadGameConfig(id);
+    configPromise
+      .then(async (raw) => {
         console.log('[DEBUG] meta:', JSON.stringify(raw.meta, null, 2));
         console.log('[DEBUG] assets:', JSON.stringify(raw.assets, null, 2));
         console.log('[DEBUG] phases:', JSON.stringify(raw.phases, null, 2));
         console.log('[DEBUG] npc:', JSON.stringify(raw.npc, null, 2));
         const resolved = resolveAssetPaths(raw);
-        setConfig(resolved);
+        const runtime = await loadMapRuntime(raw);
+        setMapRuntime(runtime);
+        setConfig(applyMapRuntime(resolved, runtime));
         (window as any).__playGameTitle = resolved.meta?.title ?? '';
       })
       .catch((err) => {
         console.error('[PLAY] Failed to load config for id:', id, err);
         setConfigError(err.message);
       });
-  }, [id]);
+  }, [developmentConfig, id]);
 
   // Assignment links create or resume a server-validated attempt. Public links
   // skip this path entirely and remain anonymous/untracked.
@@ -136,6 +157,8 @@ export default function PlayPage() {
         const completeIndex = config.phases.findIndex((candidate) => candidate.type === 'complete');
         const resumeIndex = completed.size === 0 ? 0 : nextIndex >= 0 ? nextIndex : Math.max(0, completeIndex);
         setAttemptId(body.attempt.id);
+        setSubmissionStatus('ready');
+        setSubmissionError(null);
         setPhaseIndex(resumeIndex);
         setScore(config.phases.reduce((total, candidate) => completed.has(candidate.id) ? total + (candidate.points ?? 0) : total, 0));
         setTrackingReady(true);
@@ -149,6 +172,7 @@ export default function PlayPage() {
   // ─── Poll for skybox_url update (async generation in workspace) ──────────
 
   useEffect(() => {
+    if (developmentConfig) return;
     if (!id || !config) return;
     // Already have a skybox — no need to poll
     if (config.environment?.skybox_url) return;
@@ -169,7 +193,9 @@ export default function PlayPage() {
         if (raw.environment?.skybox_url) {
           console.log('[PLAY] Skybox ready:', raw.environment.skybox_url);
           const resolved = resolveAssetPaths(raw);
-          setConfig(resolved);
+          const runtime = await loadMapRuntime(raw);
+          setMapRuntime(runtime);
+          setConfig(applyMapRuntime(resolved, runtime));
           clearInterval(interval);
         }
       } catch {
@@ -178,7 +204,7 @@ export default function PlayPage() {
     }, 4000);
 
     return () => { cancelled = true; clearInterval(interval); };
-  }, [id, config?.environment?.skybox_url]);
+  }, [developmentConfig, id, config?.environment?.skybox_url]);
 
   // ─── Populate window.playAssetPositions from config ─────────────────────
 
@@ -210,6 +236,8 @@ export default function PlayPage() {
     }
 
     registerPlayComponents();
+    registerMapWalk();
+    registerDesktopMapWalk();
 
     const isTypingInInput = () => {
       const tag = document.activeElement?.tagName;
@@ -238,6 +266,10 @@ export default function PlayPage() {
   // ─── Derived state ───────────────────────────────────────────────────────
 
   const phase = config?.phases[phaseIndex] ?? null;
+  const handleMapError = useCallback((message: string) => {
+    console.warn(`[map-runtime] ${message}`);
+    setConfigError(`Physical map unavailable: ${message}`);
+  }, []);
 
   // ─── Sync window globals whenever phase or chain step changes ────────────
 
@@ -356,6 +388,26 @@ export default function PlayPage() {
       return false;
     }
   }, [assignmentId, attemptId, id]);
+
+  const submitAssignmentAttempt = useCallback(async () => {
+    if (!assignmentId || !attemptId || submissionStatus === 'submitting' || submissionStatus === 'submitted') return;
+    setSubmissionStatus('submitting');
+    setSubmissionError(null);
+    try {
+      const response = await fetch(`/api/assignment-attempts/${encodeURIComponent(attemptId)}/submit`, {
+        method: 'POST',
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.attempt?.status !== 'submitted') {
+        throw new Error(body.error || 'This attempt could not be submitted.');
+      }
+      setTrackingError(null);
+      setSubmissionStatus('submitted');
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : 'This attempt could not be submitted.');
+      setSubmissionStatus('error');
+    }
+  }, [assignmentId, attemptId, submissionStatus]);
 
   const advancePhase = useCallback(() => {
     if (!config) return;
@@ -600,8 +652,12 @@ export default function PlayPage() {
 
   useEffect(() => {
     const wasdEl = document.querySelector('[wasd-controls]') as Element | null;
+    const mapWalkEl = document.querySelector('[map-walk]') as Element | null;
+    const desktopMapWalkEl = document.querySelector('[desktop-map-walk]') as Element | null;
     const lookEl = document.querySelector('[look-controls]') as Element | null;
     if (wasdEl) wasdEl.setAttribute('wasd-controls', `enabled: ${!npcChatOpen}`);
+    if (mapWalkEl) mapWalkEl.setAttribute('map-walk', 'enabled', !npcChatOpen);
+    if (desktopMapWalkEl) desktopMapWalkEl.setAttribute('desktop-map-walk', 'enabled', !npcChatOpen);
     if (lookEl) lookEl.setAttribute('look-controls', `enabled: ${!npcChatOpen}`);
   }, [npcChatOpen]);
 
@@ -749,12 +805,15 @@ export default function PlayPage() {
         <div role="alert" className="max-w-md rounded-2xl border border-red-900 bg-slate-900 p-7 text-center text-white">
           <p className="font-bold text-red-300">Assignment access unavailable</p>
           <p className="mt-2 text-sm text-slate-300">{trackingError}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-5 min-h-11 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-600">
+            Try again
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!config || !ready || (assignmentId && !trackingReady)) {
+  if (!config || !mapRuntime || !ready || (assignmentId && !trackingReady)) {
     return (
       <div
         className="h-screen w-screen flex items-center justify-center"
@@ -776,6 +835,9 @@ export default function PlayPage() {
   if (!phase) return null;
 
   const chainStep = phaseProgress?.step ?? 0;
+  const physicalMap = mapRuntime.kind === 'physical' ? mapRuntime : null;
+  const fogColor = physicalMap?.manifest.defaultSky.fogColor ?? config.environment.sky_color ?? '#87CEEB';
+  const fogDensity = physicalMap?.manifest.defaultSky.fogDensity ?? 0.015;
 
   return (
     <div className="h-screen w-screen bg-transparent">
@@ -784,18 +846,22 @@ export default function PlayPage() {
           embedded
           vr-mode-ui="enabled: false"
           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-          fog={`type: exponential; color: ${config.environment.sky_color || '#87CEEB'}; density: 0.015`}
+          fog={`type: exponential; color: ${fogColor}; density: ${fogDensity}`}
           play-native-click-handler
         >
-          {/* Low-poly procedural terrain */}
-          <a-entity lowpoly-terrain={`theme: ${config.environment.terrain_theme || 'grassland'}; size: 120; segments: 40; maxHeight: 3`}></a-entity>
+          {/* Registered maps are explicit opt-ins; legacy lessons keep their terrain. */}
+          {physicalMap ? (
+            <MapEnvironment runtime={physicalMap} onError={handleMapError} />
+          ) : (
+            <a-entity lowpoly-terrain={`theme: ${config.environment.terrain_theme || 'grassland'}; size: 120; segments: 40; maxHeight: 3`}></a-entity>
+          )}
 
-          {/* Sky — use AI skybox if available, fall back to solid color */}
-          {config.environment.skybox_url ? (
+          {/* Physical maps own their sky; procedural terrain preserves lesson skyboxes. */}
+          {!physicalMap && (config.environment.skybox_url ? (
             <a-sky src={config.environment.skybox_url} rotation="0 -90 0"></a-sky>
           ) : (
             <a-sky color={config.environment.sky_color || '#87CEEB'}></a-sky>
-          )}
+          ))}
 
           {/* Mouse cursor entity — rayOrigin: mouse shoots from the active camera
               using mouse NDC position, regardless of this entity's world position. */}
@@ -807,14 +873,40 @@ export default function PlayPage() {
           {/* Proximity trigger — always in scene, self-manages indicator/detection */}
           <a-entity config-proximity-trigger></a-entity>
 
-          <GameAssets config={config} currentPhase={phase} chainStep={chainStep} />
-          <Lighting />
+          <GameAssets config={config} currentPhase={phase} chainStep={chainStep} snapToTerrain={!physicalMap} />
+          {!physicalMap && <Lighting />}
           {/* terrain-follow pins rig Y to ground + offset; boundary clamping in component */}
-          <CameraRig phaseTitle={phase.title} phaseInstruction={phase.instruction} spawnPosition="0 2 0" terrainFollow={true} />
+          <CameraRig
+            phaseTitle={phase.title}
+            phaseInstruction={phase.instruction}
+            spawnPosition="0 2 0"
+            terrainFollow={!physicalMap}
+            mapRuntime={physicalMap ?? undefined}
+            desktopMapControls
+            onMapError={handleMapError}
+          />
 
           {/* Teleport floor removed — terrain mesh provides ground */}
         </a-scene>
       </WebGLCheck>
+
+      {developmentBanner && (
+        <div
+          role="status"
+          className="fixed left-1/2 top-3 z-[10030] -translate-x-1/2 rounded-full border border-cyan-200/40 bg-slate-950/90 px-4 py-2 text-xs font-semibold tracking-wide text-cyan-50 shadow-lg"
+        >
+          {developmentBanner}
+        </div>
+      )}
+
+      {mapRuntime.fallbackMessage && (
+        <div
+          role="status"
+          className="fixed left-1/2 top-16 z-[10020] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-slate-950/90 px-4 py-2 text-sm text-amber-100 shadow-lg"
+        >
+          {mapRuntime.fallbackMessage}
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes confetti-fall {
@@ -866,6 +958,11 @@ export default function PlayPage() {
               onContinue={handleContinue}
               onQuizAnswer={handleQuizAnswer}
               quizAnswered={quizAnswered}
+              assignmentSubmission={assignmentId ? {
+                status: submissionStatus,
+                error: submissionError,
+                onSubmit: submitAssignmentAttempt,
+              } : undefined}
               npcName={config.npc?.name}
               npcChatOpen={npcChatOpen}
               npcMessages={npcMessages}
@@ -924,4 +1021,8 @@ export default function PlayPage() {
         )}
     </div>
   );
+}
+
+export default function PlayPage() {
+  return <PlayExperience />;
 }

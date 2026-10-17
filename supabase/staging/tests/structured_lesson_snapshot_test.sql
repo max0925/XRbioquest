@@ -32,11 +32,15 @@ WHERE id='snapshot-experience';
 
 SELECT set_config('request.jwt.claims','{"sub":"52000000-0000-0000-0000-000000000001","role":"authenticated","app_metadata":{"role":"student"}}',true);
 SELECT * FROM public.record_assignment_phase((SELECT first_attempt FROM snapshot_state),'snapshot-experience','quiz-1','{"option_id":"old"}');
+SELECT * FROM public.submit_assignment_attempt((SELECT first_attempt FROM snapshot_state));
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.assignment_attempts WHERE id=(SELECT first_attempt FROM snapshot_state) AND status='completed' AND auto_score=10 AND max_score=10) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.assignment_attempts WHERE id=(SELECT first_attempt FROM snapshot_state) AND status='submitted' AND auto_score=10 AND max_score=10) THEN
     RAISE EXCEPTION 'existing attempt was changed by a later quiz edit';
   END IF;
 END $$;
+SELECT set_config('request.jwt.claims','{"sub":"51000000-0000-0000-0000-000000000001","role":"authenticated","app_metadata":{"role":"teacher"}}',true);
+SELECT * FROM public.review_assignment_attempt((SELECT first_attempt FROM snapshot_state),'reviewed','Snapshot verified.');
+SELECT set_config('request.jwt.claims','{"sub":"52000000-0000-0000-0000-000000000001","role":"authenticated","app_metadata":{"role":"student"}}',true);
 WITH started AS (SELECT * FROM public.start_assignment_attempt((SELECT assignment_id FROM snapshot_state),'snapshot-experience'))
 UPDATE snapshot_state SET second_attempt=started.id FROM started;
 SELECT * FROM public.record_assignment_phase((SELECT second_attempt FROM snapshot_state),'snapshot-experience','quiz-1','{"option_id":"new"}');

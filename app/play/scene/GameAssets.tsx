@@ -46,11 +46,12 @@ interface GameAssetsProps {
   config: ResolvedGameConfig;
   currentPhase: PhaseConfig;
   chainStep: number;
+  snapToTerrain?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export const GameAssets = memo(function GameAssets({ config, currentPhase, chainStep }: GameAssetsProps) {
+export const GameAssets = memo(function GameAssets({ config, currentPhase, chainStep, snapToTerrain = true }: GameAssetsProps) {
   const phase = currentPhase;
 
   // ── Populate window.playAssetPositions for A-Frame components ──
@@ -167,7 +168,7 @@ export const GameAssets = memo(function GameAssets({ config, currentPhase, chain
                 : 'opacity: 0.001; transparent: true; side: double'
             }
             class={`clickable grabbable cursor-listener`}
-            terrain-snap=""
+            {...(snapToTerrain && { 'terrain-snap': '' })}
             // Config-driven click component (active for non-draggable assets)
             {...(!isDraggable && {
               'config-clickable': '',

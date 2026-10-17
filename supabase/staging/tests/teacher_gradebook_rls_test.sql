@@ -33,6 +33,7 @@ WITH started AS (
   SELECT * FROM public.start_assignment_attempt((SELECT assignment_id FROM grade_state WHERE label='a'),'grade-experience-a')
 ) UPDATE grade_state SET attempt_id=started.id FROM started WHERE label='a';
 SELECT * FROM public.record_assignment_phase((SELECT attempt_id FROM grade_state WHERE label='a'),'grade-experience-a','quiz-1','{"option_id":"a"}');
+SELECT * FROM public.submit_assignment_attempt((SELECT attempt_id FROM grade_state WHERE label='a'));
 
 SELECT set_config('request.jwt.claims','{"sub":"52000000-0000-0000-0000-000000000002","role":"authenticated","app_metadata":{"role":"student"}}',true);
 SELECT * FROM public.join_class_by_code((SELECT join_code FROM grade_state WHERE label='a'));

@@ -13,6 +13,7 @@ import type {
   ExplorePhase,
 } from '@/types/game-config';
 import { lookupByKeyword, getModelUrl } from '@/lib/asset-registry';
+import { assertMapEnvironmentId } from '@/lib/maps/map-runtime';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,12 @@ export function validateGameConfig(raw: unknown): asserts raw is GameConfig {
   requireField(cfg, 'scoring', 'object');
   requireField(cfg, 'hud', 'object');
 
+  const environment = cfg.environment as Record<string, unknown>;
+  assertMapEnvironmentId(environment.environment_id);
+  if (environment.spawn_point !== undefined && (typeof environment.spawn_point !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(environment.spawn_point))) {
+    throw new Error('GameConfig.environment.spawn_point must be a registered-name slug');
+  }
+
   if (!Array.isArray(cfg.assets)) {
     throw new Error('GameConfig.assets must be an array');
   }
@@ -167,6 +174,16 @@ export function validateGameConfig(raw: unknown): asserts raw is GameConfig {
 
   (cfg.phases as unknown[]).forEach((phase, i) => {
     validatePhase(phase, i);
+  });
+  (cfg.assets as unknown[]).forEach((asset, index) => {
+    if (typeof asset !== 'object' || asset === null) throw new Error(`assets[${index}] must be an object`);
+    const candidate = asset as Record<string, unknown>;
+    if (candidate.anchor !== undefined && (typeof candidate.anchor !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.anchor))) {
+      throw new Error(`assets[${index}].anchor must be a registered-name slug`);
+    }
+    if (candidate.offset !== undefined && (!Array.isArray(candidate.offset) || candidate.offset.length !== 3 || candidate.offset.some((value) => typeof value !== 'number' || !Number.isFinite(value)))) {
+      throw new Error(`assets[${index}].offset must be a finite [x, y, z] vector`);
+    }
   });
 }
 

@@ -1,0 +1,20 @@
+{
+  "visual": {
+    "bytes": 553748,
+    "triangles": 7600,
+    "materialGroups": 10
+  },
+  "collision": {
+    "bytes": 348908,
+    "triangles": 4816,
+    "materialGroups": 3
+  },
+  "navmesh": {
+    "bytes": 199032,
+    "triangles": 2752,
+    "materialGroups": 1
+  },
+  "trees": 56,
+  "units": "metres",
+  "upAxis": "Y"
+}

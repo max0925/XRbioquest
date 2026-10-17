@@ -56,15 +56,31 @@ DO $$ BEGIN
   END IF;
 END $$;
 SELECT * FROM public.record_assignment_phase((SELECT attempt_id FROM progress_test_state WHERE label='a'),'progress-experience-a','quiz-1','{"option_id":"b","score":999}');
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.submit_assignment_attempt((SELECT attempt_id FROM progress_test_state WHERE label='a'));
+    RAISE EXCEPTION 'incomplete attempt was submitted';
+  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+END $$;
 SELECT * FROM public.record_assignment_phase((SELECT attempt_id FROM progress_test_state WHERE label='a'),'progress-experience-a','click-1',NULL);
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.assignment_attempts WHERE id=(SELECT attempt_id FROM progress_test_state WHERE label='a') AND status='completed' AND auto_score=10 AND max_score=10 AND progress_percent=100) THEN
-    RAISE EXCEPTION 'trusted completion aggregation is incorrect';
+  IF NOT EXISTS (SELECT 1 FROM public.assignment_attempts WHERE id=(SELECT attempt_id FROM progress_test_state WHERE label='a') AND status='in_progress' AND submitted_at IS NULL AND auto_score=10 AND max_score=10 AND progress_percent=100) THEN
+    RAISE EXCEPTION 'completed phases did not remain pending student confirmation';
+  END IF;
+END $$;
+
+SELECT * FROM public.submit_assignment_attempt((SELECT attempt_id FROM progress_test_state WHERE label='a'));
+-- Retrying after a lost client response is idempotent.
+SELECT * FROM public.submit_assignment_attempt((SELECT attempt_id FROM progress_test_state WHERE label='a'));
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.assignment_attempts WHERE id=(SELECT attempt_id FROM progress_test_state WHERE label='a') AND status='submitted' AND submitted_at IS NOT NULL AND auto_score=10 AND max_score=10 AND progress_percent=100) THEN
+    RAISE EXCEPTION 'trusted explicit submission aggregation is incorrect';
   END IF;
   BEGIN
     PERFORM public.start_assignment_attempt((SELECT assignment_id FROM progress_test_state WHERE label='a'),'progress-experience-a');
-    RAISE EXCEPTION 'retry was allowed for a completed no-retry assignment';
+    RAISE EXCEPTION 'retry was allowed while a submission is pending review';
   EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 
@@ -80,6 +96,10 @@ DO $$ BEGIN
   BEGIN
     PERFORM public.record_assignment_phase((SELECT attempt_id FROM progress_test_state WHERE label='a'),'progress-experience-a','quiz-1','{"option_id":"b"}');
     RAISE EXCEPTION 'Student B modified Student A attempt';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    PERFORM public.submit_assignment_attempt((SELECT attempt_id FROM progress_test_state WHERE label='a'));
+    RAISE EXCEPTION 'Student B submitted Student A attempt';
   EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 
