@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import AdmZip from 'adm-zip';
 import fs from 'fs';
 import path from 'path';
+import { requireApiUser } from '@/lib/api/auth';
 
 const SKETCHFAB_API_KEY = process.env.SKETCHFAB_API_TOKEN || '';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { uid, name } = body;
 
-    if (!uid) {
+    if (typeof uid !== 'string' || !/^[a-zA-Z0-9]{1,64}$/.test(uid)) {
       return NextResponse.json({ error: 'Model UID is required' }, { status: 400 });
     }
 
@@ -74,10 +78,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const contentLength = Number(zipResponse.headers.get('content-length') || 0);
+    if (contentLength > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Model archive is too large' }, { status: 413 });
+    }
     const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
+    if (zipBuffer.byteLength > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Model archive is too large' }, { status: 413 });
+    }
 
     // Step 3: Extract ZIP to public/imports/[uid]/
     const zip = new AdmZip(zipBuffer);
+
+    // Reject zip-slip paths before extraction.
+    const unsafeEntry = zip.getEntries().some((entry) => {
+      const destination = path.resolve(importDir, entry.entryName);
+      return entry.entryName.includes('\0') || !destination.startsWith(`${path.resolve(importDir)}${path.sep}`);
+    });
+    if (unsafeEntry) {
+      return NextResponse.json({ error: 'Invalid model archive' }, { status: 400 });
+    }
 
     // Create directory for this model
     if (!fs.existsSync(importDir)) {
@@ -131,9 +151,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Import error:', error);
+    console.error('Import failed');
     return NextResponse.json(
-      { error: error.message || 'Failed to import model' },
+      { error: 'Failed to import model' },
       { status: 500 }
     );
   }

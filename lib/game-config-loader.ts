@@ -13,6 +13,7 @@ import type {
   ExplorePhase,
 } from '@/types/game-config';
 import { lookupByKeyword, getModelUrl } from '@/lib/asset-registry';
+import { assertMapEnvironmentId } from '@/lib/maps/map-runtime';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ const SUPABASE_STORAGE_BASE =
 
 /**
  * Load a GameConfig: tries bundled local JSON first, then falls back to the
- * Supabase game_configs table (for AI-generated experiences saved at runtime).
+ * protected public-access API (for AI-generated experiences saved at runtime).
  */
 export async function loadGameConfig(id: string): Promise<GameConfig> {
   // 1. Try local JSON file (built-in experiences bundled at build time)
@@ -41,39 +42,20 @@ export async function loadGameConfig(id: string): Promise<GameConfig> {
 }
 
 /**
- * Load a GameConfig from the Supabase game_configs table by record id.
- * Uses the public anon key (safe — NEXT_PUBLIC keys are client-visible).
+ * Load a GameConfig through the visibility-aware application API.
+ * Published and legacy records are public; a signed-in owner may preview drafts.
  */
 export async function loadGameConfigFromDB(id: string): Promise<GameConfig> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !anonKey) {
-    throw new Error(
-      'Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)'
-    );
-  }
-
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/game_configs?id=eq.${encodeURIComponent(id)}&select=config`,
-    {
-      headers: {
-        apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`,
-      },
-    }
-  );
+  const res = await fetch(`/api/public/game-configs/${encodeURIComponent(id)}`, {
+    credentials: 'same-origin',
+  });
 
   if (!res.ok) {
-    throw new Error(`Database fetch failed with status ${res.status}`);
+    throw new Error(res.status === 404 ? 'Experience not found' : 'Experience could not be loaded');
   }
 
-  const rows: Array<{ config: unknown }> = await res.json();
-  if (!Array.isArray(rows) || rows.length === 0) {
-    throw new Error(`No experience found with id "${id}"`);
-  }
-
-  const raw = rows[0].config;
+  const body: { config?: unknown } = await res.json();
+  const raw = body.config;
   validateGameConfig(raw);
   return raw as GameConfig;
 }
@@ -174,6 +156,12 @@ export function validateGameConfig(raw: unknown): asserts raw is GameConfig {
   requireField(cfg, 'scoring', 'object');
   requireField(cfg, 'hud', 'object');
 
+  const environment = cfg.environment as Record<string, unknown>;
+  assertMapEnvironmentId(environment.environment_id);
+  if (environment.spawn_point !== undefined && (typeof environment.spawn_point !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(environment.spawn_point))) {
+    throw new Error('GameConfig.environment.spawn_point must be a registered-name slug');
+  }
+
   if (!Array.isArray(cfg.assets)) {
     throw new Error('GameConfig.assets must be an array');
   }
@@ -186,6 +174,16 @@ export function validateGameConfig(raw: unknown): asserts raw is GameConfig {
 
   (cfg.phases as unknown[]).forEach((phase, i) => {
     validatePhase(phase, i);
+  });
+  (cfg.assets as unknown[]).forEach((asset, index) => {
+    if (typeof asset !== 'object' || asset === null) throw new Error(`assets[${index}] must be an object`);
+    const candidate = asset as Record<string, unknown>;
+    if (candidate.anchor !== undefined && (typeof candidate.anchor !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.anchor))) {
+      throw new Error(`assets[${index}].anchor must be a registered-name slug`);
+    }
+    if (candidate.offset !== undefined && (!Array.isArray(candidate.offset) || candidate.offset.length !== 3 || candidate.offset.some((value) => typeof value !== 'number' || !Number.isFinite(value)))) {
+      throw new Error(`assets[${index}].offset must be a finite [x, y, z] vector`);
+    }
   });
 }
 

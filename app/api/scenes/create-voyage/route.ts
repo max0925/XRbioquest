@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireApiUser } from '@/lib/api/auth';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VOYAGE INSIDE THE CELL - Demo Scene Generator
@@ -48,12 +49,12 @@ function generateShortId(): string {
 }
 
 // ─── Step 1: Generate AI Skybox ─────────────────────────────────────────────
-async function generateSkybox(origin: string): Promise<string> {
+async function generateSkybox(origin: string, cookie: string): Promise<string> {
   console.log('[VOYAGE] 🌌 Generating skybox via /api/generate-skybox...');
 
   const res = await fetch(`${origin}/api/generate-skybox`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', cookie },
     body: JSON.stringify({ prompt: SKYBOX_PROMPT }),
   });
 
@@ -69,7 +70,7 @@ async function generateSkybox(origin: string): Promise<string> {
 }
 
 // ─── Step 2: Upload Skybox to Supabase Storage ─────────────────────────────
-async function uploadSkyboxToSupabase(skyboxUrl: string, origin: string): Promise<string> {
+async function uploadSkyboxToSupabase(skyboxUrl: string, origin: string, cookie: string): Promise<string> {
   console.log('[VOYAGE] 📤 Downloading skybox from Blockade Labs...');
 
   // Fetch the skybox image
@@ -94,6 +95,7 @@ async function uploadSkyboxToSupabase(skyboxUrl: string, origin: string): Promis
   // Call our upload endpoint
   const uploadRes = await fetch(`${origin}/api/ai/upload-skybox`, {
     method: 'POST',
+    headers: { cookie },
     body: formData,
   });
 
@@ -109,12 +111,12 @@ async function uploadSkyboxToSupabase(skyboxUrl: string, origin: string): Promis
 }
 
 // ─── Step 3: Import Sketchfab Models ────────────────────────────────────────
-async function importSketchfabModel(uid: string, name: string, origin: string): Promise<string> {
+async function importSketchfabModel(uid: string, name: string, origin: string, cookie: string): Promise<string> {
   console.log(`[VOYAGE] 📦 Importing ${name}...`);
 
   const res = await fetch(`${origin}/api/assets/import`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', cookie },
     body: JSON.stringify({ uid, name }),
   });
 
@@ -250,7 +252,11 @@ async function saveSceneToSupabase(sceneData: any): Promise<string> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   const origin = request.nextUrl.origin;
+  const cookie = request.headers.get('cookie') || '';
   console.log('[VOYAGE] 🚀 Starting "Voyage Inside the Cell" scene generation...');
   console.log(`[VOYAGE] Origin: ${origin}`);
 
@@ -264,7 +270,7 @@ export async function POST(request: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     console.log('[VOYAGE] ──── STEP 1: Generating skybox ────');
     try {
-      skyboxUrl = await generateSkybox(origin);
+      skyboxUrl = await generateSkybox(origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Step 1 failed:', error.message);
       throw new Error(`Skybox generation failed: ${error.message}`);
@@ -275,7 +281,7 @@ export async function POST(request: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     console.log('[VOYAGE] ──── STEP 2: Uploading skybox to Supabase ────');
     try {
-      skyboxStorageUrl = await uploadSkyboxToSupabase(skyboxUrl, origin);
+      skyboxStorageUrl = await uploadSkyboxToSupabase(skyboxUrl, origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Step 2 failed:', error.message);
       throw new Error(`Skybox upload failed: ${error.message}`);
@@ -287,35 +293,35 @@ export async function POST(request: NextRequest) {
     console.log('[VOYAGE] ──── STEP 3: Importing 5 models sequentially ────');
 
     try {
-      modelPaths.GLUCOSE = await importSketchfabModel(MODELS.GLUCOSE.uid, MODELS.GLUCOSE.name, origin);
+      modelPaths.GLUCOSE = await importSketchfabModel(MODELS.GLUCOSE.uid, MODELS.GLUCOSE.name, origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Failed to import Glucose:', error.message);
       throw new Error(`Glucose import failed: ${error.message}`);
     }
 
     try {
-      modelPaths.GOLGI = await importSketchfabModel(MODELS.GOLGI.uid, MODELS.GOLGI.name, origin);
+      modelPaths.GOLGI = await importSketchfabModel(MODELS.GOLGI.uid, MODELS.GOLGI.name, origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Failed to import Golgi:', error.message);
       throw new Error(`Golgi import failed: ${error.message}`);
     }
 
     try {
-      modelPaths.ENDOPLASMIC_RETICULUM = await importSketchfabModel(MODELS.ENDOPLASMIC_RETICULUM.uid, MODELS.ENDOPLASMIC_RETICULUM.name, origin);
+      modelPaths.ENDOPLASMIC_RETICULUM = await importSketchfabModel(MODELS.ENDOPLASMIC_RETICULUM.uid, MODELS.ENDOPLASMIC_RETICULUM.name, origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Failed to import Endoplasmic Reticulum:', error.message);
       throw new Error(`Endoplasmic Reticulum import failed: ${error.message}`);
     }
 
     try {
-      modelPaths.LYSOSOME = await importSketchfabModel(MODELS.LYSOSOME.uid, MODELS.LYSOSOME.name, origin);
+      modelPaths.LYSOSOME = await importSketchfabModel(MODELS.LYSOSOME.uid, MODELS.LYSOSOME.name, origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Failed to import Lysosome:', error.message);
       throw new Error(`Lysosome import failed: ${error.message}`);
     }
 
     try {
-      modelPaths.MITOCHONDRIA = await importSketchfabModel(MODELS.MITOCHONDRIA.uid, MODELS.MITOCHONDRIA.name, origin);
+      modelPaths.MITOCHONDRIA = await importSketchfabModel(MODELS.MITOCHONDRIA.uid, MODELS.MITOCHONDRIA.name, origin, cookie);
     } catch (error: any) {
       console.error('[VOYAGE] ❌ Failed to import Mitochondria:', error.message);
       throw new Error(`Mitochondria import failed: ${error.message}`);
@@ -376,7 +382,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to create Voyage scene',
+        error: 'Failed to create Voyage scene',
         skyboxUrl: skyboxStorageUrl,
         modelPaths: Object.values(modelPaths),
       },

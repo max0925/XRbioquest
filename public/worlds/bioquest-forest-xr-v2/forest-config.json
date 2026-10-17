@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "units": "metres",
+  "upAxis": "Y",
+  "worldSize": {
+    "width": 80,
+    "depth": 64
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "spawn": {
+    "x": 0,
+    "y": 0.021119306680342783,
+    "z": 27
+  },
+  "walkableOutline": {
+    "radiusX": 37.2,
+    "radiusZ": 29.76,
+    "power": 2.8,
+    "playerRadius": 0.35
+  },
+  "boundary": {
+    "mesh": "COL_Boundary",
+    "height": 2.8,
+    "segments": 128
+  },
+  "trees": 56,
+  "files": {
+    "visual": "forest-world.glb",
+    "collision": "forest-collision.glb",
+    "navmesh": "forest-navmesh.glb"
+  },
+  "performanceBudget": {
+    "visualTrianglesTarget": 30000,
+    "visualMaterialGroups": 10,
+    "externalTextures": 0,
+    "dynamicShadows": "off by default"
+  },
+  "provenance": {
+    "creator": "BioQuest generated asset",
+    "source": "self-authored procedural geometry",
+    "license": "project-owned; no third-party model assets"
+  },
+  "note": "GLB stores mesh geometry, not physics behavior. Add A-Frame movement/navmesh/physics components at runtime."
+}

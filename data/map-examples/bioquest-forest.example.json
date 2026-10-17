@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "id": "forest-map-development-example",
+    "title": "Forest Map Development Example",
+    "subject": "Biology",
+    "grade": "high",
+    "duration_minutes": 5,
+    "ngss_standards": [],
+    "learning_objectives": ["Verify registered map placement without creating a formal lesson"]
+  },
+  "environment": {
+    "skybox_prompt": "",
+    "lighting": "neutral",
+    "environment_id": "bioquest-forest",
+    "spawn_point": "trail-start"
+  },
+  "assets": [
+    {
+      "id": "development-marker",
+      "name": "Development Marker",
+      "model_source": "primitive",
+      "position": [0, 0, 0],
+      "anchor": "learning-clearing",
+      "offset": [0, 0.6, 0],
+      "role": "interactive",
+      "description": "A non-production marker used to validate map anchors."
+    }
+  ],
+  "phases": [
+    {
+      "id": "intro",
+      "type": "intro",
+      "title": "Map Check",
+      "instruction": "This file is a development example and is not loaded as a public experience."
+    },
+    {
+      "id": "find-marker",
+      "type": "click",
+      "title": "Find the marker",
+      "instruction": "Select the marker in the learning clearing.",
+      "target_asset": "development-marker",
+      "points": 1
+    },
+    {
+      "id": "complete",
+      "type": "complete",
+      "title": "Complete",
+      "instruction": "Map validation complete."
+    }
+  ],
+  "knowledge_cards": {},
+  "scoring": { "max_possible": 1, "passing_threshold": 100 },
+  "hud": {
+    "show_score": true,
+    "show_phase_counter": true,
+    "show_instruction": true,
+    "show_timer": false,
+    "show_knowledge_cards": false,
+    "show_tasks": true
+  }
+}

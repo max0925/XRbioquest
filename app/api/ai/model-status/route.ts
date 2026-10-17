@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClientId, decrementGeneration } from '@/lib/meshyRateLimit';
+import { requireApiUser } from '@/lib/api/auth';
 
 // Increase serverless function timeout — Meshy status checks can be slow
 export const maxDuration = 30; // seconds
@@ -8,6 +9,9 @@ const MESHY_DISABLED = false;
 const MESHY_API_URL = 'https://api.meshy.ai/v2/text-to-3d';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   if (MESHY_DISABLED) {
     return NextResponse.json({
       error: 'Meshy AI is temporarily disabled for testing',
@@ -19,7 +23,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
 
-    if (!taskId) {
+    if (!taskId || taskId.length > 200) {
       return NextResponse.json({ error: 'taskId is required' }, { status: 400 });
     }
 
@@ -108,6 +112,6 @@ export async function GET(request: NextRequest) {
     if (error.name === 'AbortError') {
       return NextResponse.json({ error: 'Meshy API request timed out' }, { status: 504 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Model status check failed' }, { status: 500 });
   }
 }

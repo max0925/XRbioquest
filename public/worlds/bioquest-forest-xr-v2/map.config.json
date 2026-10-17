@@ -1,0 +1,97 @@
+{
+  "id": "bioquest-forest-xr-v2",
+  "label": "BioQuest Forest XR v2",
+  "version": 2,
+  "modelPath": "/worlds/bioquest-forest-xr-v2/forest-world.glb",
+  "collisionPath": "/worlds/bioquest-forest-xr-v2/collision.json",
+  "collisionMeshPath": "/worlds/bioquest-forest-xr-v2/forest-collision.glb",
+  "navmeshPath": "/worlds/bioquest-forest-xr-v2/forest-navmesh.glb",
+  "defaultSky": {
+    "color": "#CDE7E8",
+    "fogColor": "#DDEBE1",
+    "fogDensity": 0.002
+  },
+  "lighting": {
+    "ambient": {
+      "color": "#F1F6E8",
+      "intensity": 1.0
+    },
+    "directional": {
+      "color": "#FFF4D6",
+      "intensity": 0.85,
+      "position": [
+        6,
+        12,
+        4
+      ],
+      "castShadow": false
+    },
+    "hemisphere": {
+      "color": "#DDF3F7",
+      "groundColor": "#78936B",
+      "intensity": 0.45
+    }
+  },
+  "defaultSpawnPoint": "trail-start",
+  "spawnPoints": {
+    "trail-start": {
+      "label": "Trail Start",
+      "position": [
+        0,
+        0.0011193066803427834,
+        27
+      ],
+      "eyeHeight": 1.6
+    },
+    "learning-clearing": {
+      "label": "Learning Clearing",
+      "position": [
+        0,
+        0.11809788832119805,
+        0
+      ],
+      "eyeHeight": 1.6
+    }
+  },
+  "bounds": {
+    "minX": -40.0,
+    "maxX": 40.0,
+    "minZ": -32.0,
+    "maxZ": 32.0
+  },
+  "anchors": {
+    "learning-clearing": {
+      "label": "Learning Clearing",
+      "position": [
+        0,
+        0.11809788832119805,
+        0
+      ]
+    },
+    "pond-side": {
+      "label": "Pond Side",
+      "position": [
+        7,
+        0.396084241309324,
+        -8.5
+      ]
+    },
+    "trail-start": {
+      "label": "Trail Start",
+      "position": [
+        0,
+        0.0011193066803427834,
+        27
+      ]
+    }
+  },
+  "performanceBudget": {
+    "maxModelBytes": 1200000,
+    "maxTriangles": 30000,
+    "maxTextureSize": 1
+  },
+  "fallback": {
+    "environmentId": "procedural-terrain",
+    "message": "Forest map unavailable. Using the safe procedural classroom terrain."
+  }
+}

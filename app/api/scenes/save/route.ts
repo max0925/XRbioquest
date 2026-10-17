@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireApiUser } from '@/lib/api/auth';
 
 // Generate a random 6-character short ID for user-facing URLs
 function generateShortId(): string {
@@ -12,6 +12,9 @@ function generateShortId(): string {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -40,19 +43,22 @@ export async function POST(request: NextRequest) {
 
   try {
 
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (contentLength > 1_000_000) {
+      return NextResponse.json({ error: 'Scene data is too large' }, { status: 413 });
+    }
     const sceneData = await request.json();
+    if (!sceneData || typeof sceneData !== 'object' || Array.isArray(sceneData)) {
+      return NextResponse.json({ error: 'Invalid scene data' }, { status: 400 });
+    }
+    if (JSON.stringify(sceneData).length > 1_000_000) {
+      return NextResponse.json({ error: 'Scene data is too large' }, { status: 413 });
+    }
 
     // Generate short ID for user-facing URLs
     const shortId = generateShortId();
 
-    // Create Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    // Get current user (may be null if not authenticated)
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user, supabase } = auth.context;
 
     // Insert scene data to database (id is auto-generated UUID, short_id is for URLs)
     const { data, error } = await supabase
@@ -70,7 +76,7 @@ export async function POST(request: NextRequest) {
       throw new Error(error.message || 'Failed to save scene to database');
     }
 
-    // If user is authenticated, also save/update in user_projects table
+    // Save/update the authenticated user's dashboard project.
     if (user) {
       try {
         console.log('[SAVE] Authenticated user detected:', user.id);
@@ -161,8 +167,6 @@ export async function POST(request: NextRequest) {
           hint: projectError.hint
         });
       }
-    } else {
-      console.log('[SAVE] No authenticated user - skipping user_projects save');
     }
 
     return NextResponse.json({
@@ -174,7 +178,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Save scene error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to save scene' },
+      { error: 'Failed to save scene' },
       { status: 500 }
     );
   }

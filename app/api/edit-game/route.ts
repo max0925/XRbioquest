@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 import OpenAI from 'openai';
+import { getClassroomRole } from '@/lib/classroom/roles';
 import {
   validateSchemaLayer,
   fixAssetReferences,
@@ -35,6 +37,8 @@ Rules:
 - Keep the same config structure/schema exactly
 - Preserve teacher_guide, environment, meta, hud, npc sections unless the user asks to change them
 - When changing environment, only change the specific fields mentioned
+- NEVER set or modify environment.skybox_url — this field is managed by the skybox generation pipeline, NOT by you
+- When changing environment per user request, you MAY update environment.skybox_prompt and environment.sky_color, but environment.skybox_url MUST be preserved exactly as it appeared in the input config (or omitted if not present)
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -48,6 +52,12 @@ Do NOT include markdown, code fences, or any text outside the JSON object.`;
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+  if (getClassroomRole(auth.context.user) !== 'teacher') {
+    return NextResponse.json({ error: 'Teacher access required' }, { status: 403 });
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
   }
@@ -101,7 +111,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[edit-game] OpenAI error:', err.message);
     return NextResponse.json(
-      { error: 'AI editing failed', details: err.message },
+      { error: 'AI editing failed' },
       { status: 502 },
     );
   }
@@ -136,9 +146,18 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[edit-game] Validation error:', err.message);
     return NextResponse.json(
-      { error: 'Config validation failed after edit', details: err.message },
+      { error: 'Config validation failed after edit' },
       { status: 500 },
     );
+  }
+
+  // Hard guard: GPT must never modify skybox_url. Restore from input config.
+  if (config?.environment?.skybox_url !== undefined) {
+    if (!updatedConfig.environment) updatedConfig.environment = {};
+    updatedConfig.environment.skybox_url = config.environment.skybox_url;
+  } else if (updatedConfig?.environment?.skybox_url) {
+    // Input had no skybox_url but GPT invented one → strip it
+    delete updatedConfig.environment.skybox_url;
   }
 
   console.log(`[edit-game] Done: ${updatedConfig.phases?.length} phases, ${updatedConfig.assets?.length} assets, max_possible=${updatedConfig.scoring?.max_possible}`);

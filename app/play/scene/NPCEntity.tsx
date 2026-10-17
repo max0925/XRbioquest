@@ -24,6 +24,7 @@ export function NPCEntity({ npc }: NPCEntityProps) {
       position={posStr}
       scale="1.2 1.2 1.2"
       class="clickable cursor-listener intangible"
+      terrain-snap="fallbackOffset: 0.3"
     >
       {/* Floating emerald orb — gently bobs up/down */}
       <a-sphere

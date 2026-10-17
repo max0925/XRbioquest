@@ -8,6 +8,8 @@
 /** [x, y, z] world-space position */
 export type Vec3 = [number, number, number];
 
+export type MapEnvironmentId = 'procedural-terrain' | 'bioquest-forest' | 'bioquest-forest-xr-v2';
+
 // ─── Meta ────────────────────────────────────────────────────────────────
 
 export interface GameMeta {
@@ -59,9 +61,19 @@ export interface EnvironmentConfig {
   preset?: AFrameEnvironmentPreset;
   /** Lighting mood applied to the scene */
   lighting: 'warm' | 'cool' | 'neutral' | 'dramatic' | 'bioluminescent';
-  /** Filename of a .glb environment map model in Supabase assets storage.
-   *  When set, this replaces the flat ground plane with the 3D environment. */
+  /**
+   * Registered world selection. Missing values preserve the established
+   * procedural terrain; physical maps are always explicit opt-ins.
+   */
+  environment_id?: MapEnvironmentId;
+  /** Registered spawn-point name owned by the selected map manifest. */
+  spawn_point?: string;
+  /** Legacy environment model reference retained for existing experiences. */
   map_model?: string;
+  /** Low-poly terrain theme: grassland, ocean, cell, lab, space */
+  terrain_theme?: 'grassland' | 'ocean' | 'cell' | 'lab' | 'space';
+  /** Sky color hex string for <a-sky>, e.g. "#87CEEB" */
+  sky_color?: string;
 }
 
 // ─── Assets ──────────────────────────────────────────────────────────────
@@ -101,6 +113,10 @@ export interface AssetConfig {
   position: Vec3;
   rotation?: Vec3;
   scale?: number;
+  /** Optional named placement point for registered physical maps. */
+  anchor?: string;
+  /** Offset from the anchor; Y is measured above collision-ground height. */
+  offset?: Vec3;
 
   // ── Behaviour ────────────────────────────────────────────────────────
   role: AssetRole;
@@ -134,6 +150,8 @@ interface PhaseBase {
   title: string;
   instruction: string;
   type: PhaseType;
+  /** Learning-objective positions associated by the structured editor. */
+  learning_objective_indices?: number[];
   /** Points awarded on completion */
   points?: number;
   /** Bonus points if completed within time limit */
@@ -204,6 +222,8 @@ export interface QuizPhase extends PhaseBase {
   options: QuizOption[];
   /** Shown after a correct answer before auto-advancing */
   explanation: string;
+  /** Optional feedback shown after an incorrect answer. */
+  incorrect_explanation?: string;
 }
 
 export interface ExplorePhase extends PhaseBase {

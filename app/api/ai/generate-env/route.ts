@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 
 // Blockade Labs Skybox AI API
 const BLOCKADE_API_KEY = process.env.BLOCKADE_API_KEY || '';
@@ -46,10 +47,13 @@ async function pollSkyboxStatus(skyboxId: number): Promise<any> {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   try {
     const { prompt } = await request.json();
 
-    if (!prompt || typeof prompt !== 'string') {
+    if (!prompt || typeof prompt !== 'string' || prompt.length > 2_000) {
       return NextResponse.json(
         { error: 'Prompt is required' },
         { status: 400 }
@@ -126,7 +130,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || 'Failed to generate AI environment' },
+      { error: 'Failed to generate AI environment' },
       { status: 500 }
     );
   }

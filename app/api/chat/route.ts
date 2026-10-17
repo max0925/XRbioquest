@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiUser } from '@/lib/api/auth';
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { searchNGSSAssetsServer, type AssetSource, type AssetSearchResult } from '@/lib/ngssAssetsServer';
@@ -83,6 +84,9 @@ function safeJsonParse<T>(raw: string, fallback: T): T {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser();
+  if ('response' in auth) return auth.response;
+
   // Safety check for API key
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({

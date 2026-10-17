@@ -5,11 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
+import { getClassroomRole, type ClassroomRole } from "@/lib/classroom/roles";
 
 export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<ClassroomRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,20 +33,24 @@ export default function Navigation() {
         if (error) {
           console.warn('[Navigation] Auth check failed (possibly invalid credentials):', error.message);
           setUser(null);
+          setRole(null);
         } else {
           setUser(user);
+          setRole(user ? getClassroomRole(user) : null);
         }
         setLoading(false);
       })
       .catch((err) => {
         console.warn('[Navigation] Auth check error:', err.message);
         setUser(null);
+        setRole(null);
         setLoading(false);
       });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setRole(session?.user ? getClassroomRole(session.user) : null);
     });
 
     return () => subscription.unsubscribe();
@@ -169,15 +175,51 @@ export default function Navigation() {
 
                     {/* Menu items */}
                     <Link
-                      href="/dashboard"
+                      href={role === 'student' ? '/student' : '/dashboard'}
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                     >
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                       </svg>
-                      My Projects
+                      {role === 'student' ? 'My Learning' : 'Teacher Dashboard'}
                     </Link>
+
+                    <Link
+                      href={role === 'student' ? '/join' : '/classes'}
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m-6-3v2a6 6 0 0012 0v-2" />
+                      </svg>
+                      My Classes
+                    </Link>
+
+                    {role === 'teacher' && (
+                      <>
+                        <Link
+                          href="/assignments"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                        >
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h6m-6 4h6m-6 4h4M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                          </svg>
+                          Assignments
+                        </Link>
+                        <Link
+                          href="/dashboard/gradebook"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                        >
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 11l2 2 4-4m4-4v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                          </svg>
+                          Gradebook
+                        </Link>
+                      </>
+                    )}
 
                     <Link
                       href="/settings"
