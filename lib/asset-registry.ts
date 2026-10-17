@@ -45,7 +45,7 @@ export const ASSET_REGISTRY: AssetRegistryEntry[] = [
     ngss_standards: ['HS-LS1-7'],
     description: 'Powerhouse of the cell — produces ATP through cellular respiration',
     supported_interactions: ['click', 'drag', 'examine'],
-    model_filename: 'mitochondria_-_cell_organelles.glb',
+    model_filename: 'mitochondria-v2.glb',
     available: true,
   },
   {
