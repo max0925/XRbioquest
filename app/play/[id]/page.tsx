@@ -125,7 +125,7 @@ export function PlayExperience({ developmentConfig, developmentBanner }: PlayExp
         console.log('[DEBUG] assets:', JSON.stringify(raw.assets, null, 2));
         console.log('[DEBUG] phases:', JSON.stringify(raw.phases, null, 2));
         console.log('[DEBUG] npc:', JSON.stringify(raw.npc, null, 2));
-        const resolved = resolveAssetPaths(raw);
+        const resolved = await resolveAssetPaths(raw);
         const runtime = await loadMapRuntime(raw);
         setMapRuntime(runtime);
         setConfig(applyMapRuntime(resolved, runtime));
@@ -192,7 +192,7 @@ export function PlayExperience({ developmentConfig, developmentBanner }: PlayExp
         const raw = await loadGameConfig(id);
         if (raw.environment?.skybox_url) {
           console.log('[PLAY] Skybox ready:', raw.environment.skybox_url);
-          const resolved = resolveAssetPaths(raw);
+          const resolved = await resolveAssetPaths(raw);
           const runtime = await loadMapRuntime(raw);
           setMapRuntime(runtime);
           setConfig(applyMapRuntime(resolved, runtime));

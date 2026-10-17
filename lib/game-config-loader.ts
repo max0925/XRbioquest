@@ -12,7 +12,7 @@ import type {
   QuizPhase,
   ExplorePhase,
 } from '@/types/game-config';
-import { lookupByKeyword, getModelUrl } from '@/lib/asset-registry';
+import { refreshCatalogPaths, type CatalogAsset } from '@/lib/asset-catalog';
 import { assertMapEnvironmentId } from '@/lib/maps/map-runtime';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -76,7 +76,18 @@ export async function loadGameConfigFromDB(id: string): Promise<GameConfig> {
  * Throws if a non-supabase asset has no model_url yet, so you know what still
  * needs async resolution.
  */
-export function resolveAssetPaths(config: GameConfig): ResolvedGameConfig {
+export async function resolveAssetPaths(config: GameConfig): Promise<ResolvedGameConfig> {
+  if (config.assets.some(asset => asset.model_source === 'library' && (asset.supabase_id || !asset.model_path))) {
+    try {
+      const response = await fetch('/api/assets/catalog', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Catalog unavailable');
+      const body: { assets: CatalogAsset[] } = await response.json();
+      config = refreshCatalogPaths(config, body.assets);
+    } catch {
+      // A temporary catalog outage must not break previously saved lessons.
+      console.warn('[game-config-loader] Catalog unavailable; using saved model URLs.');
+    }
+  }
   const environment: ResolvedEnvironment = {
     ...config.environment,
     skybox_url: config.environment.skybox_url ?? '',
@@ -120,16 +131,6 @@ function resolveModelUrl(asset: AssetConfig): string {
     return asset.model_path.startsWith('http')
       ? asset.model_path
       : `${SUPABASE_STORAGE_BASE}/${asset.model_path}`;
-  }
-
-  // Fallback: try registry lookup by search_keyword or asset id.
-  if (asset.model_source === 'library') {
-    const entry =
-      (asset.search_keyword ? lookupByKeyword(asset.search_keyword) : null) ??
-      lookupByKeyword(asset.id);
-    if (entry) {
-      return getModelUrl(entry);
-    }
   }
 
   // No model URL — render placeholder geometry.
